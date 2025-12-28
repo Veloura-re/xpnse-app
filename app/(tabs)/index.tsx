@@ -438,13 +438,15 @@ export default function BooksScreen() {
                   activeOpacity={0.7}
                 >
                   {(() => {
-                    const logoOption = LOGO_OPTIONS.find(l => l.icon === currentBusiness.icon);
-                    const BusinessIcon = currentBusiness.icon ? (BUSINESS_ICONS[currentBusiness.icon] || Building2) : Building2;
-                    const iconColor = logoOption ? (theme === 'dark' ? logoOption.darkColor : logoOption.color) : colors.primary;
-                    const bgColor = logoOption ? (theme === 'dark' ? logoOption.darkColor + '20' : logoOption.color + '15') : (theme === 'dark' ? colors.primary + '20' : '#f0fdf4');
+                    // Safely resolve the business icon
+                    const iconKey = currentBusiness.icon || 'store';
+                    const BusinessIcon = BUSINESS_ICONS[iconKey] || Building2;
+                    // Ensure we have a valid color with fallback
+                    const businessColor = currentBusiness.color || colors.primary;
+                    const bgColor = businessColor + (theme === 'dark' ? '20' : '15');
                     return (
                       <View style={[styles.businessIcon, { backgroundColor: bgColor }]}>
-                        <BusinessIcon size={16} color={iconColor} />
+                        <BusinessIcon size={16} color={businessColor} />
                       </View>
                     );
                   })()}
@@ -544,24 +546,34 @@ export default function BooksScreen() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.recentlyActiveList}
                   >
-                    {recentlyActiveBooks.map((item) => (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[styles.recentBookItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => {
-                          touchBook(item.id);
-                          router.push(`/book/${item.id}`);
-                        }}
-                      >
-                        <View style={[styles.recentBookIcon, { backgroundColor: colors.primary + '15' }]}>
-                          <BookOpen size={20} color={colors.primary} />
-                        </View>
-                        <Text style={[styles.recentBookName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-                        <Text style={[styles.recentBookBalance, { color: colors.textSecondary }]}>
-                          {formatCurrency(item.netBalance, currentBusiness?.currency)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                    {recentlyActiveBooks.map((item) => {
+                      if (!currentBusiness) return null;
+                      // Safely resolve the business icon
+                      const iconKey = currentBusiness.icon || 'store';
+                      const BusinessIcon = BUSINESS_ICONS[iconKey] || Building2;
+                      // Ensure we have a valid color with fallback
+                      const businessColor = currentBusiness.color || colors.primary;
+                      const bgColor = businessColor + (theme === 'dark' ? '20' : '15');
+
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[styles.recentBookItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => {
+                            touchBook(item.id);
+                            router.push(`/book/${item.id}`);
+                          }}
+                        >
+                          <View style={[styles.recentBookIcon, { backgroundColor: bgColor }]}>
+                            <BusinessIcon size={20} color={businessColor} />
+                          </View>
+                          <Text style={[styles.recentBookName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+                          <Text style={[styles.recentBookBalance, { color: colors.textSecondary }]}>
+                            {formatCurrency(item.netBalance, currentBusiness?.currency)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                   <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 16 }]}>ALL BOOKS</Text>
                 </View>

@@ -275,7 +275,7 @@ export default function BusinessSwitcherScreen() {
                     ]}
                     onPress={() => handleSwitchBusiness(item.id)}
                   >
-                    <View style={[styles.recentIcon, { backgroundColor: item.color || colors.primary + '20' }]}>
+                    <View style={[styles.recentIcon, { backgroundColor: (item.color || colors.primary) + '20' }]}>
                       <BusinessIcon size={20} color={item.color || colors.primary} />
                     </View>
                     <Text style={[styles.recentName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
