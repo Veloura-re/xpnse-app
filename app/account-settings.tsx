@@ -36,7 +36,6 @@ import {
     Smartphone,
     Check,
     ChevronRight,
-    LogOut,
     ChevronLeft,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -242,7 +241,7 @@ const customDarken = (hex: string, amount: number) => {
 };
 
 export default function AccountSettingsScreen() {
-    const { user, updateEmail, updatePassword, updateProfile, logout, reauthenticate, deleteAccount } = useAuth();
+    const { user, updateEmail, updatePassword, updateProfile, reauthenticate, deleteAccount } = useAuth();
     const { currentBusiness } = useBusiness();
     const { deviceFont, theme, setTheme, colors, isDark } = useTheme();
     const { user: fbUser, resendVerificationEmail } = useFirebase();
@@ -575,17 +574,6 @@ export default function AccountSettingsScreen() {
                         </TouchableOpacity>
                     </Animated.View>
 
-                    {/* Logout Button */}
-                    <Animated.View entering={FadeInDown.delay(600).duration(600)}>
-                        <TouchableOpacity
-                            style={[styles.logoutButton, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.08)' : '#fef2f2', borderColor: 'rgba(239, 68, 68, 0.2)', borderWidth: 1 }]}
-                            onPress={logout}
-                            activeOpacity={0.8}
-                        >
-                            <LogOut size={20} color="#ef4444" />
-                            <Text style={styles.logoutText}>Sign Out from Account</Text>
-                        </TouchableOpacity>
-                    </Animated.View>
                 </Animated.View>
             </ScrollView>
 
