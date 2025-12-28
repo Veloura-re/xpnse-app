@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Vaulta",
+    "slug": "vaulta",
+    "version": "1.0.0",
+    "description": "Track your expenses",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "newArchEnabled": true,
+    "icon": "./assets/images/app-icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000",
+      "dark": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#000000"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.zzz1.businessfinancemanagementappkkqzwnt"
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "notification": {
+      "icon": "./assets/images/notification-icon-transparent.png",
+      "color": "#10b981",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Vaulta"
+    },
+    "extra": {
+      "router": {
+        "origin": "https://vaulta.app/"
+      },
+      "eas": {
+        "projectId": "02593026-0eb9-421d-8a29-b57812d626ba"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "./plugins/withNdkOverride"
+    ]
+  }
+}

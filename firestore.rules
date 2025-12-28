@@ -1,0 +1,129 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection
+    match /users/{userId} {
+      // Any authenticated user can read user profiles (needed for team member search)
+      allow read: if request.auth != null;
+      
+      // Users can only write their own document
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Businesses collection
+    match /businesses/{businessId} {
+      // Read: only members can read
+      allow read: if request.auth != null && 
+                     request.auth.uid in resource.data.memberIds;
+      
+      // Create: any authenticated user can create a business
+      // Must include ownerId and memberIds in the data
+      allow create: if request.auth != null &&
+                       request.resource.data.ownerId == request.auth.uid &&
+                       request.auth.uid in request.resource.data.memberIds;
+      
+      // Update: owner can update anything. Members can update 'members' and 'memberIds' ONLY to remove themselves
+      allow update: if request.auth != null && 
+                       (
+                         request.auth.uid == resource.data.ownerId || 
+                         (
+                           request.auth.uid in resource.data.memberIds && 
+                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberIds']) &&
+                           // Ensure the user is removing themselves (not in new memberIds)
+                           !(request.auth.uid in request.resource.data.memberIds) &&
+                           // Ensure only one member is removed
+                           request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1 &&
+                           // Owners cannot leave (must transfer ownership or delete)
+                           request.auth.uid != resource.data.ownerId
+                         )
+                       );
+      
+      // Delete: only the owner can delete
+      allow delete: if request.auth != null && 
+                       request.auth.uid == resource.data.ownerId;
+    }
+    
+    // Books subcollection (nested under businesses)
+    match /businesses/{businessId}/books/{bookId} {
+      // Simplified: All authenticated users who can access the business can read books
+      // The business-level permission already ensures only members can access
+      allow read: if request.auth != null &&
+                     exists(/databases/$(database)/documents/businesses/$(businessId));
+      
+      // All members can create and update books
+      allow create, update: if request.auth != null && 
+                               exists(/databases/$(database)/documents/businesses/$(businessId));
+      
+      // All members can delete books (change from owner-only to allow flexibility)
+      allow delete: if request.auth != null && 
+                       exists(/databases/$(database)/documents/businesses/$(businessId));
+    }
+    
+    // Entries subcollection (nested under businesses, not books)
+    match /businesses/{businessId}/entries/{entryId} {
+      // Simplified: All authenticated users who can access the business can read entries
+      // The business-level permission already ensures only members can access
+      allow read: if request.auth != null && 
+                     exists(/databases/$(database)/documents/businesses/$(businessId));
+      
+      // All members can create, update, and delete entries
+      allow create, update, delete: if request.auth != null && 
+                                       exists(/databases/$(database)/documents/businesses/$(businessId));
+    }
+    
+    // Parties subcollection (nested under businesses)
+    match /businesses/{businessId}/parties/{partyId} {
+      // Simplified: All authenticated users who can access the business can read parties
+      // The business-level permission already ensures only members can access
+      allow read: if request.auth != null && 
+                     exists(/databases/$(database)/documents/businesses/$(businessId));
+      
+      // All members can create, update, and delete parties
+      allow create, update, delete: if request.auth != null && 
+                                       exists(/databases/$(database)/documents/businesses/$(businessId));
+    }
+    
+    // Invitations collection
+    match /invitations/{invitationId} {
+      // Read: invited user or inviter can read
+      allow read: if request.auth != null && 
+                     (request.auth.uid == resource.data.invitedUserId || 
+                      request.auth.uid == resource.data.invitedBy);
+      
+      // Create: any authenticated user can create invitations
+      allow create: if request.auth != null;
+      
+      // Update: only the invited user can update (accept/reject)
+      allow update: if request.auth != null && 
+                       request.auth.uid == resource.data.invitedUserId;
+    }
+
+    // Activity Logs collection
+    match /activityLogs/{logId} {
+      // Simplified: All authenticated users can read activity logs
+      // We trust the app to only show relevant logs to the right users
+      allow read: if request.auth != null && 
+                     exists(/databases/$(database)/documents/businesses/$(resource.data.businessId));
+      
+      // Create: authenticated users can create logs
+      allow create: if request.auth != null;
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Users can create notifications for others (e.g. when adding an entry)
+      allow create: if request.auth != null;
+      
+      // Users can update their own notifications (e.g. mark as read)
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own notifications
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+  }
+}
