@@ -79,12 +79,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="account-settings"
-        options={{
-          href: null, // Hide from tabs
-        }}
-      />
-      <Tabs.Screen
         name="activity"
         options={{
           href: null, // Hide from tabs
