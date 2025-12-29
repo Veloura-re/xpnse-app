@@ -23,6 +23,7 @@ interface BusinessState {
   createBusiness: (name: string, currency?: string, icon?: string, color?: string) => Promise<void>;
   updateBusiness: (updates: Partial<Business>) => Promise<void>;
   updateBusinessFont: (fontId: string) => Promise<void>;
+  updateBusinessLogo: (icon: string, color: string) => Promise<void>;
   deleteBusiness: (businessId: string) => Promise<void>;
   leaveBusiness: (businessId: string) => Promise<void>;
   touchBook: (bookId: string) => Promise<void>;
@@ -322,6 +323,25 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     if (!currentBusiness) return;
     await updateBusiness({ selectedFont: fontId });
   }, [currentBusiness, updateBusiness]);
+
+  const updateBusinessLogo = useCallback(async (icon: string, color: string) => {
+    if (!currentBusiness || !db) return;
+
+    if (!hasPermission('partner')) {
+      throw new Error('Only owners and partners can update business logo');
+    }
+
+    try {
+      await updateDoc(doc(db, 'businesses', currentBusiness.id), {
+        icon,
+        color
+      });
+      // State update handled by onSnapshot
+    } catch (error) {
+      console.error("Error updating business logo:", error);
+      throw error;
+    }
+  }, [currentBusiness, db, hasPermission]);
 
   const deleteBusiness = useCallback(async (businessId: string) => {
     if (!user || !db) return;
@@ -1899,6 +1919,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     createBusiness,
     updateBusiness,
     updateBusinessFont,
+    updateBusinessLogo,
     deleteBusiness,
     leaveBusiness,
 

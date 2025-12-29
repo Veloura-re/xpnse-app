@@ -16,13 +16,13 @@ import {
     Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Users, Search, Plus, X, Trash2, ChevronDown, User, Bell, FileText } from 'lucide-react-native';
+import { Users, Search, Plus, X, Trash2, ChevronDown, User, Bell, FileText, Settings } from 'lucide-react-native';
 import { useBusiness } from '@/providers/business-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { UserRole } from '@/types';
 import { RoleBadge } from '@/components/role-badge';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import { getFontFamily } from '@/config/font-config';
 import { useTheme } from '@/providers/theme-provider';
 import InviteTeamMemberForm from '@/src/components/team/InviteTeamMemberForm';
@@ -202,10 +202,19 @@ export default function TeamManagementScreen() {
             <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
             {/* Header */}
-            <Animated.View entering={FadeIn.delay(100).duration(200)} style={styles.headerContainer}>
+            <View style={styles.headerContainer}>
                 <View style={styles.headerTopRow}>
                     <Text style={[styles.appName, { color: colors.primary }]}>Collaboration</Text>
                     <View style={{ flexDirection: 'row', gap: 10 }}>
+                        {(userRole === 'owner' || userRole === 'partner') && (
+                            <TouchableOpacity
+                                style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                onPress={() => router.push('/business-settings')}
+                                activeOpacity={0.7}
+                            >
+                                <Settings size={20} color={colors.textSecondary} />
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity
                             style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                             onPress={() => router.push('/notes')}
@@ -226,9 +235,9 @@ export default function TeamManagementScreen() {
                 <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                     {currentBusiness.name} · {members.length} {members.length === 1 ? 'member' : 'members'}
                 </Text>
-            </Animated.View>
+            </View>
 
-            <Animated.View entering={FadeIn.delay(200).duration(200)} style={{ flex: 1 }}>
+            <View style={{ flex: 1 }}>
                 {/* Search Bar */}
                 <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <Search size={20} color={colors.textSecondary} />
@@ -265,7 +274,7 @@ export default function TeamManagementScreen() {
                         </View>
                     }
                 />
-            </Animated.View>
+            </View>
 
             {/* Floating Action Button */}
             {(userRole === 'owner' || userRole === 'partner') && (
@@ -299,8 +308,7 @@ export default function TeamManagementScreen() {
                         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                             <View style={{ width: '100%', maxWidth: 420, padding: 20 }}>
                                 <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                                    <Animated.View
-                                        entering={FadeIn.duration(200)}
+                                    <View
                                         style={[
                                             styles.inviteModalContent,
                                             {
@@ -335,7 +343,7 @@ export default function TeamManagementScreen() {
                                                 onSuccess={() => setShowInviteModal(false)}
                                             />
                                         </ScrollView>
-                                    </Animated.View>
+                                    </View>
                                 </TouchableWithoutFeedback>
                             </View>
                         </TouchableWithoutFeedback>

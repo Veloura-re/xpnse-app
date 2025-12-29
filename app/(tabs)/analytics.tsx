@@ -14,7 +14,7 @@ import {
     Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import {
     TrendingUp,
     TrendingDown,
@@ -38,6 +38,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/utils/currency-utils';
 import { getFontFamily } from '@/config/font-config';
 import { BlurView } from 'expo-blur';
+import { StatCard, ProgressBar } from '@/components/analytics/analytics-components';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -150,74 +151,7 @@ export default function AnalyticsScreen() {
         };
     }, [books, currentBusiness, searchQuery, timeRange, selectedSort]);
 
-    const StatCard = ({
-        title,
-        value,
-        icon: Icon,
-        color,
-        trend,
-        trendValue
-    }: {
-        title: string;
-        value: string;
-        icon: any;
-        color: string;
-        trend?: 'up' | 'down';
-        trendValue?: string;
-    }) => (
-        <Animated.View entering={FadeIn.delay(100).duration(200)} style={[styles.statCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <BlurView
-                intensity={isDark ? 30 : 50}
-                tint={isDark ? 'dark' : 'light'}
-                style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '90' }]}
-            />
-            <View style={styles.statContent}>
-                <View style={styles.statHeader}>
-                    <View style={[styles.statIcon, { backgroundColor: `${color}20` }]}>
-                        <Icon size={14} color={color} />
-                    </View>
-                    {trend && (
-                        <View style={[styles.trendBadge, { backgroundColor: trend === 'up' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
-                            {trend === 'up' ? (
-                                <ArrowUpRight size={10} color="#10b981" />
-                            ) : (
-                                <ArrowDownRight size={10} color="#ef4444" />
-                            )}
-                            {trendValue && (
-                                <Text style={[styles.trendText, { color: trend === 'up' ? '#10b981' : '#ef4444' }]}>
-                                    {trendValue}
-                                </Text>
-                            )}
-                        </View>
-                    )}
-                </View>
-                <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-                <Text style={[styles.statTitle, { color: colors.textSecondary }]}>{title}</Text>
-            </View>
-        </Animated.View>
-    );
 
-    const ProgressBar = ({ label, value, total, color }: { label: string; value: number; total: number; color: string }) => {
-        const percentage = total > 0 ? (value / total) * 100 : 0;
-        return (
-            <View style={styles.progressItem}>
-                <View style={styles.progressHeader}>
-                    <Text style={[styles.progressLabel, { color: colors.text }]} numberOfLines={1}>{label}</Text>
-                    <Text style={[styles.progressValue, { color: colors.textSecondary }]}>
-                        {formatCurrency(value, currentBusiness?.currency)}
-                    </Text>
-                </View>
-                <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
-                    <LinearGradient
-                        colors={[color, color]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[styles.progressFill, { width: `${Math.min(percentage, 100)}%` }]}
-                    />
-                </View>
-            </View>
-        );
-    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -232,7 +166,7 @@ export default function AnalyticsScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Header */}
-                <Animated.View entering={FadeIn.duration(200)} style={styles.header}>
+                <View style={styles.header}>
                     <View style={styles.headerTopRow}>
                         <Text style={[styles.appName, { color: colors.primary }]}>Analytics</Text>
                         <View style={styles.headerActions}>
@@ -264,7 +198,7 @@ export default function AnalyticsScreen() {
                             {currentBusiness?.name || 'Overview'}
                         </Text>
                     ) : (
-                        <Animated.View entering={FadeIn.duration(200)} style={styles.searchBarContainer}>
+                        <View style={styles.searchBarContainer}>
                             <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                 <Search size={14} color={colors.textSecondary} style={styles.searchIcon} />
                                 <TextInput
@@ -285,12 +219,12 @@ export default function AnalyticsScreen() {
                                     <X size={14} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
-                        </Animated.View>
+                        </View>
                     )}
-                </Animated.View>
+                </View>
 
                 {/* Main Balance Card */}
-                <Animated.View entering={FadeIn.delay(150).duration(200)}>
+                <View>
                     <View style={[styles.balanceCard, { borderColor: colors.border, overflow: 'hidden' }]}>
                         <BlurView
                             intensity={isDark ? 40 : 60}
@@ -340,7 +274,7 @@ export default function AnalyticsScreen() {
                             </View>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
 
                 {/* Quick Stats */}
                 <View style={styles.statsGrid}>
@@ -349,18 +283,22 @@ export default function AnalyticsScreen() {
                         value={analytics.bookCount.toString()}
                         icon={BarChart3}
                         color="#6366f1"
+                        colors={colors}
+                        isDark={isDark}
                     />
                     <StatCard
                         title="Transactions"
                         value={analytics.totalTransactions.toString()}
                         icon={ArrowRightLeft}
                         color="#f59e0b"
+                        colors={colors}
+                        isDark={isDark}
                     />
                 </View>
 
                 {/* Top Books Section */}
                 {analytics.topBooks.length > 0 && (
-                    <Animated.View entering={FadeIn.delay(300).duration(200)} style={styles.section}>
+                    <View style={styles.section}>
                         <View style={styles.sectionHeader}>
                             <PieChart size={20} color={colors.primary} />
                             <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Books by Balance</Text>
@@ -379,15 +317,18 @@ export default function AnalyticsScreen() {
                                         value={Math.abs(book.netBalance || 0)}
                                         total={Math.max(analytics.totalCashIn, analytics.totalCashOut) || 1}
                                         color={book.netBalance >= 0 ? '#10b981' : '#ef4444'}
+                                        colors={colors}
+                                        isDark={isDark}
+                                        currency={currentBusiness?.currency}
                                     />
                                 ))}
                             </View>
                         </View>
-                    </Animated.View>
+                    </View>
                 )}
 
                 {/* Cash Flow Summary */}
-                <Animated.View entering={FadeIn.delay(400).duration(200)} style={styles.section}>
+                <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <DollarSign size={20} color={colors.primary} />
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Cash Flow Summary</Text>
@@ -428,7 +369,7 @@ export default function AnalyticsScreen() {
                             </View>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
             </ScrollView>
 
             {/* Sort Modal */}

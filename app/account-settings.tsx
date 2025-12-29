@@ -39,7 +39,6 @@ import {
     ChevronLeft,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { getFontFamily } from '@/config/font-config';
 import { useBusiness } from '@/providers/business-provider';
@@ -162,8 +161,7 @@ const EditModal = ({
                         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                             <View style={{ width: '100%', maxWidth: 420 }}>
                                 <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                                    <Animated.View
-                                        entering={FadeIn.duration(200)}
+                                    <View
                                         style={[
                                             modalStyles.modalContent,
                                             {
@@ -224,7 +222,7 @@ const EditModal = ({
                                                 </LinearGradient>
                                             </TouchableOpacity>
                                         </View>
-                                    </Animated.View>
+                                    </View>
                                 </TouchableWithoutFeedback>
                             </View>
                         </TouchableWithoutFeedback>
@@ -396,7 +394,7 @@ export default function AccountSettingsScreen() {
                 contentContainerStyle={{ padding: 20, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }}
                 showsVerticalScrollIndicator={false}
             >
-                <Animated.View entering={FadeInDown.duration(600)} style={styles.headerContainer}>
+                <View style={styles.headerContainer}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9' }]}>
                             <ChevronLeft size={24} color={isDark ? '#fff' : '#0f172a'} />
@@ -406,9 +404,9 @@ export default function AccountSettingsScreen() {
                     <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Account</Text>
                     <View style={[styles.headerLine, { backgroundColor: colors.primary }]} />
                     <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>Personalize your identity and security</Text>
-                </Animated.View>
+                </View>
 
-                <Animated.View entering={FadeInDown.delay(200).duration(600)}>
+                <View>
                     {/* Profile Card */}
                     <View style={[styles.profileCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.8)', borderColor: colors.border }]}>
                         {isDark ? (
@@ -483,7 +481,7 @@ export default function AccountSettingsScreen() {
                     </View>
 
                     {/* Appearance Settings */}
-                    <Animated.View entering={FadeInDown.delay(300).duration(600)} style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border, borderWidth: 1 }]}>
+                    <View style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border, borderWidth: 1 }]}>
                         <View style={[styles.sectionHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APPEARANCE</Text>
                         </View>
@@ -503,10 +501,10 @@ export default function AccountSettingsScreen() {
                                 <ChevronRight size={18} color={colors.textSecondary} />
                             </View>
                         </TouchableOpacity>
-                    </Animated.View>
+                    </View>
 
                     {/* Profile Settings Card */}
-                    <Animated.View entering={FadeInDown.delay(400).duration(600)} style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border }]}>
+                    <View style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border }]}>
                         <View style={[styles.sectionHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PERSONAL INFO</Text>
                         </View>
@@ -521,10 +519,10 @@ export default function AccountSettingsScreen() {
                             </View>
                             <ChevronRight size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
-                    </Animated.View>
+                    </View>
 
                     {/* Security Settings Card */}
-                    <Animated.View entering={FadeInDown.delay(500).duration(600)} style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border }]}>
+                    <View style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border }]}>
                         <View style={[styles.sectionHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SECURITY</Text>
                         </View>
@@ -572,9 +570,9 @@ export default function AccountSettingsScreen() {
                             </View>
                             {!fbUser?.emailVerified && <ChevronRight size={18} color={colors.textSecondary} />}
                         </TouchableOpacity>
-                    </Animated.View>
+                    </View>
 
-                </Animated.View>
+                </View>
             </ScrollView>
 
             {/* --- MODALS --- */}
@@ -691,8 +689,7 @@ export default function AccountSettingsScreen() {
                     <TouchableWithoutFeedback onPress={() => setShowThemeModal(false)}>
                         <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
                             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                                <Animated.View
-                                    entering={FadeIn.duration(200)}
+                                <View
                                     style={[
                                         modalStyles.modalContent,
                                         {
@@ -755,7 +752,7 @@ export default function AccountSettingsScreen() {
                                             </TouchableOpacity>
                                         ))}
                                     </View>
-                                </Animated.View>
+                                </View>
                             </TouchableWithoutFeedback>
                         </View>
                     </TouchableWithoutFeedback>
@@ -880,6 +877,7 @@ const modalStyles = StyleSheet.create({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        overflow: 'hidden',
     },
     circle1: {
         position: 'absolute',

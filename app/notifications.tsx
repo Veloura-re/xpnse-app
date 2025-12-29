@@ -5,7 +5,7 @@ import { useNotifications } from '@/providers/notification-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, ChevronLeft, ChevronDown, ChevronUp, Check, CheckCheck, Trash2, Circle, CheckCircle2, X } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { getFontFamily } from '@/config/font-config';
 import { useBusiness } from '@/providers/business-provider';
@@ -205,8 +205,7 @@ export default function NotificationsScreen() {
             <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
             <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
-            <Animated.View
-                entering={FadeIn.delay(100).duration(200)}
+            <View
                 style={[styles.headerContainer, { paddingTop: insets.top + 20 }]}
             >
                 <View style={styles.headerTop}>
@@ -236,7 +235,7 @@ export default function NotificationsScreen() {
                 </View>
                 <Text style={[styles.appName, { color: colors.primary }]}>Dashboard</Text>
                 <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>{isSelectionMode ? `${selectedIds.size} Selected` : 'Notifications'}</Text>
-            </Animated.View>
+            </View>
 
             {isSelectionMode && (
                 <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -255,8 +254,7 @@ export default function NotificationsScreen() {
                 </View>
             )}
 
-            <Animated.View
-                entering={FadeIn.delay(200).duration(200)}
+            <View
                 style={styles.contentArea}
             >
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -281,7 +279,7 @@ export default function NotificationsScreen() {
                         }
                     />
                 </View>
-            </Animated.View>
+            </View>
         </View>
     );
 }

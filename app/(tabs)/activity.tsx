@@ -9,9 +9,10 @@ import { db } from '@/config/firebase';
 import { BookEntry } from '@/types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrency } from '@/utils/currency-utils';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import { getFontFamily } from '@/config/font-config';
 import { useTheme } from '@/providers/theme-provider';
+import { BookBreakdownItem, ActivityItem } from '@/components/activity/activity-components';
 
 const { width } = Dimensions.get('window');
 
@@ -112,7 +113,7 @@ export default function ActivityScreen() {
             <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Animated.View entering={FadeIn.delay(100).duration(200)} style={styles.headerContainer}>
+                <View style={styles.headerContainer}>
                     <View style={styles.headerTopRow}>
                         <Text style={[styles.appName, { color: colors.primary }]}>Dashboard</Text>
                         <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -133,9 +134,9 @@ export default function ActivityScreen() {
                         </View>
                     </View>
                     <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Activity</Text>
-                </Animated.View>
+                </View>
 
-                <Animated.View entering={FadeIn.delay(200).duration(200)}>
+                <View>
                     {/* Summary Cards */}
                     <View style={styles.summaryContainer}>
                         <View style={[
@@ -172,32 +173,15 @@ export default function ActivityScreen() {
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Book Breakdown</Text>
                     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         {books.filter(b => b.businessId === currentBusiness?.id).map((book, index, arr) => (
-                            <TouchableOpacity
+                            <BookBreakdownItem
                                 key={book.id}
-                                style={[styles.bookRow, index === arr.length - 1 && styles.bookRowLast]}
-                                onPress={() => router.push(`/book/${book.id}`)}
-                            >
-                                <View style={[styles.bookIcon, { backgroundColor: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }]}>
-                                    <BookOpen size={20} color={colors.primary} />
-                                </View>
-                                <View style={styles.bookInfo}>
-                                    <Text style={[styles.bookName, { color: colors.text }]}>{book.name}</Text>
-                                    <View style={styles.bookStats}>
-                                        <View style={styles.bookStat}>
-                                            <ArrowUpRight size={12} color="#10b981" />
-                                            <Text style={[styles.bookStatText, { color: '#10b981' }]}>{formatCurrency(book.totalCashIn || 0, currentBusiness?.currency)}</Text>
-                                        </View>
-                                        <View style={styles.bookStat}>
-                                            <ArrowDownRight size={12} color="#ef4444" />
-                                            <Text style={[styles.bookStatText, { color: '#ef4444' }]}>{formatCurrency(book.totalCashOut || 0, currentBusiness?.currency)}</Text>
-                                        </View>
-                                    </View>
-                                </View>
-                                <Text style={[styles.bookBalance, { color: (book.netBalance || 0) >= 0 ? '#10b981' : '#ef4444' }]}>
-                                    {formatCurrency(book.netBalance || 0, currentBusiness?.currency)}
-                                </Text>
-                                <ChevronRight size={18} color="#94a3b8" />
-                            </TouchableOpacity>
+                                book={book}
+                                currentBusiness={currentBusiness}
+                                isDark={isDark}
+                                colors={colors}
+                                isLast={index === arr.length - 1}
+                                theme={theme}
+                            />
                         ))}
                         {books.filter(b => b.businessId === currentBusiness?.id).length === 0 && (
                             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No books yet</Text>
@@ -244,22 +228,15 @@ export default function ActivityScreen() {
                                     const creatorName = creator?.user?.displayName || creator?.user?.name || creator?.user?.email?.split('@')[0] || 'Unknown User';
 
                                     return (
-                                        <View key={item.id} style={[styles.activityRow, { borderBottomColor: colors.border }, index === arr.length - 1 && styles.activityRowLast]}>
-                                            <View style={[styles.activityIcon, item.type === 'cash_in' ? styles.bgGreen : styles.bgRed]}>
-                                                {item.type === 'cash_in' ? <TrendingUp size={20} color="#10b981" /> : <TrendingDown size={20} color="#ef4444" />}
-                                            </View>
-                                            <View style={styles.activityInfo}>
-                                                <Text style={[styles.activityDesc, { color: colors.text }]} numberOfLines={1}>{item.description || 'No description'}</Text>
-                                                <Text style={[styles.activityDate, { color: colors.textSecondary }]}>
-                                                    {new Date(item.date).toLocaleDateString()}
-                                                    {partyName ? ` • ${partyName}` : ''}
-                                                    {` • by ${creatorName}`}
-                                                </Text>
-                                            </View>
-                                            <Text style={[styles.activityAmount, { color: item.type === 'cash_in' ? '#10b981' : '#ef4444' }]}>
-                                                {item.type === 'cash_in' ? '+' : '-'}{formatCurrency(item.amount, currentBusiness?.currency)}
-                                            </Text>
-                                        </View>
+                                        <ActivityItem
+                                            key={item.id}
+                                            item={item}
+                                            partyName={partyName || null}
+                                            creatorName={creatorName}
+                                            currentBusiness={currentBusiness}
+                                            colors={colors}
+                                            isLast={index === arr.length - 1}
+                                        />
                                     );
                                 })}
                                 {recentActivity.length === 0 && !loading && (
@@ -268,7 +245,7 @@ export default function ActivityScreen() {
                             </>
                         )}
                     </View>
-                </Animated.View>
+                </View>
             </ScrollView>
         </View>
     );

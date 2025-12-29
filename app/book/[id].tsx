@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, SlideInRight, SlideOutRight } from 'react-native-reanimated';
+
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import {
   Plus,
@@ -538,7 +538,7 @@ export default function BookDetailScreen() {
       <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
       {/* Header */}
-      <Animated.View entering={FadeIn.delay(100).duration(200)} style={styles.header}>
+      <View style={styles.header}>
         {!selectionMode ? (
           <>
             <TouchableOpacity
@@ -609,9 +609,9 @@ export default function BookDetailScreen() {
             </View>
           </>
         )}
-      </Animated.View>
+      </View>
 
-      <Animated.View entering={FadeIn.delay(200).duration(200)} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         {/* Main Balance Card */}
         <View style={styles.balanceSection}>
           <View style={[styles.balanceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -784,7 +784,7 @@ export default function BookDetailScreen() {
             ) : null
           }
         />
-      </Animated.View>
+      </View>
 
       {/* FABs or Bulk Action Bar */}
       {(userRole === 'owner' || userRole === 'partner') && !selectionMode && (
@@ -1171,8 +1171,7 @@ export default function BookDetailScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.dialogContent,
                 {
@@ -1199,29 +1198,31 @@ export default function BookDetailScreen() {
                 Copy this entry to...
               </Text>
 
-              {otherBooks.length === 0 ? (
-                <Text style={styles.dialogEmpty}>No other books available</Text>
-              ) : (
-                <View style={styles.bookList}>
-                  {otherBooks.map(b => (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[
-                        styles.bookOption,
-                        { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
-                        targetBookId === b.id && { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }
-                      ]}
-                      onPress={() => setTargetBookId(b.id)}
-                    >
-                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#21C98D' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
-                      {targetBookId === b.id && <Check size={20} color="#21C98D" />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              {
+                otherBooks.length === 0 ? (
+                  <Text style={styles.dialogEmpty}>No other books available</Text>
+                ) : (
+                  <View style={styles.bookList}>
+                    {otherBooks.map(b => (
+                      <TouchableOpacity
+                        key={b.id}
+                        style={[
+                          styles.bookOption,
+                          { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
+                          targetBookId === b.id && { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }
+                        ]}
+                        onPress={() => setTargetBookId(b.id)}
+                      >
+                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#21C98D' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
+                        {targetBookId === b.id && <Check size={20} color="#21C98D" />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )
+              }
               <View style={[styles.dialogActions, { marginTop: 12 }]}>
                 <TouchableOpacity
                   style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
@@ -1264,10 +1265,10 @@ export default function BookDetailScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </View>
+          </KeyboardAvoidingView >
+        </View >
+      </Modal >
 
       {/* Transfer Modal */}
       {/* Transfer Modal */}
@@ -1282,8 +1283,7 @@ export default function BookDetailScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.dialogContent,
                 {
@@ -1310,30 +1310,32 @@ export default function BookDetailScreen() {
                 Transfer this entry to...
               </Text>
 
-              {otherBooks.length === 0 ? (
-                <Text style={styles.dialogEmpty}>No other books available</Text>
-              ) : (
-                <View style={styles.bookList}>
-                  {otherBooks.map(b => (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[
-                        styles.bookOption,
-                        { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
-                        targetBookId === b.id && { borderColor: '#0EA5E9', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.1)' : '#f0f9ff' }
-                      ]}
-                      onPress={() => setTargetBookId(b.id)}
-                      disabled={isTransferring}
-                    >
-                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#0EA5E9' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
-                      {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              {
+                otherBooks.length === 0 ? (
+                  <Text style={styles.dialogEmpty}>No other books available</Text>
+                ) : (
+                  <View style={styles.bookList}>
+                    {otherBooks.map(b => (
+                      <TouchableOpacity
+                        key={b.id}
+                        style={[
+                          styles.bookOption,
+                          { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
+                          targetBookId === b.id && { borderColor: '#0EA5E9', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.1)' : '#f0f9ff' }
+                        ]}
+                        onPress={() => setTargetBookId(b.id)}
+                        disabled={isTransferring}
+                      >
+                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#0EA5E9' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
+                        {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )
+              }
               <View style={[styles.dialogActions, { marginTop: 12 }]}>
                 <TouchableOpacity
                   style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
@@ -1368,10 +1370,10 @@ export default function BookDetailScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </View>
+          </KeyboardAvoidingView >
+        </View >
+      </Modal >
 
       {/* Bulk Transfer Modal */}
       {/* Bulk Transfer Modal */}
@@ -1386,8 +1388,7 @@ export default function BookDetailScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.dialogContent,
                 {
@@ -1414,30 +1415,32 @@ export default function BookDetailScreen() {
                 Transfer {selectedEntries.size} entries to...
               </Text>
 
-              {otherBooks.length === 0 ? (
-                <Text style={styles.dialogEmpty}>No other books available</Text>
-              ) : (
-                <View style={styles.bookList}>
-                  {otherBooks.map(b => (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[
-                        styles.bookOption,
-                        { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
-                        targetBookId === b.id && { borderColor: '#0EA5E9', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.1)' : '#f0f9ff' }
-                      ]}
-                      onPress={() => setTargetBookId(b.id)}
-                      disabled={isBulkOperating}
-                    >
-                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#0EA5E9' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
-                      {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              {
+                otherBooks.length === 0 ? (
+                  <Text style={styles.dialogEmpty}>No other books available</Text>
+                ) : (
+                  <View style={styles.bookList}>
+                    {otherBooks.map(b => (
+                      <TouchableOpacity
+                        key={b.id}
+                        style={[
+                          styles.bookOption,
+                          { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
+                          targetBookId === b.id && { borderColor: '#0EA5E9', backgroundColor: isDark ? 'rgba(14, 165, 233, 0.1)' : '#f0f9ff' }
+                        ]}
+                        onPress={() => setTargetBookId(b.id)}
+                        disabled={isBulkOperating}
+                      >
+                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#0EA5E9' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
+                        {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )
+              }
               <View style={[styles.dialogActions, { marginTop: 12 }]}>
                 <TouchableOpacity
                   style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
@@ -1472,10 +1475,10 @@ export default function BookDetailScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </View>
+          </KeyboardAvoidingView >
+        </View >
+      </Modal >
 
       {/* Bulk Copy Modal */}
       {/* Bulk Copy Modal */}
@@ -1490,8 +1493,7 @@ export default function BookDetailScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.dialogContent,
                 {
@@ -1518,30 +1520,32 @@ export default function BookDetailScreen() {
                 Copy {selectedEntries.size} entries to...
               </Text>
 
-              {otherBooks.length === 0 ? (
-                <Text style={styles.dialogEmpty}>No other books available</Text>
-              ) : (
-                <View style={styles.bookList}>
-                  {otherBooks.map(b => (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[
-                        styles.bookOption,
-                        { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
-                        targetBookId === b.id && { borderColor: '#10b981', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }
-                      ]}
-                      onPress={() => setTargetBookId(b.id)}
-                      disabled={isBulkOperating}
-                    >
-                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#10b981' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#10b981' : '#059669' }]}>{b.name}</Text>
-                      {targetBookId === b.id && <Check size={20} color="#10b981" />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              {
+                otherBooks.length === 0 ? (
+                  <Text style={styles.dialogEmpty}>No other books available</Text>
+                ) : (
+                  <View style={styles.bookList}>
+                    {otherBooks.map(b => (
+                      <TouchableOpacity
+                        key={b.id}
+                        style={[
+                          styles.bookOption,
+                          { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
+                          targetBookId === b.id && { borderColor: '#10b981', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }
+                        ]}
+                        onPress={() => setTargetBookId(b.id)}
+                        disabled={isBulkOperating}
+                      >
+                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#10b981' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#10b981' : '#059669' }]}>{b.name}</Text>
+                        {targetBookId === b.id && <Check size={20} color="#10b981" />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )
+              }
               <View style={[styles.dialogActions, { marginTop: 12 }]}>
                 <TouchableOpacity
                   style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
@@ -1576,10 +1580,10 @@ export default function BookDetailScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </View>
+          </KeyboardAvoidingView >
+        </View >
+      </Modal >
 
       {/* Bulk Delete Confirmation Modal */}
       {/* Bulk Delete Confirmation Modal */}
@@ -1594,8 +1598,7 @@ export default function BookDetailScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.dialogContent,
                 {
@@ -1675,10 +1678,10 @@ export default function BookDetailScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
-        </View>
-      </Modal>
+        </View >
+      </Modal >
 
 
     </View >

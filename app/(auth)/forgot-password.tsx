@@ -19,7 +19,7 @@ import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, ArrowLeft, Send } from 'lucide-react-native';
 
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 
 export default function ForgotPasswordScreen() {
   const { resetPassword, isLoading } = useAuth();
@@ -71,13 +71,13 @@ export default function ForgotPasswordScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View entering={FadeIn.delay(100).duration(200)} style={styles.headerContainer}>
+          <View style={styles.headerContainer}>
             <Text style={[styles.appName, { color: colors.primary }]}>Vaulta</Text>
             <Text style={[styles.welcomeText, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Reset Password</Text>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>Enter your email to receive a reset link.</Text>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeIn.delay(200).duration(200)} style={styles.formContainer}>
+          <View style={styles.formContainer}>
             {/* Email Input */}
             <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.iconContainer}>
@@ -118,7 +118,7 @@ export default function ForgotPasswordScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

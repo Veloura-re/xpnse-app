@@ -21,7 +21,7 @@ import { Business } from '@/types';
 import { Building2, Plus, Search, X, Check, SlidersHorizontal, MoreHorizontal, ArrowRight } from 'lucide-react-native';
 import { RoleBadge } from '@/components/role-badge';
 import { useFonts } from '@expo-google-fonts/abril-fatface';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
@@ -93,9 +93,13 @@ export default function BusinessSwitcherScreen() {
 
   const filteredBusinesses = businesses
     .filter(business => {
-      // Time filter
-      const matchesTime = isWithinTimeRange(business.createdAt, selectedSort);
-      return matchesTime;
+      // Only apply time filter if selected option is a time filter
+      const timeFilterOptions: SortOption[] = ['today', 'week', 'month', 'year', 'all'];
+      if (timeFilterOptions.includes(selectedSort)) {
+        return isWithinTimeRange(business.createdAt, selectedSort);
+      }
+      // No filter for sort-only options like 'activity-desc', 'name-asc', etc.
+      return true;
     })
     .sort((a, b) => {
       switch (selectedSort) {
@@ -229,8 +233,7 @@ export default function BusinessSwitcherScreen() {
       <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
       <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
-      <Animated.View
-        entering={FadeIn.delay(100).duration(200)}
+      <View
         style={[styles.headerContainer, { paddingTop: insets.top + 50 }]}
       >
         <Stack.Screen options={{ headerShown: false }} />
@@ -246,10 +249,9 @@ export default function BusinessSwitcherScreen() {
             <SlidersHorizontal size={20} color={selectedSort !== 'date-desc' ? colors.primary : colors.textSecondary} />
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
 
-      <Animated.View
-        entering={FadeIn.delay(200).duration(200)}
+      <View
         style={styles.contentArea}
       >
         {recentlyActiveBusinesses.length >= 2 && (
@@ -296,13 +298,16 @@ export default function BusinessSwitcherScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            initialNumToRender={15}
           />
         </View>
-      </Animated.View>
+      </View>
 
       {/* Floating Action Button */}
-      <Animated.View
-        entering={FadeIn.delay(300).duration(200)}
+      <View
         style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}
       >
         <TouchableOpacity
@@ -319,7 +324,7 @@ export default function BusinessSwitcherScreen() {
             <Plus size={28} color="#fff" strokeWidth={2.5} />
           </LinearGradient>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
 
       <Modal
         visible={showCreateForm}
@@ -336,23 +341,22 @@ export default function BusinessSwitcherScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
             style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.modalContent,
                 {
                   backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
                   borderColor: isDark ? '#2C3333' : '#e2e8f0',
                   borderWidth: 1,
-                  borderRadius: 32,
-                  padding: 32,
+                  borderRadius: 24,
+                  padding: 20,
                   width: '100%',
-                  maxWidth: 400,
+                  maxWidth: 380,
                   shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 20 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 40,
-                  elevation: 20,
+                  shadowOffset: { width: 0, height: 12 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 24,
+                  elevation: 16,
                 }
               ]}
             >
@@ -361,19 +365,19 @@ export default function BusinessSwitcherScreen() {
                   styles.modalIconContainer,
                   {
                     backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#f0fdf4',
-                    width: 72,
-                    height: 72,
-                    borderRadius: 36,
-                    marginBottom: 16
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    marginBottom: 12
                   }
                 ]}>
-                  <Building2 size={32} color={colors.primary} />
+                  <Building2 size={24} color={colors.primary} />
                 </View>
                 <Text style={[styles.createFormTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Create Business</Text>
                 <Text style={[styles.createFormSubtitle, { color: colors.textSecondary }]}>Start tracking finances for your new entity</Text>
               </View>
 
-              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 8, marginTop: 16 }]}>BUSINESS NAME</Text>
+              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 12 }]}>BUSINESS NAME</Text>
               <TextInput
                 style={[
                   styles.createFormInput,
@@ -382,9 +386,9 @@ export default function BusinessSwitcherScreen() {
                     borderColor: isDark ? '#333' : '#e2e8f0',
                     color: colors.text,
                     borderWidth: 1,
-                    borderRadius: 18,
-                    padding: 18,
-                    fontSize: 17,
+                    borderRadius: 14,
+                    padding: 14,
+                    fontSize: 15,
                     fontWeight: '500'
                   }
                 ]}
@@ -396,9 +400,9 @@ export default function BusinessSwitcherScreen() {
                 autoCapitalize="words"
               />
 
-              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 8, marginTop: 24 }]}>CHOOSE LOGO</Text>
+              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 16 }]}>CHOOSE LOGO</Text>
 
-              <View style={{ marginBottom: 32, alignItems: 'center' }}>
+              <View style={{ marginBottom: 20, alignItems: 'center' }}>
                 <TouchableOpacity
                   onPress={() => setShowLogoPicker(true)}
                   activeOpacity={0.8}
@@ -406,26 +410,26 @@ export default function BusinessSwitcherScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexDirection: 'row',
-                    gap: 16,
+                    gap: 12,
                     width: '100%',
                     backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
-                    padding: 16,
-                    borderRadius: 20,
+                    padding: 12,
+                    borderRadius: 14,
                     borderWidth: 1,
                     borderColor: isDark ? '#333' : '#e2e8f0'
                   }}
                 >
                   <View style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 18,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
                     backgroundColor: (() => {
                       const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
                       return l ? (isDark ? l.darkColor + '20' : l.color + '10') : (isDark ? '#2C3333' : '#f1f5f9');
                     })(),
                     alignItems: 'center',
                     justifyContent: 'center',
-                    borderWidth: 2,
+                    borderWidth: 1.5,
                     borderColor: (() => {
                       const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
                       return l ? (isDark ? l.darkColor : l.color) : colors.border;
@@ -435,51 +439,69 @@ export default function BusinessSwitcherScreen() {
                     {(() => {
                       const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
                       const Icon = l ? (BUSINESS_ICONS[l.icon] || Building2) : Plus;
-                      return <Icon size={26} color={l ? (isDark ? l.darkColor : l.color) : colors.textSecondary} />;
+                      return <Icon size={22} color={l ? (isDark ? l.darkColor : l.color) : colors.textSecondary} />;
                     })()}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text }}>
                       {LOGO_OPTIONS.find(l => l.id === selectedLogoId)?.label || 'Select Logo'}
                     </Text>
-                    <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '500', marginTop: 2 }}>
+                    <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500', marginTop: 1 }}>
                       Tap to change icon
                     </Text>
                   </View>
-                  <ArrowRight size={20} color={colors.textSecondary} />
+                  <ArrowRight size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.createFormButtons}>
+              <View style={[styles.createFormButtons, { gap: 10 }]}>
                 <TouchableOpacity
-                  style={[styles.cancelButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', borderRadius: 18, borderRightWidth: 0, paddingVertical: 18, flex: 1 }]}
+                  style={[styles.cancelButton, {
+                    backgroundColor: 'transparent',
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
+                    paddingVertical: 14,
+                    flex: 1
+                  }]}
                   onPress={() => {
                     setShowCreateForm(false);
                     setNewBusinessName('');
                   }}
                 >
-                  <Text style={[styles.cancelButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.cancelButtonText, { color: isDark ? colors.text : '#64748b', fontSize: 15, fontWeight: '600' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1 }}
                   disabled={!newBusinessName.trim() || isCreating}
                   onPress={handleCreateBusiness}
+                  activeOpacity={0.9}
                 >
                   <LinearGradient
-                    colors={[colors.primary, '#059669']}
-                    style={[styles.createButtonGradient, { borderRadius: 18, paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }]}
+                    colors={!newBusinessName.trim() || isCreating ? ['#94a3b8', '#94a3b8'] : [colors.primary, '#059669']}
+                    style={[styles.createButtonGradient, {
+                      borderRadius: 14,
+                      paddingVertical: 14,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      shadowColor: colors.primary,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: (!newBusinessName.trim() || isCreating) ? 0 : 0.3,
+                      shadowRadius: 8,
+                      elevation: (!newBusinessName.trim() || isCreating) ? 0 : 4,
+                    }]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
                     {isCreating ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={[styles.createButtonText, { fontSize: 16, fontWeight: '700' }]}>Create</Text>
+                      <Text style={[styles.createButtonText, { fontSize: 15, fontWeight: '700', color: '#fff' }]} numberOfLines={1}>Create</Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -531,7 +553,7 @@ export default function BusinessSwitcherScreen() {
         <View
           style={[styles.modalOverlay, { justifyContent: 'flex-end', backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]}
         >
-          <Animated.View entering={FadeIn.duration(200)} style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]} pointerEvents="box-none">
+          <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]} pointerEvents="box-none">
             <View style={[styles.modalContent, {
               height: '85%',
               maxHeight: '85%',
@@ -789,7 +811,7 @@ export default function BusinessSwitcherScreen() {
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-          </Animated.View>
+          </View>
         </View>
       </Modal >
 
@@ -821,8 +843,7 @@ export default function BusinessSwitcherScreen() {
         statusBarTranslucent={true}
       >
         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
-          <Animated.View
-            entering={FadeIn.duration(200)}
+          <View
             style={[
               styles.modalContent,
               {
@@ -843,8 +864,7 @@ export default function BusinessSwitcherScreen() {
             ]}
           >
             <View style={{ marginBottom: 20, position: 'relative' }}>
-              <Animated.View
-                entering={FadeIn.delay(300).duration(800)}
+              <View
                 style={{
                   position: 'absolute',
                   top: -8, left: -8, right: -8, bottom: -8,
@@ -911,7 +931,7 @@ export default function BusinessSwitcherScreen() {
                 <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 }}>Continue</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </Animated.View>
+          </View>
         </View>
       </Modal>
     </View >

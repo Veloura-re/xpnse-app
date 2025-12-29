@@ -85,10 +85,8 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
             } else if (data && data.path) {
                 // Generic path navigation support
                 router.push(data.path as any);
-            } else {
-                // Default to notifications screen
-                router.push('/notifications');
             }
+            // Removed default redirect to prevent unwanted navigation on some devices
         });
 
         return () => {

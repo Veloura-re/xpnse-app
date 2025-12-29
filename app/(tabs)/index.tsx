@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrency } from '@/utils/currency-utils';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import { router } from 'expo-router';
 import {
   Plus,
@@ -407,7 +407,7 @@ export default function BooksScreen() {
       <View style={[styles.circle2, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
       {/* Header */}
-      <Animated.View entering={FadeIn.duration(200)} style={styles.headerContainer}>
+      <View style={styles.headerContainer}>
         <View style={styles.headerTopRow}>
           <Text style={[styles.appName, { color: colors.primary }]}>Dashboard</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -501,9 +501,9 @@ export default function BooksScreen() {
           </View>
         )
         }
-      </Animated.View >
+      </View >
 
-      <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         {/* Search & Filter */}
         {/* Expanded Search Bar - Moved to Header */}
 
@@ -594,7 +594,7 @@ export default function BooksScreen() {
             }
           />
         )}
-      </Animated.View>
+      </View>
 
       {/* FAB Add Button */}
       {

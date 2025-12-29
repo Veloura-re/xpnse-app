@@ -20,7 +20,7 @@ import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 
 const { width } = Dimensions.get('window');
 
@@ -81,13 +81,13 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View entering={FadeIn.delay(100).duration(200)} style={styles.headerContainer}>
+          <View style={styles.headerContainer}>
             <Text style={[styles.appName, { color: colors.primary }]}>Vaulta</Text>
             <Text style={[styles.welcomeText, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Welcome Back!</Text>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>Sign in to manage your finances.</Text>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeIn.delay(200).duration(200)} style={styles.formContainer}>
+          <View style={styles.formContainer}>
             {/* Email Input */}
             <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.iconContainer}>
@@ -166,7 +166,7 @@ export default function LoginScreen() {
                 <Text style={[styles.registerLink, { color: colors.primary }]}>Sign Up</Text>
               </TouchableOpacity>
             </View>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

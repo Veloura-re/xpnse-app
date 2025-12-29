@@ -45,7 +45,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { CURRENCIES } from '@/constants/currencies';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
@@ -167,7 +167,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View entering={FadeIn.duration(200)} style={styles.headerContainer}>
+        <View style={styles.headerContainer}>
           <View style={styles.headerTopRow}>
             <Text style={[styles.appName, { color: colors.primary }]}>Settings</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -188,9 +188,9 @@ export default function SettingsScreen() {
             </View>
           </View>
           <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Preferences</Text>
-        </Animated.View>
+        </View>
 
-        <Animated.View entering={FadeIn.duration(200)}>
+        <View>
           {/* Profile Card */}
           <View style={[styles.profileCard, { backgroundColor: isDark ? colors.surface : colors.card, borderColor: colors.border }]}>
             <LinearGradient
@@ -329,7 +329,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0 • Vaulta</Text>
-        </Animated.View>
+        </View>
       </ScrollView>
 
       {/* Logout Modal */}
@@ -339,8 +339,7 @@ export default function SettingsScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.modalContent,
                 {
@@ -390,7 +389,7 @@ export default function SettingsScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -402,8 +401,7 @@ export default function SettingsScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.deleteModalContent,
                 {
@@ -497,7 +495,7 @@ export default function SettingsScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -509,8 +507,7 @@ export default function SettingsScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.modalContent,
                 {
@@ -591,7 +588,7 @@ export default function SettingsScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -603,8 +600,7 @@ export default function SettingsScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.modalContent,
                 {
@@ -706,7 +702,7 @@ export default function SettingsScreen() {
                   </View>
                 )}
               </ScrollView>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -718,8 +714,7 @@ export default function SettingsScreen() {
           style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
         >
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.modalContent,
                 {
@@ -799,7 +794,7 @@ export default function SettingsScreen() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1019,8 +1014,7 @@ export default function SettingsScreen() {
               <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             </TouchableWithoutFeedback>
 
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.modalContent,
                 {
@@ -1089,7 +1083,7 @@ export default function SettingsScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1108,8 +1102,7 @@ export default function SettingsScreen() {
               <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             </TouchableWithoutFeedback>
 
-            <Animated.View
-              entering={FadeIn.duration(200)}
+            <View
               style={[
                 styles.modalContent,
                 {
@@ -1189,7 +1182,7 @@ export default function SettingsScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>

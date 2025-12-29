@@ -16,7 +16,7 @@ import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Save, Check } from 'lucide-react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+
 import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { getFontFamily } from '@/config/font-config';
 
@@ -72,8 +72,7 @@ export default function NotesScreen() {
             <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
             {/* Header */}
-            <Animated.View
-                entering={FadeIn.delay(100).duration(200)}
+            <View
                 style={styles.headerContainer}
             >
                 <View style={styles.headerTop}>
@@ -114,11 +113,10 @@ export default function NotesScreen() {
                 </View>
                 <Text style={[styles.appName, { color: colors.primary }]}>Workspace</Text>
                 <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Business Notes</Text>
-            </Animated.View>
+            </View>
 
             {/* Content */}
-            <Animated.ScrollView
-                entering={FadeIn.delay(200).duration(200)}
+            <ScrollView
                 style={styles.content}
                 contentContainerStyle={styles.contentContainer}
                 keyboardShouldPersistTaps="handled"
@@ -144,7 +142,7 @@ export default function NotesScreen() {
                         Private • Visible only to owners
                     </Text>
                 </View>
-            </Animated.ScrollView>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }
