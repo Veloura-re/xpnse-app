@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, TrendingUp, TrendingDown, User, Building2, ChevronDown, Calendar, CreditCard, Tag, AlignLeft, Plus, Send } from 'lucide-react-native';
+import { X, TrendingUp, TrendingDown, Calendar, CreditCard, Tag, AlignLeft, Send } from 'lucide-react-native';
 import { getCurrencySymbol } from '@/utils/currency-utils';
 import { Book, BookEntry } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
@@ -38,7 +38,7 @@ interface EntryEditModalProps {
 }
 
 export function EntryEditModal({ visible, entry, book, onClose, onSave, initialType }: EntryEditModalProps) {
-  const { parties, currentBusiness } = useBusiness();
+  const { currentBusiness } = useBusiness();
   const { colors, theme, isDark } = useTheme();
   const [type, setType] = useState<'cash_in' | 'cash_out'>('cash_in');
   const [amount, setAmount] = useState('');
@@ -48,8 +48,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   const [paymentMode, setPaymentMode] = useState('');
   const [customPaymentMode, setCustomPaymentMode] = useState('');
   const [category, setCategory] = useState('');
-  const [partyId, setPartyId] = useState<string | undefined>(undefined);
-  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+
   const [attachments, setAttachments] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,7 +72,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       setDescription(entry.description);
       setPaymentMode(entry.paymentMode || '');
       setCategory(entry.category || '');
-      setPartyId(entry.partyId);
+      // setPartyId(entry.partyId); // Removed
       setAttachments(entry.attachments || (entry.attachmentUrl ? [entry.attachmentUrl] : []));
       setAutoDate(false);
     } else {
@@ -82,21 +81,14 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       setDescription('');
       setPaymentMode('');
       setCategory('');
-      setPartyId(undefined);
+      // setPartyId(undefined); // Removed
       setAttachments([]);
       setAutoDate(true);
       setDate(getTodayLocal());
     }
   }, [entry, visible, initialType]);
 
-  const filteredParties = useMemo(() => {
-    const targetType = type === 'cash_in' ? 'customer' : 'vendor';
-    return parties.filter(p => p.type === targetType);
-  }, [parties, type]);
 
-  const selectedParty = useMemo(() => {
-    return parties.find(p => p.id === partyId);
-  }, [parties, partyId]);
 
   const paymentOptions = useMemo(() => [
     'Cash', 'Bank Transfer', 'Card', 'UPI', 'Cheque', 'Other', 'Custom'
@@ -149,7 +141,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       description: description.trim(),
       paymentMode: resolvedPaymentMode,
       category: category.trim(),
-      partyId,
+      partyId: undefined, // Removed
       attachments,
       createdAt: entry?.createdAt || new Date().toISOString(),
     };
@@ -178,11 +170,12 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                 styles.modalContent,
                 {
                   backgroundColor: colors.surface,
-                  borderRadius: 24,
+
+                  borderRadius: 20,
                   borderColor: colors.border,
                   borderWidth: 1,
-                  maxHeight: '80%',
-                  width: width > 500 ? 450 : '90%',
+                  maxHeight: '70%',
+                  width: width > 500 ? 380 : '85%',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 20 },
                   shadowOpacity: 0.3,
@@ -190,7 +183,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                   elevation: 20,
                 }
               ]}>
-                <View style={[styles.modalHeader, { borderBottomColor: colors.border, paddingVertical: 12, paddingHorizontal: 16 }]}>
+                <View style={[styles.modalHeader, { borderBottomColor: colors.border, paddingVertical: 10, paddingHorizontal: 16 }]}>
                   <View style={styles.headerLeft}>
                     <View style={[styles.headerIcon, { backgroundColor: type === 'cash_in' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', width: 32, height: 32, borderRadius: 10 }]}>
                       {type === 'cash_in' ? (
@@ -212,15 +205,15 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                   <View style={{ marginBottom: 16, paddingHorizontal: 4 }}>
                     <View style={[styles.pillSelector, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', padding: 4, borderRadius: 12, flexDirection: 'row', flex: 1 }]}>
                       <TouchableOpacity
-                        style={[styles.pillOption, type === 'cash_in' && { backgroundColor: '#10b981', borderRadius: 8 }, { flex: 1, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }]}
-                        onPress={() => { setType('cash_in'); setPartyId(undefined); }}
+                        style={[styles.pillOption, type === 'cash_in' && { backgroundColor: '#10b981', borderRadius: 8 }, { flex: 1, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }]}
+                        onPress={() => { setType('cash_in'); }}
                       >
                         <TrendingUp size={14} color={type === 'cash_in' ? '#fff' : colors.textSecondary} />
                         <Text style={{ fontSize: 13, fontWeight: '700', color: type === 'cash_in' ? '#fff' : colors.textSecondary }}>MONEY IN</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.pillOption, type === 'cash_out' && { backgroundColor: '#ef4444', borderRadius: 8 }, { flex: 1, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }]}
-                        onPress={() => { setType('cash_out'); setPartyId(undefined); }}
+                        style={[styles.pillOption, type === 'cash_out' && { backgroundColor: '#ef4444', borderRadius: 8 }, { flex: 1, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }]}
+                        onPress={() => { setType('cash_out'); }}
                       >
                         <TrendingDown size={14} color={type === 'cash_out' ? '#fff' : colors.textSecondary} />
                         <Text style={{ fontSize: 13, fontWeight: '700', color: type === 'cash_out' ? '#fff' : colors.textSecondary }}>MONEY OUT</Text>
@@ -261,56 +254,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                     </View>
                   </View>
 
-                  {/* Party Selector */}
-                  <View style={[styles.inputGroup, { zIndex: 1000 }]}>
-                    <Text style={[styles.inputLabel, { color: colors.text }]}>{type === 'cash_in' ? 'Customer' : 'Vendor'}</Text>
-                    <TouchableOpacity style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.border }]} onPress={() => setShowPartyDropdown(!showPartyDropdown)}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        {selectedParty ? (
-                          <>
-                            <View style={[styles.partyIcon, { backgroundColor: selectedParty.type === 'customer' ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#f0fdf4') : (isDark ? 'rgba(5, 150, 105, 0.2)' : '#f0fdf4') }]}>
-                              {selectedParty.type === 'customer' ? <User size={18} color={colors.primary} /> : <Building2 size={18} color="#059669" />}
-                            </View>
-                            <Text style={[styles.dropdownButtonText, { color: colors.text }]}>{selectedParty.name}</Text>
-                          </>
-                        ) : (
-                          <>
-                            <User size={20} color={colors.textSecondary} />
-                            <Text style={[styles.dropdownButtonPlaceholder, { color: colors.textSecondary }]}>Select {type === 'cash_in' ? 'Customer' : 'Vendor'}</Text>
-                          </>
-                        )}
-                      </View>
-                      <ChevronDown size={20} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                    {showPartyDropdown && (
-                      <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        {filteredParties.length === 0 ? (
-                          <View style={styles.dropdownEmpty}><Text style={[styles.dropdownEmptyText, { color: colors.textSecondary }]}>No {type === 'cash_in' ? 'customers' : 'vendors'} found</Text></View>
-                        ) : (
-                          filteredParties.map(party => (
-                            <TouchableOpacity
-                              key={party.id}
-                              style={[styles.dropdownItem, partyId === party.id && [styles.dropdownItemSelected, { backgroundColor: colors.card }]]}
-                              onPress={() => { setPartyId(party.id); setShowPartyDropdown(false); }}
-                            >
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                <View style={[styles.partyIconSmall, { backgroundColor: party.type === 'customer' ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#f0fdf4') : (isDark ? 'rgba(5, 150, 105, 0.2)' : '#f0fdf4') }]}>
-                                  {party.type === 'customer' ? <User size={14} color={colors.primary} /> : <Building2 size={14} color="#059669" />}
-                                </View>
-                                <Text style={[styles.dropdownItemText, { color: colors.text }, partyId === party.id && styles.dropdownItemTextSelected]}>{party.name}</Text>
-                              </View>
-                              {partyId === party.id && <View style={[styles.checkDot, { backgroundColor: colors.primary }]} />}
-                            </TouchableOpacity>
-                          ))
-                        )}
-                        {partyId && (
-                          <TouchableOpacity style={[styles.dropdownItem, { borderTopWidth: 1, borderTopColor: colors.border }]} onPress={() => { setPartyId(undefined); setShowPartyDropdown(false); }}>
-                            <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '500' }}>Clear Selection</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    )}
-                  </View>
+
 
                   {/* Date */}
                   <View style={styles.inputGroup}>

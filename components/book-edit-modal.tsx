@@ -190,7 +190,7 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                         ]}
                     >
                         {/* Header */}
-                        <View style={{ alignItems: 'center', padding: 24, paddingBottom: 16 }}>
+                        <View style={{ alignItems: 'center', padding: 20, paddingBottom: 12 }}>
                             <Text style={[styles.popupTitle, { fontFamily: 'AbrilFatface_400Regular', color: textColor, textAlign: 'center' }]}>
                                 {book ? 'Edit Book' : 'Create Book'}
                             </Text>
@@ -500,9 +500,9 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     popupContainer: {
-        borderRadius: 32,
-        width: '90%',
-        maxWidth: 380,
+        borderRadius: 24,
+        width: '85%',
+        maxWidth: 340,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 20 },
         shadowOpacity: 0.25,
@@ -520,8 +520,8 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     popupContent: {
-        padding: 24,
-        paddingTop: 8,
+        padding: 20,
+        paddingTop: 0,
     },
     inputGroup: {
         marginBottom: 24,

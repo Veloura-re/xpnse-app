@@ -254,39 +254,7 @@ export default function BusinessSwitcherScreen() {
       <View
         style={styles.contentArea}
       >
-        {recentlyActiveBusinesses.length >= 2 && (
-          <View style={styles.recentlyActiveSection}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>RECENTLY ACTIVE</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.recentlyActiveList}
-            >
-              {recentlyActiveBusinesses.map((item) => {
-                const BusinessIcon = item.icon && BUSINESS_ICONS[item.icon] ? BUSINESS_ICONS[item.icon] : Building2;
-                const isSelected = currentBusiness?.id === item.id;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.recentItem,
-                      {
-                        backgroundColor: isSelected ? (isDark ? 'rgba(33, 201, 141, 0.1)' : 'rgba(16, 185, 129, 0.1)') : colors.card,
-                        borderColor: isSelected ? colors.primary : colors.border
-                      }
-                    ]}
-                    onPress={() => handleSwitchBusiness(item.id)}
-                  >
-                    <View style={[styles.recentIcon, { backgroundColor: (item.color || colors.primary) + '20' }]}>
-                      <BusinessIcon size={20} color={item.color || colors.primary} />
-                    </View>
-                    <Text style={[styles.recentName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
+
 
 
         <View

@@ -538,46 +538,7 @@ export default function BooksScreen() {
             renderItem={renderBookCard}
             keyExtractor={item => item.id}
             ListHeaderComponent={
-              recentlyActiveBooks.length >= 2 ? (
-                <View style={styles.recentlyActiveSection}>
-                  <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>RECENTLY ACTIVE</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.recentlyActiveList}
-                  >
-                    {recentlyActiveBooks.map((item) => {
-                      if (!currentBusiness) return null;
-                      // Safely resolve the business icon
-                      const iconKey = currentBusiness.icon || 'store';
-                      const BusinessIcon = BUSINESS_ICONS[iconKey] || Building2;
-                      // Ensure we have a valid color with fallback
-                      const businessColor = currentBusiness.color || colors.primary;
-                      const bgColor = businessColor + (theme === 'dark' ? '20' : '15');
-
-                      return (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={[styles.recentBookItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-                          onPress={() => {
-                            touchBook(item.id);
-                            router.push(`/book/${item.id}`);
-                          }}
-                        >
-                          <View style={[styles.recentBookIcon, { backgroundColor: bgColor }]}>
-                            <BusinessIcon size={20} color={businessColor} />
-                          </View>
-                          <Text style={[styles.recentBookName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-                          <Text style={[styles.recentBookBalance, { color: colors.textSecondary }]}>
-                            {formatCurrency(item.netBalance, currentBusiness?.currency)}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                  <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 16 }]}>ALL BOOKS</Text>
-                </View>
-              ) : null
+              null
             }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
