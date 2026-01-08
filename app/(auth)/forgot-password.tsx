@@ -72,7 +72,7 @@ export default function ForgotPasswordScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerContainer}>
-            <Text style={[styles.appName, { color: colors.primary }]}>Vaulta</Text>
+            <Text style={[styles.appName, { color: colors.primary }]}>Spendria</Text>
             <Text style={[styles.welcomeText, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Reset Password</Text>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>Enter your email to receive a reset link.</Text>
           </View>

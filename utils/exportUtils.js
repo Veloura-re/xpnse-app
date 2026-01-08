@@ -206,29 +206,29 @@ export const exportToPDF = async (book, entries, options = {}) => {
       if (periodEntries.length === 0) return '';
 
       const rows = periodEntries
-        .slice(0, 50) // Limit to avoid PDF size issues
+        // .slice(0, 50) // Removed limit to allow full export
         .map(entry => {
           return `
           <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 10px;">
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
               ${entry.type === 'cash_in' ? '↗️ Cash In' : '↘️ Cash Out'}
             </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 10px; text-align: right; font-weight: bold; color: ${entry.type === 'cash_in' ? '#10b981' : '#ef4444'};">
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; text-align: right; font-weight: bold; color: ${entry.type === 'cash_in' ? '#10b981' : '#ef4444'};">
               ${formatCurrency(entry.amount, book.currency)}
             </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 10px;">
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
               ${formatDate(entry.date)}
             </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 11px; max-width: 200px;">
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; max-width: 200px;">
               ${entry.description || 'N/A'}
             </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 10px;">
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
               ${entry.paymentMode || 'N/A'}
             </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 10px;">
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
               ${entry.category || 'N/A'}
             </td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee; font-size: 10px; text-align: right; font-weight: bold;">
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; text-align: right; font-weight: bold;">
               ${formatCurrency(entry.displayBalance || 0, book.currency)}
             </td>
           </tr>
@@ -255,16 +255,16 @@ export const exportToPDF = async (book, entries, options = {}) => {
             </div>
           </div>
           ${periodEntries.length > 0 ? `
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
               <thead>
                 <tr style="background: #f3f4f6;">
-                  <th style="padding: 10px; text-align: left; font-size: 11px; color: #6b7280;">Type</th>
-                  <th style="padding: 10px; text-align: right; font-size: 11px; color: #6b7280;">Amount</th>
-                  <th style="padding: 10px; text-align: left; font-size: 11px; color: #6b7280;">Date</th>
-                  <th style="padding: 10px; text-align: left; font-size: 11px; color: #6b7280;">Description</th>
-                  <th style="padding: 10px; text-align: left; font-size: 11px; color: #6b7280;">Payment</th>
-                  <th style="padding: 10px; text-align: left; font-size: 11px; color: #6b7280;">Category</th>
-                  <th style="padding: 10px; text-align: right; font-size: 11px; color: #6b7280;">Balance</th>
+                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Type</th>
+                  <th style="padding: 8px; text-align: right; font-size: 10px; color: #6b7280;">Amount</th>
+                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Date</th>
+                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Description</th>
+                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Payment</th>
+                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Category</th>
+                  <th style="padding: 8px; text-align: right; font-size: 10px; color: #6b7280;">Balance</th>
                 </tr>
               </thead>
               <tbody>
@@ -288,49 +288,49 @@ export const exportToPDF = async (book, entries, options = {}) => {
           <style>
             body { 
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; 
-              margin: 20px; 
-              line-height: 1.5;
+              margin: 15px; 
+              line-height: 1.3;
               color: #374151;
             }
             .header { 
               text-align: center; 
-              margin-bottom: 30px; 
-              padding-bottom: 20px; 
-              border-bottom: 3px solid #10b981;
+              margin-bottom: 20px; 
+              padding-bottom: 15px; 
+              border-bottom: 2px solid #10b981;
             }
             .header h1 { 
               color: #1f2937; 
               margin: 0; 
-              font-size: 24px; 
+              font-size: 22px; 
               font-weight: 700;
             }
             .header .subtitle { 
               color: #6b7280; 
-              margin: 8px 0; 
-              font-size: 14px;
+              margin: 4px 0; 
+              font-size: 12px;
             }
             .overview { 
               display: grid; 
               grid-template-columns: repeat(3, 1fr); 
-              gap: 20px; 
-              margin-bottom: 40px;
+              gap: 10px; 
+              margin-bottom: 25px;
             }
             .overview-card { 
               background: white; 
-              padding: 20px; 
-              border-radius: 12px; 
+              padding: 12px; 
+              border-radius: 8px; 
               text-align: center; 
               box-shadow: 0 1px 3px rgba(0,0,0,0.1);
               border: 1px solid #e5e7eb;
             }
             .overview-card h3 { 
-              margin: 0 0 8px 0; 
-              font-size: 14px; 
+              margin: 0 0 4px 0; 
+              font-size: 12px; 
               color: #6b7280; 
               font-weight: 500;
             }
             .overview-card .value { 
-              font-size: 20px; 
+              font-size: 16px; 
               font-weight: 700; 
               margin: 0;
             }
@@ -339,12 +339,12 @@ export const exportToPDF = async (book, entries, options = {}) => {
             .net-positive { color: #10b981; }
             .net-negative { color: #ef4444; }
             .footer { 
-              margin-top: 40px; 
+              margin-top: 30px; 
               text-align: center; 
               color: #6b7280; 
-              font-size: 12px; 
+              font-size: 10px; 
               border-top: 1px solid #e5e7eb; 
-              padding-top: 20px;
+              padding-top: 15px;
             }
             @media print {
               body { margin: 10px; }

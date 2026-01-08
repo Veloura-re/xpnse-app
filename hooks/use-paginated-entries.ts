@@ -3,7 +3,14 @@ import { collection, query, orderBy, limit, startAfter, getDocs, QueryDocumentSn
 import { db } from '@/config/firebase';
 import { BookEntry } from '@/types';
 
-export function usePaginatedEntries(businessId: string | null, bookId?: string, pageSize = 20) {
+interface PaginationOptions {
+    pageSize?: number;
+    startDate?: Date;
+    endDate?: Date;
+}
+
+export function usePaginatedEntries(businessId: string | null, bookId?: string, options: PaginationOptions = {}) {
+    const { pageSize = 20, startDate, endDate } = options;
     const [entries, setEntries] = useState<BookEntry[]>([]);
     const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
     const [loading, setLoading] = useState(false);
@@ -18,22 +25,27 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
 
         try {
             let q;
+            const constraints: any[] = [orderBy('createdAt', 'desc')];
 
             if (bookId) {
-                q = query(
-                    collection(db, 'businesses', businessId, 'entries'),
-                    where('bookId', '==', bookId),
-                    orderBy('createdAt', 'desc'),
-                    limit(pageSize)
-                );
-            } else {
-                q = query(
-                    collection(db, 'businesses', businessId, 'entries'),
-                    orderBy('createdAt', 'desc'),
-                    limit(pageSize)
-                );
+                constraints.push(where('bookId', '==', bookId));
             }
 
+            if (startDate) {
+                constraints.push(where('createdAt', '>=', startDate.toISOString()));
+            }
+
+            if (endDate) {
+                constraints.push(where('createdAt', '<=', endDate.toISOString()));
+            }
+
+            // Apply limit at the end of constraints, before startAfter
+            constraints.push(limit(pageSize));
+
+            // Construct the base query
+            q = query(collection(db, 'businesses', businessId, 'entries'), ...constraints);
+
+            // Apply pagination if not refreshing
             if (!isRefresh && lastDoc) {
                 q = query(q, startAfter(lastDoc));
             }
@@ -59,7 +71,7 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
         } finally {
             setLoading(false);
         }
-    }, [businessId, bookId, pageSize, lastDoc, hasMore, loading]);
+    }, [businessId, bookId, pageSize, startDate?.toISOString(), endDate?.toISOString(), lastDoc, hasMore, loading]);
 
     const refresh = useCallback(() => {
         setLastDoc(null);
@@ -67,10 +79,10 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
         loadEntries(true);
     }, [loadEntries]);
 
-    // Initial load
+    // Initial load - re-run when filters change
     useEffect(() => {
         refresh();
-    }, [businessId, bookId]);
+    }, [businessId, bookId, startDate?.toISOString(), endDate?.toISOString()]);
 
     return {
         entries,

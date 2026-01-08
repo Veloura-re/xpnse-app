@@ -27,7 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GUIDE_STEPS = [
     {
         id: 'welcome',
-        title: 'Welcome to Vaulta',
+        title: 'Welcome to Spendria',
         description: 'Your complete solution for managing business finances, tracking cash flow, and collaborating with your team.',
         icon: <Sparkles size={48} color="#fff" />,
         colors: ['#10b981', '#059669'] as readonly [string, string, ...string[]],

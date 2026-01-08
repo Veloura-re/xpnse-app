@@ -39,6 +39,8 @@ import { formatCurrency } from '@/utils/currency-utils';
 import { getFontFamily } from '@/config/font-config';
 import { BlurView } from 'expo-blur';
 import { StatCard, ProgressBar } from '@/components/analytics/analytics-components';
+import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
+import { ActivityIndicator } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -150,6 +152,46 @@ export default function AnalyticsScreen() {
             topBooks: topBooks.slice(0, 5),
         };
     }, [books, currentBusiness, searchQuery, timeRange, selectedSort]);
+
+    // Calculate dates for transaction fetching
+    const { startDate, endDate } = useMemo(() => {
+        const now = new Date();
+        const end = new Date();
+        let start: Date | undefined;
+
+        switch (timeRange) {
+            case 'today':
+                start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                break;
+            case 'week':
+                start = new Date(now);
+                start.setDate(now.getDate() - 7);
+                break;
+            case 'month':
+                start = new Date(now);
+                start.setMonth(now.getMonth() - 1);
+                break;
+            case 'year':
+                start = new Date(now);
+                start.setFullYear(now.getFullYear() - 1);
+                break;
+            case 'all':
+                start = undefined;
+                break;
+        }
+        return { startDate: start, endDate: end };
+    }, [timeRange]);
+
+    const {
+        entries: transactions,
+        loading: loadingTransactions,
+        hasMore: hasMoreTransactions,
+        loadMore: loadMoreTransactions
+    } = usePaginatedEntries(currentBusiness?.id || null, undefined, {
+        pageSize: 10,
+        startDate,
+        endDate: timeRange !== 'all' ? endDate : undefined
+    });
 
 
 
@@ -287,8 +329,8 @@ export default function AnalyticsScreen() {
                         isDark={isDark}
                     />
                     <StatCard
-                        title="Transactions"
-                        value={analytics.totalTransactions.toString()}
+                        title="Volume"
+                        value={formatCurrency(analytics.totalCashIn + analytics.totalCashOut, currentBusiness?.currency)}
                         icon={ArrowRightLeft}
                         color="#f59e0b"
                         colors={colors}
@@ -370,7 +412,90 @@ export default function AnalyticsScreen() {
                         </View>
                     </View>
                 </View>
-            </ScrollView>
+
+                {/* Transactions List */}
+                <View style={[styles.section, { marginBottom: 30 }]}>
+                    <View style={styles.sectionHeader}>
+                        <ArrowRightLeft size={20} color={colors.primary} />
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
+                    </View>
+                    <View style={[styles.sectionCard, { borderColor: colors.border, overflow: 'hidden' }]}>
+                        <BlurView
+                            intensity={isDark ? 30 : 50}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '80' }]}
+                        />
+                        <View style={{ padding: 0 }}>
+                            {transactions.length > 0 ? (
+                                transactions.map((entry, index) => {
+                                    const entryDate = new Date(entry.createdAt);
+                                    const isLast = index === transactions.length - 1;
+                                    let bookName = 'Unknown Book';
+                                    const book = books.find(b => b.id === entry.bookId);
+                                    if (book) bookName = book.name;
+
+                                    return (
+                                        <View key={entry.id}>
+                                            <View style={[styles.transactionItem, { padding: 12 }]}>
+                                                <View style={[
+                                                    styles.transactionIcon,
+                                                    { backgroundColor: entry.type === 'cash_in' ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2') }
+                                                ]}>
+                                                    {entry.type === 'cash_in' ? (
+                                                        <ArrowDownRight size={18} color="#10b981" />
+                                                    ) : (
+                                                        <ArrowUpRight size={18} color="#ef4444" />
+                                                    )}
+                                                </View>
+                                                <View style={styles.transactionInfo}>
+                                                    <Text style={[styles.transactionTitle, { color: colors.text }]} numberOfLines={1}>
+                                                        {entry.description || (entry.type === 'cash_in' ? 'Cash In' : 'Cash Out')}
+                                                    </Text>
+                                                    <View style={styles.transactionMeta}>
+                                                        <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
+                                                            {entryDate.toLocaleDateString()}
+                                                        </Text>
+                                                        <Text style={[styles.transactionBook, { color: colors.textSecondary }]}>
+                                                            • {bookName}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <Text style={[
+                                                    styles.transactionAmount,
+                                                    { color: entry.type === 'cash_in' ? '#10b981' : '#ef4444' }
+                                                ]}>
+                                                    {entry.type === 'cash_in' ? '+' : '-'}{formatCurrency(Number(entry.amount), currentBusiness?.currency)}
+                                                </Text>
+                                            </View>
+                                            {!isLast && <View style={[styles.divider, { backgroundColor: colors.border, marginHorizontal: 12 }]} />}
+                                        </View>
+                                    );
+                                })
+                            ) : (
+                                <View style={{ padding: 20, alignItems: 'center' }}>
+                                    <Text style={{ color: colors.textSecondary }}>No transactions found</Text>
+                                </View>
+                            )}
+
+                            {/* Load More / Loading State */}
+                            {loadingTransactions && (
+                                <View style={{ padding: 16 }}>
+                                    <ActivityIndicator color={colors.primary} />
+                                </View>
+                            )}
+
+                            {!loadingTransactions && hasMoreTransactions && transactions.length > 0 && (
+                                <TouchableOpacity
+                                    style={[styles.loadMoreButton, { borderTopColor: colors.border }]}
+                                    onPress={() => loadMoreTransactions()}
+                                >
+                                    <Text style={[styles.loadMoreText, { color: colors.primary }]}>Load More</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                </View>
+            </ScrollView >
 
             {/* Sort Modal */}
             <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)}>
@@ -420,8 +545,8 @@ export default function AnalyticsScreen() {
                         </View>
                     </View>
                 </TouchableOpacity>
-            </Modal>
-        </View>
+            </Modal >
+        </View >
     );
 }
 
@@ -755,5 +880,54 @@ const styles = StyleSheet.create({
         height: 6,
         borderRadius: 3,
         marginRight: 8,
+    },
+    transactionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    transactionIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    transactionInfo: {
+        flex: 1,
+    },
+    transactionTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    transactionMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    transactionDate: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    transactionBook: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    transactionAmount: {
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    divider: {
+        height: 1,
+    },
+    loadMoreButton: {
+        padding: 16,
+        borderTopWidth: 1,
+        alignItems: 'center',
+    },
+    loadMoreText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

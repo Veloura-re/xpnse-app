@@ -868,7 +868,6 @@ export default function BookDetailScreen() {
         onDelete={handleDeleteBook}
       />
 
-      {/* Export Filename Modal */}
       <Modal
         visible={exportModalVisible}
         transparent
@@ -883,46 +882,49 @@ export default function BookDetailScreen() {
           <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setExportModalVisible(false); }}>
             <View style={StyleSheet.absoluteFill} />
           </TouchableWithoutFeedback>
-          <View style={[styles.createPopup, { width: Math.min(SCREEN_WIDTH - 32, 400), backgroundColor: colors.surface }]}>
-            <View style={[styles.popupHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.popupTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Name Your File</Text>
-              <TouchableOpacity onPress={() => setExportModalVisible(false)}>
-                <X size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.popupContent}>
-              <View style={styles.inputContainer}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>Filename</Text>
-                <TextInput
-                  style={[styles.textInput, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                  value={exportFileName}
-                  onChangeText={setExportFileName}
-                  placeholder="Enter filename"
-                  placeholderTextColor={colors.textSecondary}
-                  selectTextOnFocus
-                />
-                <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                  Extension (.{selectedExportFormat}) will be added automatically
-                </Text>
-              </View>
-
-              <View style={styles.popupFooter}>
-                <TouchableOpacity
-                  style={[styles.cancelButton, { backgroundColor: colors.card }]}
-                  onPress={() => setExportModalVisible(false)}
-                >
-                  <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                  onPress={confirmExport}
-                >
-                  <Text style={styles.saveButtonText}>Export</Text>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.createPopup, { width: Math.min(SCREEN_WIDTH - 32, 400), backgroundColor: colors.surface }]}>
+              <View style={[styles.popupHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.popupTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Name Your File</Text>
+                <TouchableOpacity onPress={() => setExportModalVisible(false)}>
+                  <X size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
+
+              <View style={styles.popupContent}>
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>Filename</Text>
+                  <TextInput
+                    style={[styles.textInput, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
+                    value={exportFileName}
+                    onChangeText={setExportFileName}
+                    placeholder="Enter filename"
+                    placeholderTextColor={colors.textSecondary}
+                    autoFocus={true}
+                  />
+                  <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                    Extension (.{selectedExportFormat}) will be added automatically
+                  </Text>
+                </View>
+
+                <View style={styles.popupFooter}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { backgroundColor: colors.card }]}
+                    onPress={() => setExportModalVisible(false)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                    onPress={confirmExport}
+                  >
+                    <Text style={styles.saveButtonText}>Export</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
 

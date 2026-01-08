@@ -328,7 +328,7 @@ export default function SettingsScreen() {
             <ChevronRight size={18} color="#ef4444" />
           </TouchableOpacity>
 
-          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0 • Vaulta</Text>
+          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0 • Spendria</Text>
         </View>
       </ScrollView>
 
@@ -1058,7 +1058,7 @@ export default function SettingsScreen() {
                     <Mail size={28} color={colors.primary} />
                   </View>
                   <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
-                    vaulta.feedback@gmail.com
+                    spendria.feedback@gmail.com
                   </Text>
                   <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
                     Send us your questions, feedback, or just say hello!
@@ -1068,7 +1068,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                   style={{ borderRadius: 16, overflow: 'hidden' }}
                   onPress={() => {
-                    Linking.openURL('mailto:vaulta.feedback@gmail.com');
+                    Linking.openURL('mailto:spendria.feedback@gmail.com');
                     setShowFeedbackModal(false);
                   }}
                   activeOpacity={0.9}
@@ -1146,7 +1146,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     style={{ borderRadius: 16, overflow: 'hidden' }}
                     onPress={() => {
-                      Linking.openURL('https://vaulta.com/privacy');
+                      Linking.openURL('https://spendria.app/privacy');
                       setShowPrivacyModal(false);
                     }}
                     activeOpacity={0.9}
@@ -1165,7 +1165,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     style={{ borderRadius: 16, overflow: 'hidden' }}
                     onPress={() => {
-                      Linking.openURL('mailto:privacy@vaulta.com');
+                      Linking.openURL('mailto:privacy@spendria.app');
                       setShowPrivacyModal(false);
                     }}
                     activeOpacity={0.9}

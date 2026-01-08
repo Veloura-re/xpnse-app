@@ -320,7 +320,7 @@ export default function BooksScreen() {
             <BookOpen size={48} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {businesses.length === 0 ? 'Welcome to Vaulta' : 'No Business Selected'}
+            {businesses.length === 0 ? 'Welcome to Spendria' : 'No Business Selected'}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {businesses.length === 0
