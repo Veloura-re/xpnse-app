@@ -408,7 +408,18 @@ export default function AccountSettingsScreen() {
 
                 <View>
                     {/* Profile Card */}
-                    <View style={[styles.profileCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.8)', borderColor: colors.border }]}>
+                    <View style={[
+                        styles.profileCard,
+                        {
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.8)',
+                            borderColor: colors.border,
+                            shadowColor: isDark ? 'transparent' : '#000',
+                            shadowOffset: { width: 0, height: 10 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 20,
+                            elevation: isDark ? 0 : 5,
+                        }
+                    ]}>
                         {isDark ? (
                             <LinearGradient
                                 colors={['rgba(33, 201, 141, 0.05)', 'transparent']}
@@ -481,7 +492,19 @@ export default function AccountSettingsScreen() {
                     </View>
 
                     {/* Appearance Settings */}
-                    <View style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border, borderWidth: 1 }]}>
+                    <View style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)',
+                            borderColor: colors.border,
+                            borderWidth: 1,
+                            shadowColor: isDark ? 'transparent' : '#000',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.05,
+                            shadowRadius: 10,
+                            elevation: isDark ? 0 : 2,
+                        }
+                    ]}>
                         <View style={[styles.sectionHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APPEARANCE</Text>
                         </View>
@@ -504,7 +527,18 @@ export default function AccountSettingsScreen() {
                     </View>
 
                     {/* Profile Settings Card */}
-                    <View style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border }]}>
+                    <View style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)',
+                            borderColor: colors.border,
+                            shadowColor: isDark ? 'transparent' : '#000',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.05,
+                            shadowRadius: 10,
+                            elevation: isDark ? 0 : 2,
+                        }
+                    ]}>
                         <View style={[styles.sectionHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PERSONAL INFO</Text>
                         </View>
@@ -522,7 +556,18 @@ export default function AccountSettingsScreen() {
                     </View>
 
                     {/* Security Settings Card */}
-                    <View style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)', borderColor: colors.border }]}>
+                    <View style={[
+                        styles.sectionCard,
+                        {
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)',
+                            borderColor: colors.border,
+                            shadowColor: isDark ? 'transparent' : '#000',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.05,
+                            shadowRadius: 10,
+                            elevation: isDark ? 0 : 2,
+                        }
+                    ]}>
                         <View style={[styles.sectionHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SECURITY</Text>
                         </View>
@@ -877,7 +922,6 @@ const modalStyles = StyleSheet.create({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        overflow: 'hidden',
     },
     circle1: {
         position: 'absolute',
@@ -922,11 +966,6 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 2,
     },
     appName: {
         fontSize: 13,
@@ -960,12 +999,6 @@ const styles = StyleSheet.create({
         padding: 24,
         marginBottom: 20,
         borderWidth: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 5,
-        overflow: 'hidden',
     },
     avatarWrapper: {
         alignItems: 'center',
@@ -1061,12 +1094,6 @@ const styles = StyleSheet.create({
     sectionCard: {
         borderRadius: 20,
         marginBottom: 16,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
     },
     sectionHeader: {
         paddingHorizontal: 20,
@@ -1110,11 +1137,6 @@ const styles = StyleSheet.create({
         // transition is not supported in React Native
     },
     themeIcon: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
     },
     settingLabel: {
         fontSize: 14,

@@ -258,7 +258,19 @@ export default function BusinessSwitcherScreen() {
 
 
         <View
-          style={[styles.card, { backgroundColor: isDark ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.9)', borderColor: colors.border, overflow: 'hidden' }]}
+          style={[
+            styles.card,
+            {
+              backgroundColor: isDark ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+              borderColor: colors.border,
+              overflow: 'hidden',
+              shadowColor: isDark ? 'transparent' : '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: isDark ? 0 : 2,
+            }
+          ]}
         >
           <FlatList
             data={filteredBusinesses}
@@ -279,7 +291,16 @@ export default function BusinessSwitcherScreen() {
         style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}
       >
         <TouchableOpacity
-          style={styles.fab}
+          style={[
+            styles.fab,
+            {
+              shadowColor: isDark ? 'transparent' : '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.3,
+              shadowRadius: 16,
+              elevation: isDark ? 0 : 12,
+            }
+          ]}
           onPress={() => setShowCreateForm(true)}
           activeOpacity={0.9}
         >
@@ -320,11 +341,11 @@ export default function BusinessSwitcherScreen() {
                   padding: 20,
                   width: '100%',
                   maxWidth: 380,
-                  shadowColor: '#000',
+                  shadowColor: isDark ? 'transparent' : '#000',
                   shadowOffset: { width: 0, height: 12 },
                   shadowOpacity: 0.25,
                   shadowRadius: 24,
-                  elevation: 16,
+                  elevation: isDark ? 0 : 16,
                 }
               ]}
             >
@@ -534,14 +555,14 @@ export default function BusinessSwitcherScreen() {
               borderBottomRightRadius: 0,
               overflow: 'hidden',
               borderWidth: 1,
-              shadowColor: "#000",
+              shadowColor: isDark ? 'transparent' : "#000",
               shadowOffset: {
                 width: 0,
                 height: -4,
               },
               shadowOpacity: 0.15,
               shadowRadius: 8,
-              elevation: 10,
+              elevation: isDark ? 0 : 10,
             }]}>
               {/* Header with pill */}
               <View style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 8 }}>
@@ -823,11 +844,11 @@ export default function BusinessSwitcherScreen() {
                 alignItems: 'center',
                 width: '80%',
                 maxWidth: 320,
-                shadowColor: colors.primary,
+                shadowColor: isDark ? 'transparent' : colors.primary,
                 shadowOffset: { width: 0, height: 15 },
                 shadowOpacity: 0.1,
                 shadowRadius: 30,
-                elevation: 20,
+                elevation: isDark ? 0 : 20,
               }
             ]}
           >
@@ -909,8 +930,6 @@ export default function BusinessSwitcherScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
   },
   circle1: {
     position: 'absolute',
@@ -982,17 +1001,10 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 16,
     paddingHorizontal: 16,
     height: 52,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
   },
   searchInput: {
     flex: 1,
@@ -1109,16 +1121,8 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: '#fff',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
   },
   listContent: {
     padding: 0,
@@ -1206,11 +1210,6 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
   },
   fabGradient: {
     width: '100%',
@@ -1226,18 +1225,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderRadius: 24,
     padding: 24,
     margin: 20,
     width: '90%',
     maxWidth: 380,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
   },
   modalHeader: {
     alignItems: 'center',

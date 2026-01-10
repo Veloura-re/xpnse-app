@@ -395,13 +395,19 @@ export const exportToPDF = async (book, entries, options = {}) => {
       base64: false
     });
 
+    const targetUri = FileSystem.cacheDirectory + fileName;
+    await FileSystem.moveAsync({
+      from: uri,
+      to: targetUri
+    });
+
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri, {
+      await Sharing.shareAsync(targetUri, {
         mimeType: 'application/pdf',
         dialogTitle: 'Export PDF Report'
       });
     } else {
-      Alert.alert('Export Successful', `PDF report saved to: ${uri}`);
+      Alert.alert('Export Successful', `PDF report saved to: ${targetUri}`);
     }
 
     return { success: true, uri };

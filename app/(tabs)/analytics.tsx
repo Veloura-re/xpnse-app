@@ -74,85 +74,6 @@ export default function AnalyticsScreen() {
     const [sortModalVisible, setSortModalVisible] = useState(false);
     const [selectedSort, setSelectedSort] = useState<string>('balance-desc');
 
-    const isWithinTimeRange = (dateString: string, range: TimeRange) => {
-        if (range === 'all') return true;
-        const bookDate = new Date(dateString);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        switch (range) {
-            case 'today':
-                return bookDate >= today;
-            case 'week':
-                const weekAgo = new Date(today);
-                weekAgo.setDate(weekAgo.getDate() - 7);
-                return bookDate >= weekAgo;
-            case 'month':
-                const monthAgo = new Date(today);
-                monthAgo.setMonth(monthAgo.getMonth() - 1);
-                return bookDate >= monthAgo;
-            case 'year':
-                const yearAgo = new Date(today);
-                yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-                return bookDate >= yearAgo;
-            default: return true;
-        }
-    };
-
-    // Calculate analytics from books
-    const analytics = useMemo(() => {
-        if (!books || books.length === 0) {
-            return {
-                totalCashIn: 0,
-                totalCashOut: 0,
-                netBalance: 0,
-                totalTransactions: 0,
-                bookCount: 0,
-                topBooks: [],
-            };
-        }
-
-        let filteredBooks = books.filter(b => b.businessId === currentBusiness?.id);
-
-        // Apply Time Range Filter
-        filteredBooks = filteredBooks.filter(book => isWithinTimeRange(book.createdAt, timeRange));
-
-        // Apply Search Filter
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase();
-            filteredBooks = filteredBooks.filter(book => book.name.toLowerCase().includes(q));
-        }
-
-        let totalCashIn = 0;
-        let totalCashOut = 0;
-
-        filteredBooks.forEach(book => {
-            totalCashIn += book.totalCashIn || 0;
-            totalCashOut += book.totalCashOut || 0;
-        });
-
-        const topBooks = [...filteredBooks];
-
-        // Apply Sorting to Top Books
-        topBooks.sort((a, b) => {
-            switch (selectedSort) {
-                case 'name-asc': return a.name.localeCompare(b.name);
-                case 'name-desc': return b.name.localeCompare(a.name);
-                case 'balance-asc': return (a.netBalance || 0) - (b.netBalance || 0);
-                case 'balance-desc':
-                default: return Math.abs(b.netBalance || 0) - Math.abs(a.netBalance || 0);
-            }
-        });
-
-        return {
-            totalCashIn,
-            totalCashOut,
-            netBalance: totalCashIn - totalCashOut,
-            totalTransactions: filteredBooks.reduce((acc, book) => acc + ((book as any).entryCount || 0), 0),
-            bookCount: filteredBooks.length,
-            topBooks: topBooks.slice(0, 5),
-        };
-    }, [books, currentBusiness, searchQuery, timeRange, selectedSort]);
-
     // Calculate dates for transaction fetching
     const { startDate, endDate } = useMemo(() => {
         const now = new Date();
@@ -188,10 +109,69 @@ export default function AnalyticsScreen() {
         hasMore: hasMoreTransactions,
         loadMore: loadMoreTransactions
     } = usePaginatedEntries(currentBusiness?.id || null, undefined, {
-        pageSize: 10,
+        pageSize: 50, // Use a larger page size for analytics aggregation
         startDate,
         endDate: timeRange !== 'all' ? endDate : undefined
     });
+
+    // Calculate analytics from transactions and books
+    const analytics = useMemo(() => {
+        if (!books || books.length === 0) {
+            return {
+                totalCashIn: 0,
+                totalCashOut: 0,
+                netBalance: 0,
+                totalTransactions: 0,
+                bookCount: 0,
+                topBooks: [],
+            };
+        }
+
+        let filteredBooks = books.filter(b => b.businessId === currentBusiness?.id);
+
+        // Apply Search Filter to books for the Top Books section
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            filteredBooks = filteredBooks.filter(book => book.name.toLowerCase().includes(q));
+        }
+
+        // Aggregate statistics from transactions (entries) instead of lifetime book totals
+        let totalCashIn = 0;
+        let totalCashOut = 0;
+
+        transactions.forEach(entry => {
+            if (entry.type === 'cash_in') {
+                totalCashIn += Number(entry.amount) || 0;
+            } else {
+                totalCashOut += Number(entry.amount) || 0;
+            }
+        });
+
+        // Top Books should show books that are active or matching search
+        const topBooks = [...filteredBooks];
+
+        // Apply Sorting to Top Books
+        // We want to show books with the highest net balance (profit) at the top
+        // and handle negative balances (losses) correctly.
+        topBooks.sort((a, b) => {
+            switch (selectedSort) {
+                case 'name-asc': return a.name.localeCompare(b.name);
+                case 'name-desc': return b.name.localeCompare(a.name);
+                case 'balance-asc': return (a.netBalance || 0) - (b.netBalance || 0);
+                case 'balance-desc':
+                default: return (b.netBalance || 0) - (a.netBalance || 0);
+            }
+        });
+
+        return {
+            totalCashIn,
+            totalCashOut,
+            netBalance: totalCashIn - totalCashOut,
+            totalTransactions: transactions.length,
+            bookCount: filteredBooks.length,
+            topBooks: topBooks.slice(0, 5),
+        };
+    }, [books, currentBusiness, searchQuery, timeRange, selectedSort, transactions]);
 
 
 
@@ -249,7 +229,7 @@ export default function AnalyticsScreen() {
                                     placeholderTextColor={colors.textSecondary}
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
-                                    autoFocus
+                                    autoFocus={false}
                                 />
                                 <TouchableOpacity
                                     onPress={() => {
