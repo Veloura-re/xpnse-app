@@ -310,6 +310,11 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
   const updateBusiness = useCallback(async (updates: Partial<Business>) => {
     if (!currentBusiness || !db) return;
+
+    if (!hasPermission('partner')) {
+      throw new Error('Only owners and partners can update business settings');
+    }
+
     try {
       await updateDoc(doc(db, 'businesses', currentBusiness.id), updates);
       // State update handled by onSnapshot
@@ -317,7 +322,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       console.error("Error updating business:", error);
       throw error;
     }
-  }, [currentBusiness, db]);
+  }, [currentBusiness, db, hasPermission]);
 
   const updateBusinessFont = useCallback(async (fontId: string) => {
     if (!currentBusiness) return;

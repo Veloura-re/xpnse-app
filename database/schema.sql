@@ -110,8 +110,14 @@ CREATE POLICY "Users can view businesses they belong to" ON public.businesses
     id IN (SELECT business_id FROM public.business_members WHERE user_id = auth.uid())
   );
 
-CREATE POLICY "Only owners can update businesses" ON public.businesses
-  FOR UPDATE USING (owner_id = auth.uid());
+CREATE POLICY "Owners and partners can update businesses" ON public.businesses
+  FOR UPDATE USING (
+    owner_id = auth.uid() OR 
+    id IN (
+      SELECT business_id FROM public.business_members 
+      WHERE user_id = auth.uid() AND role IN ('owner', 'partner')
+    )
+  );
 
 CREATE POLICY "Users can create businesses" ON public.businesses
   FOR INSERT WITH CHECK (owner_id = auth.uid());

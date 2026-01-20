@@ -35,6 +35,7 @@ export default function BusinessSettingsScreen() {
         const currentLogo = LOGO_OPTIONS.find(l => l.icon === currentBusiness?.icon && l.color === currentBusiness?.color);
         return currentLogo?.id || '1';
     });
+    const [businessCurrency, setBusinessCurrency] = useState(currentBusiness?.currency || 'USD');
     const [showLogoPicker, setShowLogoPicker] = useState(false);
     const [logoSearchQuery, setLogoSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -71,6 +72,10 @@ export default function BusinessSettingsScreen() {
                 await updateBusiness({ name: businessName.trim() });
             }
 
+            if (businessCurrency && businessCurrency !== currentBusiness.currency) {
+                await updateBusiness({ currency: businessCurrency });
+            }
+
             setIsEditing(false);
             Alert.alert('Success', 'Business settings updated successfully');
         } catch (error: any) {
@@ -82,6 +87,7 @@ export default function BusinessSettingsScreen() {
 
     const handleCancel = () => {
         setBusinessName(currentBusiness?.name || '');
+        setBusinessCurrency(currentBusiness?.currency || 'USD');
         const currentLogo = LOGO_OPTIONS.find(l => l.icon === currentBusiness?.icon);
         setSelectedLogoId(currentLogo?.id || '1');
         setIsEditing(false);
@@ -196,10 +202,22 @@ export default function BusinessSettingsScreen() {
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                         <Text style={[styles.cardTitle, { color: colors.textSecondary, marginTop: 16 }]}>CURRENCY</Text>
-                        <View style={[styles.input, { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: colors.border, justifyContent: 'center' }]}>
-                            <Text style={[styles.inputText, { color: colors.textSecondary }]}>{currentBusiness.currency || 'USD'}</Text>
-                        </View>
-                        <Text style={[styles.helperText, { color: colors.textSecondary }]}>Currency cannot be changed after creation</Text>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                {
+                                    backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
+                                    borderColor: isEditing ? colors.primary : colors.border,
+                                    color: colors.text,
+                                    borderWidth: isEditing ? 2 : 1,
+                                }
+                            ]}
+                            value={businessCurrency}
+                            onChangeText={setBusinessCurrency}
+                            editable={isEditing && canEdit}
+                            placeholder="Currency (e.g., USD, EUR)"
+                            placeholderTextColor={colors.textSecondary}
+                        />
 
                         {isEditing && (
                             <View style={styles.buttonContainer}>
