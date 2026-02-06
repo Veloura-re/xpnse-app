@@ -288,7 +288,7 @@ export default function BusinessSwitcherScreen() {
 
       {/* Floating Action Button */}
       <View
-        style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}
+        style={[styles.fabContainer, { bottom: insets.bottom + 110 }]}
       >
         <TouchableOpacity
           style={[
@@ -310,7 +310,7 @@ export default function BusinessSwitcherScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Plus size={28} color="#fff" strokeWidth={2.5} />
+            <Plus size={32} color="#fff" strokeWidth={2.5} />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -1238,9 +1238,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   modalIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#f0fdf4',
     alignItems: 'center',
     justifyContent: 'center',

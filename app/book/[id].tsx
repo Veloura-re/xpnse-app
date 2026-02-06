@@ -786,24 +786,35 @@ export default function BookDetailScreen() {
         />
       </View>
 
-      {/* FABs or Bulk Action Bar */}
+      {/* FABs */}
       {(userRole === 'owner' || userRole === 'partner') && !selectionMode && (
-        <View style={styles.fabContainer}>
+        <View
+          style={[styles.fabContainer, { bottom: insets.bottom + 120 }]}
+        >
+          {/* Add Expense Button */}
           <TouchableOpacity
             style={styles.fabWrapper}
             onPress={() => handleAddEntryWithType('cash_out')}
             activeOpacity={0.9}
           >
-            <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.fabCircle}>
+            <LinearGradient
+              colors={['#ef4444', '#dc2626']}
+              style={styles.fabCircle}
+            >
               <Minus size={24} color="#fff" strokeWidth={3} />
             </LinearGradient>
           </TouchableOpacity>
+
+          {/* Add Income Button */}
           <TouchableOpacity
             style={styles.fabWrapper}
             onPress={() => handleAddEntryWithType('cash_in')}
             activeOpacity={0.9}
           >
-            <LinearGradient colors={['#10b981', '#059669']} style={styles.fabCircle}>
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              style={styles.fabCircle}
+            >
               <Plus size={24} color="#fff" strokeWidth={3} />
             </LinearGradient>
           </TouchableOpacity>
@@ -812,7 +823,16 @@ export default function BookDetailScreen() {
 
       {/* Bulk Action Bar */}
       {selectionMode && selectedEntries.size > 0 && (
-        <View style={[styles.bulkActionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+        <View
+          style={[
+            styles.bulkActionBar,
+            {
+              backgroundColor: isDark ? '#0A0A0A' : '#fff',
+              borderTopColor: colors.border,
+              bottom: insets.bottom + 85
+            }
+          ]}
+        >
           <View style={styles.bulkActionInfo}>
             <Text style={[styles.bulkActionCount, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>
               {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}
@@ -1924,7 +1944,6 @@ const styles = StyleSheet.create({
   // FAB
   fabContainer: {
     position: 'absolute',
-    bottom: 30,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -1941,9 +1960,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   fabCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+    width: 60,
+    height: 60,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2175,7 +2194,6 @@ const styles = StyleSheet.create({
   // Bulk Action Bar
   bulkActionBar: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     borderTopWidth: 1,

@@ -279,7 +279,7 @@ export default function TeamManagementScreen() {
             {/* Floating Action Button */}
             {(userRole === 'owner' || userRole === 'partner') && (
                 <TouchableOpacity
-                    style={styles.fab}
+                    style={[styles.fab, { bottom: insets.bottom + 110 }]}
                     onPress={() => setShowInviteModal(true)}
                     activeOpacity={0.8}
                 >
@@ -586,9 +586,9 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 24,
         right: 20,
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',

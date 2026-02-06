@@ -4,6 +4,8 @@ import { useTheme } from '@/providers/theme-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { BookOpen, BarChart3, Settings, Users } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import FloatingDock from '@/components/navigation/FloatingDock';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 export default function TabLayout() {
   const { isDark, colors } = useTheme();
@@ -22,17 +24,13 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props: BottomTabBarProps) => <FloatingDock {...props} />}
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 70 + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 12,
+          display: 'none', // Hide default tab bar
         },
         headerShown: false,
       }}
@@ -76,18 +74,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Settings size={size} color={color} />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          href: null, // Hide from tabs
-        }}
-      />
-      <Tabs.Screen
-        name="people"
-        options={{
-          href: null, // Hide from tabs - experimental feature
         }}
       />
     </Tabs>

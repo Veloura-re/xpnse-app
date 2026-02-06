@@ -41,6 +41,7 @@ import { BlurView } from 'expo-blur';
 import { StatCard, ProgressBar } from '@/components/analytics/analytics-components';
 import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
 import { ActivityIndicator } from 'react-native';
+import { BookEntry } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -109,14 +110,16 @@ export default function AnalyticsScreen() {
         hasMore: hasMoreTransactions,
         loadMore: loadMoreTransactions
     } = usePaginatedEntries(currentBusiness?.id || null, undefined, {
-        pageSize: 50, // Use a larger page size for analytics aggregation
+        pageSize: timeRange === 'all' ? 50 : 10000, // Increased to 10,000 to ensure all period data is calculated
         startDate,
         endDate: timeRange !== 'all' ? endDate : undefined
     });
 
     // Calculate analytics from transactions and books
     const analytics = useMemo(() => {
-        if (!books || books.length === 0) {
+        const businessBooks = books.filter(b => b.businessId === currentBusiness?.id);
+
+        if (!businessBooks || businessBooks.length === 0) {
             return {
                 totalCashIn: 0,
                 totalCashOut: 0,
@@ -124,42 +127,60 @@ export default function AnalyticsScreen() {
                 totalTransactions: 0,
                 bookCount: 0,
                 topBooks: [],
+                isLoading: loadingTransactions && transactions.length === 0
             };
         }
 
-        let filteredBooks = books.filter(b => b.businessId === currentBusiness?.id);
-
-        // Apply Search Filter to books for the Top Books section
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase();
-            filteredBooks = filteredBooks.filter(book => book.name.toLowerCase().includes(q));
-        }
-
-        // Aggregate statistics from transactions (entries) instead of lifetime book totals
         let totalCashIn = 0;
         let totalCashOut = 0;
+        let totalTransactions = 0;
+        const periodBalanceMap: Record<string, number> = {};
 
-        transactions.forEach(entry => {
-            if (entry.type === 'cash_in') {
-                totalCashIn += Number(entry.amount) || 0;
-            } else {
-                totalCashOut += Number(entry.amount) || 0;
-            }
-        });
+        if (timeRange === 'all') {
+            // Use pre-aggregated lifetime totals from books for "All Time" accuracy
+            businessBooks.forEach(book => {
+                totalCashIn += Number(book.totalCashIn) || 0;
+                totalCashOut += Number(book.totalCashOut) || 0;
+            });
+            totalTransactions = transactions.length; // Still show loaded transaction count
+        } else {
+            // Aggregate statistics from transactions for specific filtered periods
+            transactions.forEach((entry: BookEntry) => {
+                const amount = Number(entry.amount) || 0;
+                if (entry.type === 'cash_in') {
+                    totalCashIn += amount;
+                } else {
+                    totalCashOut += amount;
+                }
 
-        // Top Books should show books that are active or matching search
-        const topBooks = [...filteredBooks];
+                // Track per-book balance for the specific period
+                if (!periodBalanceMap[entry.bookId]) periodBalanceMap[entry.bookId] = 0;
+                periodBalanceMap[entry.bookId] += (entry.type === 'cash_in' ? amount : -amount);
+            });
+            totalTransactions = transactions.length;
+        }
 
-        // Apply Sorting to Top Books
-        // We want to show books with the highest net balance (profit) at the top
-        // and handle negative balances (losses) correctly.
+        // Prepare Top Books data
+        let topBooks = businessBooks.map(book => ({
+            ...book,
+            // Use period balance if not "all", otherwise use lifetime
+            displayBalance: timeRange === 'all' ? (book.netBalance || 0) : (periodBalanceMap[book.id] || 0)
+        }));
+
+        // Filter by SEARCH IF search is active
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            topBooks = topBooks.filter(book => book.name.toLowerCase().includes(q));
+        }
+
+        // Apply Sorting to Top Books based on displayBalance
         topBooks.sort((a, b) => {
             switch (selectedSort) {
                 case 'name-asc': return a.name.localeCompare(b.name);
                 case 'name-desc': return b.name.localeCompare(a.name);
-                case 'balance-asc': return (a.netBalance || 0) - (b.netBalance || 0);
+                case 'balance-asc': return a.displayBalance - b.displayBalance;
                 case 'balance-desc':
-                default: return (b.netBalance || 0) - (a.netBalance || 0);
+                default: return b.displayBalance - a.displayBalance;
             }
         });
 
@@ -167,11 +188,12 @@ export default function AnalyticsScreen() {
             totalCashIn,
             totalCashOut,
             netBalance: totalCashIn - totalCashOut,
-            totalTransactions: transactions.length,
-            bookCount: filteredBooks.length,
-            topBooks: topBooks.slice(0, 5),
+            totalTransactions,
+            bookCount: businessBooks.length,
+            topBooks: topBooks, // Show all books instead of just top 5
+            isLoading: loadingTransactions && transactions.length === 0
         };
-    }, [books, currentBusiness, searchQuery, timeRange, selectedSort, transactions]);
+    }, [books, currentBusiness, searchQuery, timeRange, selectedSort, transactions, loadingTransactions]);
 
 
 
@@ -263,12 +285,16 @@ export default function AnalyticsScreen() {
                             </View>
                             <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
                         </View>
-                        <Text style={[
-                            styles.balanceValue,
-                            { color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
-                        ]}>
-                            {formatCurrency(analytics.netBalance, currentBusiness?.currency)}
-                        </Text>
+                        {analytics.isLoading ? (
+                            <ActivityIndicator color={colors.primary} size="large" style={{ marginVertical: 10, alignSelf: 'flex-start' }} />
+                        ) : (
+                            <Text style={[
+                                styles.balanceValue,
+                                { color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
+                            ]}>
+                                {formatCurrency(analytics.netBalance, currentBusiness?.currency)}
+                            </Text>
+                        )}
 
                         <View style={styles.balanceStats}>
                             <View style={styles.balanceStatItem}>
@@ -278,7 +304,7 @@ export default function AnalyticsScreen() {
                                 <View>
                                     <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total In</Text>
                                     <Text style={[styles.miniValue, { color: '#10b981' }]}>
-                                        {formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
+                                        {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
                                     </Text>
                                 </View>
                             </View>
@@ -290,7 +316,7 @@ export default function AnalyticsScreen() {
                                 <View>
                                     <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total Out</Text>
                                     <Text style={[styles.miniValue, { color: '#ef4444' }]}>
-                                        {formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
+                                        {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
                                     </Text>
                                 </View>
                             </View>
@@ -310,7 +336,7 @@ export default function AnalyticsScreen() {
                     />
                     <StatCard
                         title="Volume"
-                        value={formatCurrency(analytics.totalCashIn + analytics.totalCashOut, currentBusiness?.currency)}
+                        value={analytics.isLoading ? "..." : formatCurrency(analytics.totalCashIn + analytics.totalCashOut, currentBusiness?.currency)}
                         icon={ArrowRightLeft}
                         color="#f59e0b"
                         colors={colors}
@@ -336,9 +362,9 @@ export default function AnalyticsScreen() {
                                     <ProgressBar
                                         key={book.id}
                                         label={book.name}
-                                        value={Math.abs(book.netBalance || 0)}
-                                        total={Math.max(analytics.totalCashIn, analytics.totalCashOut) || 1}
-                                        color={book.netBalance >= 0 ? '#10b981' : '#ef4444'}
+                                        value={Math.abs(book.displayBalance || 0)}
+                                        total={Math.max(analytics.totalCashIn, analytics.totalCashOut, Math.abs(analytics.netBalance)) || 1}
+                                        color={book.displayBalance >= 0 ? '#10b981' : '#ef4444'}
                                         colors={colors}
                                         isDark={isDark}
                                         currency={currentBusiness?.currency}
@@ -407,7 +433,7 @@ export default function AnalyticsScreen() {
                         />
                         <View style={{ padding: 0 }}>
                             {transactions.length > 0 ? (
-                                transactions.map((entry, index) => {
+                                transactions.map((entry: BookEntry, index: number) => {
                                     const entryDate = new Date(entry.createdAt);
                                     const isLast = index === transactions.length - 1;
                                     let bookName = 'Unknown Book';

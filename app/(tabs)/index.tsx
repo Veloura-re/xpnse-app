@@ -561,7 +561,7 @@ export default function BooksScreen() {
       {
         (userRole === 'owner' || userRole === 'partner') && (
           <TouchableOpacity
-            style={styles.fab}
+            style={[styles.fab, { bottom: insets.bottom + 110 }]}
             onPress={() => {
               setSelectedBook(null);
               setEditModalVisible(true);
@@ -942,11 +942,10 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
     right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
