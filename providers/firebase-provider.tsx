@@ -23,7 +23,7 @@ import {
   MultiFactorUser,
   confirmPasswordReset as firebaseConfirmPasswordReset,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayRemove, serverTimestamp, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayRemove, serverTimestamp, collection, query, where, getDocs, writeBatch, arrayUnion } from 'firebase/firestore';
 import { db, auth, firebaseInitialized, firebaseError } from '@/config/firebase';
 import { User, Profile, UserRole } from '@/types';
 import createContextHook from '@nkzw/create-context-hook';
@@ -39,7 +39,7 @@ interface FirebaseContextType {
   // Authentication - Unified return type
   signUp: (email: string, password: string, profileData: Partial<Profile>) => Promise<{ data: User | null; error: any }>;
   signIn: (email: string, password: string) => Promise<{ data: User | null; error: any }>;
-  signOut: () => Promise<{ data: null; error: any }>;
+  signOut: (pushToken?: string | null) => Promise<{ data: null; error: any }>;
   resetPassword: (email: string) => Promise<{ data: null; error: any }>;
   confirmPasswordReset: (oobCode: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   resendVerificationEmail: () => Promise<{ data: null; error: any }>;
@@ -402,11 +402,21 @@ export const [FirebaseProvider, useFirebase] = createContextHook((): FirebaseCon
   }, []);
 
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (pushToken?: string | null) => {
     if (!firebaseInitialized || !auth) {
       return { data: null, error: { message: 'Firebase is not configured' } };
     }
     try {
+      if (pushToken && auth.currentUser && db) {
+        // Remove this token from user's pushTokens array
+        try {
+          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+            pushTokens: arrayRemove(pushToken)
+          });
+        } catch (err) {
+          console.warn('Failed to remove push token on sign out:', err);
+        }
+      }
       await firebaseSignOut(auth);
       return { data: null, error: null };
     } catch (error: any) {

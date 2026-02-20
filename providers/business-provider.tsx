@@ -309,15 +309,36 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   }, [user, storage]);
 
   const updateBusiness = useCallback(async (updates: Partial<Business>) => {
-    if (!currentBusiness || !db) return;
+    if (!currentBusiness || !db || !user) return;
 
     if (!hasPermission('partner')) {
       throw new Error('Only owners and partners can update business settings');
     }
 
     try {
-      await updateDoc(doc(db, 'businesses', currentBusiness.id), updates);
-      // State update handled by onSnapshot
+      await updateDoc(doc(db, currentBusiness.id), updates);
+
+      // Notify team members about business update
+      const teamMembers = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
+      for (const member of teamMembers) {
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            userId: member.userId,
+            title: 'Business Updated',
+            message: `${user.displayName || user.name || user.email} updated settings for "${currentBusiness.name}"`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: 'business_updated',
+            metadata: {
+              businessId: currentBusiness.id,
+              businessName: currentBusiness.name,
+              updatedBy: user.displayName || user.name || user.email
+            }
+          });
+        } catch (notifError) {
+          console.error('Error sending notification to team member:', notifError);
+        }
+      }
     } catch (error) {
       console.error("Error updating business:", error);
       throw error;
@@ -357,8 +378,29 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
 
     try {
+      // Notify team members BEFORE deletion
+      const teamMembers = (business.members || []).filter((m: BusinessMember) => m.userId !== user.id);
+      for (const member of teamMembers) {
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            userId: member.userId,
+            title: 'Business Deleted',
+            message: `The business "${business.name}" has been deleted by ${user.displayName || user.name || user.email}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: 'business_deleted',
+            metadata: {
+              businessId: businessId,
+              businessName: business.name,
+              deletedBy: user.displayName || user.name || user.email
+            }
+          });
+        } catch (notifError) {
+          console.error('Error sending deletion notification:', notifError);
+        }
+      }
+
       // 1. Delete all entries for this business (client-side best effort)
-      // Note: In a real app, use Cloud Functions for recursive delete
       const entriesQuery = query(collection(db, 'businesses', businessId, 'entries'));
       const entriesSnapshot = await getDocs(entriesQuery);
       const batch = writeBatch(db);
@@ -699,10 +741,10 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           try {
             const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
             await addDoc(collection(db, 'notifications'), {
-              id: uuidv4(),
               title: entryData.type === 'cash_in' ? 'Money Received' : 'Money Paid',
               message: `${user.displayName || user.name || user.email} added ${entryTypeName} of ${formatCurrency(amount, currentBusiness.currency)} for ${description} to "${bookName}"${balanceText}`,
-              timestamp: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              read: false,
               type: entryData.type === 'cash_in' ? 'success' : 'error',
               userId: member.userId,
               businessId: currentBusiness.id,

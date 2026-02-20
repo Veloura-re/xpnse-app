@@ -13,7 +13,7 @@ interface AuthState {
     password: string,
     profileData?: Partial<Profile>
   ) => Promise<{ success: boolean; error?: string }>;
-  logout: () => Promise<void>;
+  logout: (pushToken?: string | null) => Promise<void>;
 
   // Low-level actions (kept for internal/advanced use)
   signIn: (email: string, password: string) => Promise<any>;
@@ -153,8 +153,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   }, [signUp]);
 
-  const logout = useCallback(async () => {
-    await firebaseSignOut();
+  const logout = useCallback(async (pushToken?: string | null) => {
+    await firebaseSignOut(pushToken);
   }, [firebaseSignOut]);
 
   // Expose a void-returning signOut wrapper for low-level API compatibility

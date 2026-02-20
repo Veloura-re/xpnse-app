@@ -39,6 +39,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/providers/auth-provider';
 import { useBusiness } from '@/providers/business-provider';
+import { useNotifications } from '@/providers/notification-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { RoleBadge } from '@/components/role-badge';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,6 +58,7 @@ type ExpandedSection = 'feedback' | 'privacy' | null;
 export default function SettingsScreen() {
   const { user, logout, updateProfile, deleteAccount, reauthenticate } = useAuth();
   const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont } = useBusiness();
+  const { expoPushToken } = useNotifications();
   const { colors, deviceFont, setDeviceFont, isDark, theme } = useTheme();
   const userRole = getUserRole();
   const insets = useSafeAreaInsets();
@@ -96,7 +98,7 @@ export default function SettingsScreen() {
 
   const confirmLogout = () => {
     setShowLogoutModal(false);
-    logout();
+    logout(expoPushToken);
   };
 
   const handleDeleteBusiness = () => {

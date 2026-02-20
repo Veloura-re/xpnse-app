@@ -86,6 +86,15 @@ export default function NotificationsScreen() {
         );
     };
 
+    const handleMarkAllAsRead = async () => {
+        if (notifications.every(n => n.read)) return;
+        try {
+            await markAllAsRead();
+        } catch (error) {
+            console.error('Error marking all as read:', error);
+        }
+    };
+
     const toggleExpand = (id: string, read: boolean) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setExpandedIds(prev => {

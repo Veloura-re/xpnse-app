@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './auth-provider';
 import { db } from '@/config/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, arrayUnion, getDoc, writeBatch } from 'firebase/firestore';
 import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -60,14 +60,20 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
     useEffect(() => {
         if (!user) return;
 
-        registerForPushNotificationsAsync().then(token => {
+        registerForPushNotificationsAsync().then(async (token) => {
             if (token && db && user.id) {
                 setExpoPushToken(token);
                 // Save token to user document
-                updateDoc(doc(db, 'users', user.id), {
-                    pushToken: token,
-                    pushTokenUpdatedAt: new Date().toISOString(),
-                }).catch(err => console.error('Error saving push token:', err));
+                try {
+                    const userRef = doc(db, 'users', user.id);
+                    await updateDoc(userRef, {
+                        pushToken: token, // Keep for backward compatibility
+                        pushTokens: arrayUnion(token), // Support multiple devices
+                        pushTokenUpdatedAt: new Date().toISOString(),
+                    });
+                } catch (err) {
+                    console.error('Error saving push token:', err);
+                }
             }
         });
 
@@ -112,8 +118,19 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
     const markAllAsRead = async () => {
         if (!db || !user) return;
         const unread = notifications.filter(n => !n.read);
-        for (const notif of unread) {
-            await markAsRead(notif.id);
+        if (unread.length === 0) return;
+
+        try {
+            const batch = writeBatch(db);
+            unread.forEach(notif => {
+                if (db) {
+                    const notifRef = doc(db, 'notifications', notif.id);
+                    batch.update(notifRef, { read: true });
+                }
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('Error marking all as read:', error);
         }
     };
 
@@ -208,7 +225,19 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        // Update lastActiveAt periodically while app is active
+        const activityInterval = setInterval(() => {
+            if (db && user.id) {
+                updateDoc(doc(db, 'users', user.id), {
+                    lastActiveAt: new Date().toISOString()
+                }).catch(() => { }); // Ignore errors for background activity update
+            }
+        }, 30000); // Every 30 seconds
+
+        return () => {
+            unsubscribe();
+            clearInterval(activityInterval);
+        };
     }, [user]);
 
     const unreadCount = notifications.filter(n => !n.read).length;
@@ -231,10 +260,11 @@ async function registerForPushNotificationsAsync() {
 
     if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
+            name: 'Default',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#10b981',
+            showBadge: true,
         });
     }
 
