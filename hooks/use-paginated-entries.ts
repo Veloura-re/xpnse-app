@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { collection, query, orderBy, limit, startAfter, getDocs, QueryDocumentSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, startAfter, getDocs, QueryDocumentSnapshot, where, getAggregateFromServer, sum, count } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { BookEntry } from '@/types';
 
@@ -90,6 +90,47 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
         hasMore,
         error,
         loadMore: () => loadEntries(false),
-        refresh
+        refresh,
+        getTotals: async () => {
+            if (!businessId || !db) return { totalCashIn: 0, totalCashOut: 0, netBalance: 0, count: 0 };
+
+            const baseConstraints: any[] = [];
+            if (bookId) baseConstraints.push(where('bookId', '==', bookId));
+            if (startDate) baseConstraints.push(where('createdAt', '>=', startDate.toISOString()));
+            if (endDate) baseConstraints.push(where('createdAt', '<=', endDate.toISOString()));
+
+            const inQuery = query(
+                collection(db, 'businesses', businessId, 'entries'),
+                ...baseConstraints,
+                where('type', '==', 'cash_in')
+            );
+
+            const outQuery = query(
+                collection(db, 'businesses', businessId, 'entries'),
+                ...baseConstraints,
+                where('type', '==', 'cash_out')
+            );
+
+            const [inSnapshot, outSnapshot] = await Promise.all([
+                getAggregateFromServer(inQuery, {
+                    totalAmount: sum('amount'),
+                    count: count()
+                }),
+                getAggregateFromServer(outQuery, {
+                    totalAmount: sum('amount'),
+                    count: count()
+                })
+            ]);
+
+            const totalCashIn = inSnapshot.data().totalAmount || 0;
+            const totalCashOut = outSnapshot.data().totalAmount || 0;
+
+            return {
+                totalCashIn,
+                totalCashOut,
+                netBalance: totalCashIn - totalCashOut,
+                count: (inSnapshot.data().count || 0) + (outSnapshot.data().count || 0)
+            };
+        }
     };
 }

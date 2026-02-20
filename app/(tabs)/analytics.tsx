@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -12,6 +12,7 @@ import {
     TextInput,
     Keyboard,
     Platform,
+    FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -74,6 +75,7 @@ export default function AnalyticsScreen() {
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const [sortModalVisible, setSortModalVisible] = useState(false);
     const [selectedSort, setSelectedSort] = useState<string>('balance-desc');
+    const [aggregateTotals, setAggregateTotals] = useState<{ totalCashIn: number, totalCashOut: number, netBalance: number, count: number } | null>(null);
 
     // Calculate dates for transaction fetching
     const { startDate, endDate } = useMemo(() => {
@@ -108,12 +110,22 @@ export default function AnalyticsScreen() {
         entries: transactions,
         loading: loadingTransactions,
         hasMore: hasMoreTransactions,
-        loadMore: loadMoreTransactions
+        loadMore: loadMoreTransactions,
+        getTotals
     } = usePaginatedEntries(currentBusiness?.id || null, undefined, {
-        pageSize: timeRange === 'all' ? 50 : 10000, // Increased to 10,000 to ensure all period data is calculated
+        pageSize: 50, // Reduced from 10,000
         startDate,
         endDate: timeRange !== 'all' ? endDate : undefined
     });
+
+    // Fetch aggregate totals when period changes
+    useEffect(() => {
+        const fetchTotals = async () => {
+            const totals = await getTotals();
+            setAggregateTotals(totals);
+        };
+        fetchTotals();
+    }, [getTotals]);
 
     // Calculate analytics from transactions and books
     const analytics = useMemo(() => {
@@ -142,9 +154,22 @@ export default function AnalyticsScreen() {
                 totalCashIn += Number(book.totalCashIn) || 0;
                 totalCashOut += Number(book.totalCashOut) || 0;
             });
-            totalTransactions = transactions.length; // Still show loaded transaction count
+            totalTransactions = transactions.length;
+        } else if (aggregateTotals) {
+            // Use server-side aggregate totals for filtered periods
+            totalCashIn = aggregateTotals.totalCashIn;
+            totalCashOut = aggregateTotals.totalCashOut;
+            totalTransactions = aggregateTotals.count;
+
+            // Still calculate per-book period balance from loaded transactions
+            // Note: This will only be accurate for books that have transactions in the loaded pages
+            transactions.forEach((entry: BookEntry) => {
+                const amount = Number(entry.amount) || 0;
+                if (!periodBalanceMap[entry.bookId]) periodBalanceMap[entry.bookId] = 0;
+                periodBalanceMap[entry.bookId] += (entry.type === 'cash_in' ? amount : -amount);
+            });
         } else {
-            // Aggregate statistics from transactions for specific filtered periods
+            // Fallback to client-side aggregation of loaded transactions
             transactions.forEach((entry: BookEntry) => {
                 const amount = Number(entry.amount) || 0;
                 if (entry.type === 'cash_in') {
@@ -153,7 +178,6 @@ export default function AnalyticsScreen() {
                     totalCashOut += amount;
                 }
 
-                // Track per-book balance for the specific period
                 if (!periodBalanceMap[entry.bookId]) periodBalanceMap[entry.bookId] = 0;
                 periodBalanceMap[entry.bookId] += (entry.type === 'cash_in' ? amount : -amount);
             });
@@ -197,189 +221,143 @@ export default function AnalyticsScreen() {
 
 
 
-    return (
-        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-
-            {/* Decorative Circles */}
-            <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-            <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
-            <ScrollView
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.headerTopRow}>
-                        <Text style={[styles.appName, { color: colors.primary }]}>Analytics</Text>
-                        <View style={styles.headerActions}>
+    const renderHeader = () => (
+        <View>
+            <View style={styles.header}>
+                <View style={styles.headerTopRow}>
+                    <Text style={[styles.appName, { color: colors.primary }]}>Analytics</Text>
+                    <View style={styles.headerActions}>
+                        <TouchableOpacity
+                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            onPress={() => router.push('/notes')}
+                        >
+                            <FileText size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            onPress={() => {
+                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                setIsSearchExpanded(true);
+                            }}
+                        >
+                            <Search size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            onPress={() => setSortModalVisible(true)}
+                        >
+                            <SlidersHorizontal size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                {!isSearchExpanded ? (
+                    <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>
+                        {currentBusiness?.name || 'Overview'}
+                    </Text>
+                ) : (
+                    <View style={styles.searchBarContainer}>
+                        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <Search size={14} color={colors.textSecondary} style={styles.searchIcon} />
+                            <TextInput
+                                style={[styles.searchInput, { color: colors.text }]}
+                                placeholder="Search..."
+                                placeholderTextColor={colors.textSecondary}
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                autoFocus={false}
+                            />
                             <TouchableOpacity
-                                style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                                onPress={() => router.push('/notes')}
-                            >
-                                <FileText size={16} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                                 onPress={() => {
                                     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                    setIsSearchExpanded(true);
+                                    setIsSearchExpanded(false);
+                                    setSearchQuery('');
                                 }}
                             >
-                                <Search size={16} color={colors.textSecondary} />
+                                <X size={14} color={colors.textSecondary} />
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                                onPress={() => setSortModalVisible(true)}
-                            >
-                                <SlidersHorizontal size={16} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                    {!isSearchExpanded ? (
-                        <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>
-                            {currentBusiness?.name || 'Overview'}
-                        </Text>
-                    ) : (
-                        <View style={styles.searchBarContainer}>
-                            <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                                <Search size={14} color={colors.textSecondary} style={styles.searchIcon} />
-                                <TextInput
-                                    style={[styles.searchInput, { color: colors.text }]}
-                                    placeholder="Search..."
-                                    placeholderTextColor={colors.textSecondary}
-                                    value={searchQuery}
-                                    onChangeText={setSearchQuery}
-                                    autoFocus={false}
-                                />
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                        setIsSearchExpanded(false);
-                                        setSearchQuery('');
-                                    }}
-                                >
-                                    <X size={14} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
-                </View>
-
-                {/* Main Balance Card */}
-                <View>
-                    <View style={[styles.balanceCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-                        <BlurView
-                            intensity={isDark ? 40 : 60}
-                            tint={isDark ? 'dark' : 'light'}
-                            style={StyleSheet.absoluteFill}
-                        />
-                        <LinearGradient
-                            colors={isDark ? ['rgba(10,10,10,0.4)', 'rgba(17,17,17,0.4)'] : ['rgba(255,255,255,0.6)', 'rgba(248,250,252,0.6)']}
-                            style={StyleSheet.absoluteFill}
-                        />
-                        <View style={styles.balanceHeader}>
-                            <View style={[styles.balanceIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
-                                <Wallet size={18} color="#10b981" />
-                            </View>
-                            <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
-                        </View>
-                        {analytics.isLoading ? (
-                            <ActivityIndicator color={colors.primary} size="large" style={{ marginVertical: 10, alignSelf: 'flex-start' }} />
-                        ) : (
-                            <Text style={[
-                                styles.balanceValue,
-                                { color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
-                            ]}>
-                                {formatCurrency(analytics.netBalance, currentBusiness?.currency)}
-                            </Text>
-                        )}
-
-                        <View style={styles.balanceStats}>
-                            <View style={styles.balanceStatItem}>
-                                <View style={[styles.miniIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
-                                    <TrendingUp size={14} color="#10b981" />
-                                </View>
-                                <View>
-                                    <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total In</Text>
-                                    <Text style={[styles.miniValue, { color: '#10b981' }]}>
-                                        {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
-                                    </Text>
-                                </View>
-                            </View>
-                            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                            <View style={styles.balanceStatItem}>
-                                <View style={[styles.miniIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2' }]}>
-                                    <TrendingDown size={14} color="#ef4444" />
-                                </View>
-                                <View>
-                                    <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total Out</Text>
-                                    <Text style={[styles.miniValue, { color: '#ef4444' }]}>
-                                        {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Quick Stats */}
-                <View style={styles.statsGrid}>
-                    <StatCard
-                        title="Books"
-                        value={analytics.bookCount.toString()}
-                        icon={BarChart3}
-                        color="#6366f1"
-                        colors={colors}
-                        isDark={isDark}
-                    />
-                    <StatCard
-                        title="Volume"
-                        value={analytics.isLoading ? "..." : formatCurrency(analytics.totalCashIn + analytics.totalCashOut, currentBusiness?.currency)}
-                        icon={ArrowRightLeft}
-                        color="#f59e0b"
-                        colors={colors}
-                        isDark={isDark}
-                    />
-                </View>
-
-                {/* Top Books Section */}
-                {analytics.topBooks.length > 0 && (
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <PieChart size={20} color={colors.primary} />
-                            <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Books by Balance</Text>
-                        </View>
-                        <View style={[styles.sectionCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-                            <BlurView
-                                intensity={isDark ? 30 : 50}
-                                tint={isDark ? 'dark' : 'light'}
-                                style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '80' }]}
-                            />
-                            <View style={{ padding: 12 }}>
-                                {analytics.topBooks.map((book) => (
-                                    <ProgressBar
-                                        key={book.id}
-                                        label={book.name}
-                                        value={Math.abs(book.displayBalance || 0)}
-                                        total={Math.max(analytics.totalCashIn, analytics.totalCashOut, Math.abs(analytics.netBalance)) || 1}
-                                        color={book.displayBalance >= 0 ? '#10b981' : '#ef4444'}
-                                        colors={colors}
-                                        isDark={isDark}
-                                        currency={currentBusiness?.currency}
-                                    />
-                                ))}
-                            </View>
                         </View>
                     </View>
                 )}
+            </View>
 
-                {/* Cash Flow Summary */}
+            <View style={[styles.balanceCard, { borderColor: colors.border, overflow: 'hidden' }]}>
+                <BlurView
+                    intensity={isDark ? 40 : 60}
+                    tint={isDark ? 'dark' : 'light'}
+                    style={StyleSheet.absoluteFill}
+                />
+                <LinearGradient
+                    colors={isDark ? ['rgba(10,10,10,0.4)', 'rgba(17,17,17,0.4)'] : ['rgba(255,255,255,0.6)', 'rgba(248,250,252,0.6)']}
+                    style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.balanceHeader}>
+                    <View style={[styles.balanceIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
+                        <Wallet size={18} color="#10b981" />
+                    </View>
+                    <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
+                </View>
+                {analytics.isLoading ? (
+                    <ActivityIndicator color={colors.primary} size="large" style={{ marginVertical: 10, alignSelf: 'flex-start' }} />
+                ) : (
+                    <Text style={[
+                        styles.balanceValue,
+                        { color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
+                    ]}>
+                        {formatCurrency(analytics.netBalance, currentBusiness?.currency)}
+                    </Text>
+                )}
+
+                <View style={styles.balanceStats}>
+                    <View style={styles.balanceStatItem}>
+                        <View style={[styles.miniIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
+                            <TrendingUp size={14} color="#10b981" />
+                        </View>
+                        <View>
+                            <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total In</Text>
+                            <Text style={[styles.miniValue, { color: '#10b981' }]}>
+                                {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                    <View style={styles.balanceStatItem}>
+                        <View style={[styles.miniIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2' }]}>
+                            <TrendingDown size={14} color="#ef4444" />
+                        </View>
+                        <View>
+                            <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total Out</Text>
+                            <Text style={[styles.miniValue, { color: '#ef4444' }]}>
+                                {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.statsGrid}>
+                <StatCard
+                    title="Books"
+                    value={analytics.bookCount.toString()}
+                    icon={BarChart3}
+                    color="#6366f1"
+                    colors={colors}
+                    isDark={isDark}
+                />
+                <StatCard
+                    title="Volume"
+                    value={analytics.isLoading ? "..." : formatCurrency(analytics.totalCashIn + analytics.totalCashOut, currentBusiness?.currency)}
+                    icon={ArrowRightLeft}
+                    color="#f59e0b"
+                    colors={colors}
+                    isDark={isDark}
+                />
+            </View>
+
+            {analytics.topBooks.length > 0 && (
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <DollarSign size={20} color={colors.primary} />
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Cash Flow Summary</Text>
+                        <PieChart size={20} color={colors.primary} />
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Books by Balance</Text>
                     </View>
                     <View style={[styles.sectionCard, { borderColor: colors.border, overflow: 'hidden' }]}>
                         <BlurView
@@ -388,120 +366,150 @@ export default function AnalyticsScreen() {
                             style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '80' }]}
                         />
                         <View style={{ padding: 12 }}>
-                            <View style={styles.flowRow}>
-                                <View style={styles.flowItem}>
-                                    <View style={[styles.flowIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                                        <TrendingUp size={16} color="#10b981" />
-                                    </View>
-                                    <View style={styles.flowInfo}>
-                                        <Text style={[styles.flowLabel, { color: colors.textSecondary }]}>Money In</Text>
-                                        <Text style={[styles.flowValue, { color: '#10b981' }]}>
-                                            {formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
-                                        </Text>
-                                    </View>
+                            {analytics.topBooks.map((book) => (
+                                <ProgressBar
+                                    key={book.id}
+                                    label={book.name}
+                                    value={Math.abs(book.displayBalance || 0)}
+                                    total={Math.max(analytics.totalCashIn, analytics.totalCashOut, Math.abs(analytics.netBalance)) || 1}
+                                    color={book.displayBalance >= 0 ? '#10b981' : '#ef4444'}
+                                    colors={colors}
+                                    isDark={isDark}
+                                    currency={currentBusiness?.currency}
+                                />
+                            ))}
+                        </View>
+                    </View>
+                </View>
+            )}
+
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <DollarSign size={20} color={colors.primary} />
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Cash Flow Summary</Text>
+                </View>
+                <View style={[styles.sectionCard, { borderColor: colors.border, overflow: 'hidden' }]}>
+                    <BlurView
+                        intensity={isDark ? 30 : 50}
+                        tint={isDark ? 'dark' : 'light'}
+                        style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '80' }]}
+                    />
+                    <View style={{ padding: 12 }}>
+                        <View style={styles.flowRow}>
+                            <View style={styles.flowItem}>
+                                <View style={[styles.flowIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                                    <TrendingUp size={16} color="#10b981" />
+                                </View>
+                                <View style={styles.flowInfo}>
+                                    <Text style={[styles.flowLabel, { color: colors.textSecondary }]}>Money In</Text>
+                                    <Text style={[styles.flowValue, { color: '#10b981' }]}>
+                                        {formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
+                                    </Text>
                                 </View>
                             </View>
-                            <View style={[styles.flowDivider, { backgroundColor: colors.border }]} />
-                            <View style={styles.flowRow}>
-                                <View style={styles.flowItem}>
-                                    <View style={[styles.flowIcon, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                                        <TrendingDown size={16} color="#ef4444" />
-                                    </View>
-                                    <View style={styles.flowInfo}>
-                                        <Text style={[styles.flowLabel, { color: colors.textSecondary }]}>Money Out</Text>
-                                        <Text style={[styles.flowValue, { color: '#ef4444' }]}>
-                                            {formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
-                                        </Text>
-                                    </View>
+                        </View>
+                        <View style={[styles.flowDivider, { backgroundColor: colors.border }]} />
+                        <View style={styles.flowRow}>
+                            <View style={styles.flowItem}>
+                                <View style={[styles.flowIcon, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                                    <TrendingDown size={16} color="#ef4444" />
+                                </View>
+                                <View style={styles.flowInfo}>
+                                    <Text style={[styles.flowLabel, { color: colors.textSecondary }]}>Money Out</Text>
+                                    <Text style={[styles.flowValue, { color: '#ef4444' }]}>
+                                        {formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
+                                    </Text>
                                 </View>
                             </View>
                         </View>
                     </View>
                 </View>
+            </View>
 
-                {/* Transactions List */}
-                <View style={[styles.section, { marginBottom: 30 }]}>
-                    <View style={styles.sectionHeader}>
-                        <ArrowRightLeft size={20} color={colors.primary} />
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
+            <View style={styles.sectionHeader}>
+                <ArrowRightLeft size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
+            </View>
+        </View>
+    );
+
+    const renderTransactionItem = ({ item: entry, index }: { item: BookEntry, index: number }) => {
+        const entryDate = new Date(entry.createdAt);
+        const isLast = index === transactions.length - 1;
+        let bookName = 'Unknown Book';
+        const book = books.find(b => b.id === entry.bookId);
+        if (book) bookName = book.name;
+
+        return (
+            <View key={entry.id}>
+                <View style={[styles.transactionItem, { padding: 12 }]}>
+                    <View style={[
+                        styles.transactionIcon,
+                        { backgroundColor: entry.type === 'cash_in' ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2') }
+                    ]}>
+                        {entry.type === 'cash_in' ? (
+                            <ArrowDownRight size={18} color="#10b981" />
+                        ) : (
+                            <ArrowUpRight size={18} color="#ef4444" />
+                        )}
                     </View>
-                    <View style={[styles.sectionCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-                        <BlurView
-                            intensity={isDark ? 30 : 50}
-                            tint={isDark ? 'dark' : 'light'}
-                            style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '80' }]}
-                        />
-                        <View style={{ padding: 0 }}>
-                            {transactions.length > 0 ? (
-                                transactions.map((entry: BookEntry, index: number) => {
-                                    const entryDate = new Date(entry.createdAt);
-                                    const isLast = index === transactions.length - 1;
-                                    let bookName = 'Unknown Book';
-                                    const book = books.find(b => b.id === entry.bookId);
-                                    if (book) bookName = book.name;
-
-                                    return (
-                                        <View key={entry.id}>
-                                            <View style={[styles.transactionItem, { padding: 12 }]}>
-                                                <View style={[
-                                                    styles.transactionIcon,
-                                                    { backgroundColor: entry.type === 'cash_in' ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2') }
-                                                ]}>
-                                                    {entry.type === 'cash_in' ? (
-                                                        <ArrowDownRight size={18} color="#10b981" />
-                                                    ) : (
-                                                        <ArrowUpRight size={18} color="#ef4444" />
-                                                    )}
-                                                </View>
-                                                <View style={styles.transactionInfo}>
-                                                    <Text style={[styles.transactionTitle, { color: colors.text }]} numberOfLines={1}>
-                                                        {entry.description || (entry.type === 'cash_in' ? 'Cash In' : 'Cash Out')}
-                                                    </Text>
-                                                    <View style={styles.transactionMeta}>
-                                                        <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
-                                                            {entryDate.toLocaleDateString()}
-                                                        </Text>
-                                                        <Text style={[styles.transactionBook, { color: colors.textSecondary }]}>
-                                                            • {bookName}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                                <Text style={[
-                                                    styles.transactionAmount,
-                                                    { color: entry.type === 'cash_in' ? '#10b981' : '#ef4444' }
-                                                ]}>
-                                                    {entry.type === 'cash_in' ? '+' : '-'}{formatCurrency(Number(entry.amount), currentBusiness?.currency)}
-                                                </Text>
-                                            </View>
-                                            {!isLast && <View style={[styles.divider, { backgroundColor: colors.border, marginHorizontal: 12 }]} />}
-                                        </View>
-                                    );
-                                })
-                            ) : (
-                                <View style={{ padding: 20, alignItems: 'center' }}>
-                                    <Text style={{ color: colors.textSecondary }}>No transactions found</Text>
-                                </View>
-                            )}
-
-                            {/* Load More / Loading State */}
-                            {loadingTransactions && (
-                                <View style={{ padding: 16 }}>
-                                    <ActivityIndicator color={colors.primary} />
-                                </View>
-                            )}
-
-                            {!loadingTransactions && hasMoreTransactions && transactions.length > 0 && (
-                                <TouchableOpacity
-                                    style={[styles.loadMoreButton, { borderTopColor: colors.border }]}
-                                    onPress={() => loadMoreTransactions()}
-                                >
-                                    <Text style={[styles.loadMoreText, { color: colors.primary }]}>Load More</Text>
-                                </TouchableOpacity>
-                            )}
+                    <View style={styles.transactionInfo}>
+                        <Text style={[styles.transactionTitle, { color: colors.text }]} numberOfLines={1}>
+                            {entry.description || (entry.type === 'cash_in' ? 'Cash In' : 'Cash Out')}
+                        </Text>
+                        <View style={styles.transactionMeta}>
+                            <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
+                                {entryDate.toLocaleDateString()}
+                            </Text>
+                            <Text style={[styles.transactionBook, { color: colors.textSecondary }]}>
+                                • {bookName}
+                            </Text>
                         </View>
                     </View>
+                    <Text style={[
+                        styles.transactionAmount,
+                        { color: entry.type === 'cash_in' ? '#10b981' : '#ef4444' }
+                    ]}>
+                        {entry.type === 'cash_in' ? '+' : '-'}{formatCurrency(Number(entry.amount), currentBusiness?.currency)}
+                    </Text>
                 </View>
-            </ScrollView >
+                {!isLast && <View style={[styles.divider, { backgroundColor: colors.border, marginHorizontal: 12 }]} />}
+            </View>
+        );
+    };
+
+    return (
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
+
+            {/* Decorative Circles */}
+            <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
+            <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
+
+            <FlatList
+                data={transactions}
+                renderItem={renderTransactionItem}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={
+                    !loadingTransactions ? (
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <Text style={{ color: colors.textSecondary }}>No transactions found</Text>
+                        </View>
+                    ) : null
+                }
+                ListFooterComponent={
+                    loadingTransactions ? (
+                        <View style={{ padding: 16 }}>
+                            <ActivityIndicator color={colors.primary} />
+                        </View>
+                    ) : null
+                }
+                onEndReached={() => hasMoreTransactions && loadMoreTransactions()}
+                onEndReachedThreshold={0.5}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+                showsVerticalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+            />
 
             {/* Sort Modal */}
             <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)}>
