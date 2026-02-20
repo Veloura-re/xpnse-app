@@ -35,7 +35,7 @@ jobs:
           if [ -n "$EXPO_PUBLIC_FIREBASE_PROJECT_ID" ]; then echo "✅ EXPO_PUBLIC_FIREBASE_PROJECT_ID is set"; else echo "❌ EXPO_PUBLIC_FIREBASE_PROJECT_ID is MISSING"; fi
       
       - name: ☕ Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
