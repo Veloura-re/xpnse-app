@@ -303,35 +303,62 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                             </View>
 
                             {book && (
-                                <View style={styles.secondaryActions}>
-                                    {availableBusinesses.length > 0 && (
-                                        <>
-                                            <TouchableOpacity
-                                                style={[styles.secondaryButton, { backgroundColor: cardBg, borderColor: borderColor }]}
-                                                onPress={() => setShowCopyModal(true)}
-                                                disabled={isSaving}
-                                            >
-                                                <Copy size={18} color={subTextColor} />
-                                            </TouchableOpacity>
+                                <View style={{ marginTop: 8 }}>
+                                    <Text style={[styles.sectionTitle, { color: subTextColor }]}>MANAGEMENT</Text>
+                                    <View style={[styles.settingsContainer, { backgroundColor: cardBg, borderColor: borderColor }]}>
+                                        {availableBusinesses.length > 0 && (
+                                            <>
+                                                <TouchableOpacity
+                                                    style={styles.settingRow}
+                                                    onPress={() => setShowCopyModal(true)}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }]}>
+                                                        <Copy size={20} color={isDark ? '#10b981' : colors.primary} />
+                                                    </View>
+                                                    <View style={styles.settingInfo}>
+                                                        <Text style={[styles.settingLabel, { color: textColor }]}>Copy Book</Text>
+                                                        <Text style={[styles.settingDescription, { color: subTextColor }]}>Duplicate to another business</Text>
+                                                    </View>
+                                                    <ArrowRight size={20} color={subTextColor} />
+                                                </TouchableOpacity>
 
-                                            <TouchableOpacity
-                                                style={[styles.secondaryButton, { backgroundColor: cardBg, borderColor: borderColor }]}
-                                                onPress={() => setShowMoveModal(true)}
-                                                disabled={isSaving}
-                                            >
-                                                <ArrowRight size={18} color={subTextColor} />
-                                            </TouchableOpacity>
-                                        </>
-                                    )}
+                                                <View style={[styles.divider, { backgroundColor: borderColor }]} />
 
-                                    <TouchableOpacity
-                                        style={[styles.secondaryButton, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2', borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2', marginLeft: 'auto', flex: 1 }]}
-                                        onPress={handleDelete}
-                                        disabled={isSaving}
-                                    >
-                                        <Trash2 size={18} color="#EF4444" />
-                                        <Text style={{ color: '#EF4444', fontSize: 13, fontWeight: '600' }}>Delete Book</Text>
-                                    </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.settingRow}
+                                                    onPress={() => setShowMoveModal(true)}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF' }]}>
+                                                        <Send size={20} color="#0EA5E9" />
+                                                    </View>
+                                                    <View style={styles.settingInfo}>
+                                                        <Text style={[styles.settingLabel, { color: textColor }]}>Move Book</Text>
+                                                        <Text style={[styles.settingDescription, { color: subTextColor }]}>Transfer to another business</Text>
+                                                    </View>
+                                                    <ArrowRight size={20} color={subTextColor} />
+                                                </TouchableOpacity>
+
+                                                <View style={[styles.divider, { backgroundColor: borderColor }]} />
+                                            </>
+                                        )}
+
+                                        <TouchableOpacity
+                                            style={styles.settingRow}
+                                            onPress={handleDelete}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2' }]}>
+                                                <Trash2 size={20} color="#EF4444" />
+                                            </View>
+                                            <View style={styles.settingInfo}>
+                                                <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Delete Book</Text>
+                                                <Text style={[styles.settingDescription, { color: subTextColor }]}>This action cannot be undone</Text>
+                                            </View>
+                                            <ArrowRight size={20} color="#EF4444" style={{ opacity: 0.5 }} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             )}
                         </ScrollView>
@@ -412,33 +439,41 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                 >
                     <View style={styles.modalOverlay}>
                         <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]} />
-                        <View style={[styles.confirmContent, { backgroundColor: isDark ? '#0A0A0A' : '#ffffff', borderColor: borderColor, borderWidth: 1 }]}>
-                            <View style={[styles.headerIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }]}>
-                                <Copy size={24} color={isDark ? '#10b981' : colors.primary} />
+                        <View style={[styles.confirmContent, { backgroundColor: isDark ? '#0A0A0A' : '#ffffff', borderColor: borderColor, borderWidth: 1, padding: 0, overflow: 'hidden' }]}>
+                            <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
+                                <View style={[styles.headerIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4', marginBottom: 20 }]}>
+                                    <Copy size={32} color={isDark ? '#10b981' : colors.primary} />
+                                </View>
+                                <Text style={[styles.confirmTitle, { color: textColor, marginBottom: 8 }]}>Copy to Business</Text>
+                                <Text style={[styles.confirmMessage, { color: subTextColor, marginBottom: 12 }]}>All entries will be duplicated to the chosen business.</Text>
                             </View>
-                            <Text style={[styles.confirmTitle, { fontFamily: 'AbrilFatface_400Regular', color: textColor }]}>Copy to Business</Text>
-                            <Text style={[styles.confirmMessage, { color: subTextColor }]}>Select destination business.</Text>
 
-                            <ScrollView style={styles.businessList} showsVerticalScrollIndicator={false}>
-                                {availableBusinesses.map(business => (
-                                    <TouchableOpacity
-                                        key={business.id}
-                                        style={[styles.businessItem, { backgroundColor: cardBg, borderColor: borderColor }]}
-                                        onPress={() => handleCopyBook(business.id)}
-                                        disabled={isCopying}
-                                    >
-                                        <View style={[styles.businessItemIcon, { backgroundColor: '#10b981' }]}>
-                                            <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
-                                        </View>
-                                        <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
-                                        {isCopying && <ActivityIndicator size="small" color="#10b981" />}
-                                    </TouchableOpacity>
+                            <ScrollView style={[styles.businessList, { paddingHorizontal: 20 }]} showsVerticalScrollIndicator={false}>
+                                {availableBusinesses.map((business, index) => (
+                                    <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                                        <TouchableOpacity
+                                            style={[styles.businessItem, { backgroundColor: cardBg, borderColor: borderColor }]}
+                                            onPress={() => handleCopyBook(business.id)}
+                                            disabled={isCopying}
+                                        >
+                                            <View style={[styles.businessItemIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.primary }]}>
+                                                <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
+                                                <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
+                                            </View>
+                                            {isCopying ? <ActivityIndicator size="small" color="#10b981" /> : <ArrowRight size={18} color={subTextColor} />}
+                                        </TouchableOpacity>
+                                    </Animated.View>
                                 ))}
                             </ScrollView>
 
-                            <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: cardBg }]} onPress={() => setShowCopyModal(false)}>
-                                <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
-                            </TouchableOpacity>
+                            <View style={{ padding: 20, width: '100%' }}>
+                                <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: isDark ? '#1A1A1A' : '#F1F5F9', borderRadius: 16 }]} onPress={() => setShowCopyModal(false)}>
+                                    <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </Modal>
@@ -452,33 +487,41 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                 >
                     <View style={styles.modalOverlay}>
                         <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]} />
-                        <View style={[styles.confirmContent, { backgroundColor: isDark ? '#0A0A0A' : '#ffffff', borderColor: borderColor, borderWidth: 1 }]}>
-                            <View style={[styles.headerIconContainer, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF' }]}>
-                                <ArrowRight size={24} color="#0EA5E9" />
+                        <View style={[styles.confirmContent, { backgroundColor: isDark ? '#0A0A0A' : '#ffffff', borderColor: borderColor, borderWidth: 1, padding: 0, overflow: 'hidden' }]}>
+                            <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
+                                <View style={[styles.headerIconContainer, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF', marginBottom: 20 }]}>
+                                    <Send size={32} color="#0EA5E9" />
+                                </View>
+                                <Text style={[styles.confirmTitle, { color: textColor, marginBottom: 8 }]}>Move to Business</Text>
+                                <Text style={[styles.confirmMessage, { color: subTextColor, marginBottom: 12 }]}>The book and entries will be moved permanently.</Text>
                             </View>
-                            <Text style={[styles.confirmTitle, { fontFamily: 'AbrilFatface_400Regular', color: textColor }]}>Move to Business</Text>
-                            <Text style={[styles.confirmMessage, { color: subTextColor }]}>Select destination business.</Text>
 
-                            <ScrollView style={styles.businessList} showsVerticalScrollIndicator={false}>
-                                {availableBusinesses.map(business => (
-                                    <TouchableOpacity
-                                        key={business.id}
-                                        style={[styles.businessItem, { backgroundColor: cardBg, borderColor: borderColor }]}
-                                        onPress={() => handleMoveBook(business.id)}
-                                        disabled={isMoving}
-                                    >
-                                        <View style={[styles.businessItemIcon, { backgroundColor: '#0EA5E9' }]}>
-                                            <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
-                                        </View>
-                                        <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
-                                        {isMoving && <ActivityIndicator size="small" color="#0EA5E9" />}
-                                    </TouchableOpacity>
+                            <ScrollView style={[styles.businessList, { paddingHorizontal: 20 }]} showsVerticalScrollIndicator={false}>
+                                {availableBusinesses.map((business, index) => (
+                                    <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                                        <TouchableOpacity
+                                            style={[styles.businessItem, { backgroundColor: cardBg, borderColor: borderColor }]}
+                                            onPress={() => handleMoveBook(business.id)}
+                                            disabled={isMoving}
+                                        >
+                                            <View style={[styles.businessItemIcon, { backgroundColor: '#0EA5E9' }]}>
+                                                <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
+                                                <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
+                                            </View>
+                                            {isMoving ? <ActivityIndicator size="small" color="#0EA5E9" /> : <ArrowRight size={18} color={subTextColor} />}
+                                        </TouchableOpacity>
+                                    </Animated.View>
                                 ))}
                             </ScrollView>
 
-                            <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: cardBg }]} onPress={() => setShowMoveModal(false)}>
-                                <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
-                            </TouchableOpacity>
+                            <View style={{ padding: 20, width: '100%' }}>
+                                <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: isDark ? '#1A1A1A' : '#F1F5F9', borderRadius: 16 }]} onPress={() => setShowMoveModal(false)}>
+                                    <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </Modal>

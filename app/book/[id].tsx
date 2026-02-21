@@ -15,7 +15,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
@@ -1134,42 +1136,52 @@ export default function BookDetailScreen() {
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <View style={{ alignItems: 'center', padding: 20 }}>
-                    <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2', width: 56, height: 56, borderRadius: 28, marginBottom: 16 }]}>
-                      <Trash2 size={28} color="#ef4444" />
+                  <View style={{ alignItems: 'center', paddingHorizontal: 20, paddingBottom: 24 }}>
+                    <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', width: 72, height: 72, borderRadius: 36, marginBottom: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                      <Trash2 size={32} color="#EF4444" />
                     </View>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8 }}>Delete Entry?</Text>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
+                    <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 8, textAlign: 'center' }}>Delete Entry?</Text>
+                    <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 28, lineHeight: 24 }}>
                       Are you sure you want to delete this entry? This action cannot be undone.
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
                       <TouchableOpacity
-                        style={[styles.applyButton, { backgroundColor: colors.card, flex: 1 }, isDeleting && { opacity: 0.5 }]}
+                        style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }, isDeleting && { opacity: 0.5 }]}
                         onPress={() => setDeleteConfirmation(false)}
                         disabled={isDeleting}
                       >
-                        <Text style={[styles.applyButtonText, { color: colors.text }]}>Cancel</Text>
+                        <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.applyButton, { backgroundColor: '#ef4444', flex: 1 }, isDeleting && { opacity: 0.7 }]}
+                        style={{ flex: 1 }}
                         onPress={async () => {
                           if (menuEntry) {
                             await handleDeleteEntry(menuEntry.id);
                             setMenuEntry(null);
-                            // setDeleteConfirmation(false) is handled in handleDeleteEntry or finally block? 
-                            // Actually handleDeleteEntry handles it.
                           }
                         }}
                         disabled={isDeleting}
                       >
-                        {isDeleting ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                            <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.applyButtonText}>Deleting...</Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.applyButtonText}>Delete</Text>
-                        )}
+                        <LinearGradient
+                          colors={['#EF4444', '#DC2626']}
+                          style={[
+                            styles.dialogButton,
+                            {
+                              borderRadius: 16,
+                              paddingVertical: 16,
+                              flex: 1,
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            },
+                            isDeleting && { opacity: 0.7 }
+                          ]}
+                        >
+                          {isDeleting ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>Delete</Text>
+                          )}
+                        </LinearGradient>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1207,47 +1219,50 @@ export default function BookDetailScreen() {
                   elevation: 20,
                   width: '100%',
                   maxWidth: 380,
-                  padding: 24
+                  padding: 0,
+                  overflow: 'hidden'
                 }
               ]}
             >
-              <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#EFF6FF', width: 60, height: 60, borderRadius: 30, marginBottom: 20, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }]}>
-                <Copy size={30} color={isDark ? '#21C98D' : '#3B82F6'} />
+              <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
+                <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#f0fdf4', width: 64, height: 64, borderRadius: 32, marginBottom: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Copy size={32} color={isDark ? '#21C98D' : colors.primary} />
+                </View>
+
+                <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Copy Entry</Text>
+                <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 12 }}>
+                  Select destination book
+                </Text>
               </View>
 
-              <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Copy Entry</Text>
-              <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-                Copy this entry to...
-              </Text>
-
-              {
-                otherBooks.length === 0 ? (
-                  <Text style={styles.dialogEmpty}>No other books available</Text>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+                {otherBooks.length === 0 ? (
+                  <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
-                  <View style={styles.bookList}>
-                    {otherBooks.map(b => (
+                  otherBooks.map((b, index) => (
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
                       <TouchableOpacity
-                        key={b.id}
                         style={[
                           styles.bookOption,
                           { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
-                          targetBookId === b.id && { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }
+                          targetBookId === b.id && { borderColor: isDark ? '#21C98D' : colors.primary, backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }
                         ]}
                         onPress={() => setTargetBookId(b.id)}
                       >
-                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#21C98D' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? (isDark ? '#21C98D' : colors.primary) : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                           <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
                         </View>
                         <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
-                        {targetBookId === b.id && <Check size={20} color="#21C98D" />}
+                        {targetBookId === b.id && <Check size={20} color={isDark ? '#21C98D' : '#059669'} />}
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                )
-              }
-              <View style={[styles.dialogActions, { marginTop: 12 }]}>
+                    </Animated.View>
+                  ))
+                )}
+              </ScrollView>
+
+              <View style={[styles.dialogActions, { padding: 20, gap: 12 }]}>
                 <TouchableOpacity
-                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
+                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }]}
                   onPress={() => setCopyModalVisible(false)}
                 >
                   <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
@@ -1271,7 +1286,7 @@ export default function BookDetailScreen() {
                   }}
                 >
                   <LinearGradient
-                    colors={targetBookId ? ['#21C98D', '#10B981'] : ['#94a3b8', '#64748b']}
+                    colors={targetBookId ? (isDark ? ['#21C98D', '#10B981'] : ['#10b981', '#059669']) : ['#94a3b8', '#64748b']}
                     style={[
                       styles.dialogButton,
                       {
@@ -1319,25 +1334,28 @@ export default function BookDetailScreen() {
                   elevation: 20,
                   width: '100%',
                   maxWidth: 380,
-                  padding: 24
+                  padding: 0,
+                  overflow: 'hidden'
                 }
               ]}
             >
-              <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF', width: 60, height: 60, borderRadius: 30, marginBottom: 20, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }]}>
-                <ArrowRight size={30} color={isDark ? '#0EA5E9' : '#0EA5E9'} />
+              <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
+                <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF', width: 64, height: 64, borderRadius: 32, marginBottom: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                  <ArrowRight size={32} color="#0EA5E9" />
+                </View>
+
+                <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Transfer Entry</Text>
+                <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 12 }}>
+                  Select destination book
+                </Text>
               </View>
 
-              <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Transfer Entry</Text>
-              <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-                Transfer this entry to...
-              </Text>
-
-              {
-                otherBooks.length === 0 ? (
-                  <Text style={styles.dialogEmpty}>No other books available</Text>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+                {otherBooks.length === 0 ? (
+                  <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
-                  <View style={styles.bookList}>
-                    {otherBooks.map(b => (
+                  otherBooks.map((b, index) => (
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
                       <TouchableOpacity
                         key={b.id}
                         style={[
@@ -1354,13 +1372,14 @@ export default function BookDetailScreen() {
                         <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
                         {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                )
-              }
-              <View style={[styles.dialogActions, { marginTop: 12 }]}>
+                    </Animated.View>
+                  ))
+                )}
+              </ScrollView>
+
+              <View style={[styles.dialogActions, { padding: 20, gap: 12 }]}>
                 <TouchableOpacity
-                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
+                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }]}
                   onPress={() => setTransferModalVisible(false)}
                   disabled={isTransferring}
                 >
@@ -1424,27 +1443,29 @@ export default function BookDetailScreen() {
                   elevation: 20,
                   width: '100%',
                   maxWidth: 380,
-                  padding: 24
+                  padding: 0,
+                  overflow: 'hidden'
                 }
               ]}
             >
-              <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF', width: 60, height: 60, borderRadius: 30, marginBottom: 20, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }]}>
-                <ArrowRight size={30} color={isDark ? '#0EA5E9' : '#0EA5E9'} />
+              <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
+                <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF', width: 64, height: 64, borderRadius: 32, marginBottom: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                  <ArrowRight size={32} color="#0EA5E9" />
+                </View>
+
+                <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Bulk Transfer</Text>
+                <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 12 }}>
+                  Transfer {selectedEntries.size} entries to...
+                </Text>
               </View>
 
-              <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Bulk Transfer</Text>
-              <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-                Transfer {selectedEntries.size} entries to...
-              </Text>
-
-              {
-                otherBooks.length === 0 ? (
-                  <Text style={styles.dialogEmpty}>No other books available</Text>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+                {otherBooks.length === 0 ? (
+                  <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
-                  <View style={styles.bookList}>
-                    {otherBooks.map(b => (
+                  otherBooks.map((b, index) => (
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
                       <TouchableOpacity
-                        key={b.id}
                         style={[
                           styles.bookOption,
                           { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
@@ -1459,13 +1480,14 @@ export default function BookDetailScreen() {
                         <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
                         {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                )
-              }
-              <View style={[styles.dialogActions, { marginTop: 12 }]}>
+                    </Animated.View>
+                  ))
+                )}
+              </ScrollView>
+
+              <View style={[styles.dialogActions, { padding: 20, gap: 12 }]}>
                 <TouchableOpacity
-                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
+                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }]}
                   onPress={() => setBulkTransferModalVisible(false)}
                   disabled={isBulkOperating}
                 >
@@ -1529,48 +1551,51 @@ export default function BookDetailScreen() {
                   elevation: 20,
                   width: '100%',
                   maxWidth: 380,
-                  padding: 24
+                  padding: 0,
+                  overflow: 'hidden'
                 }
               ]}
             >
-              <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#f0fdf4', width: 60, height: 60, borderRadius: 30, marginBottom: 20, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }]}>
-                <Copy size={30} color={colors.primary} />
+              <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
+                <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#f0fdf4', width: 64, height: 64, borderRadius: 32, marginBottom: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Copy size={32} color={isDark ? '#21C98D' : colors.primary} />
+                </View>
+
+                <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Bulk Copy</Text>
+                <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 12 }}>
+                  Copy {selectedEntries.size} entries to...
+                </Text>
               </View>
 
-              <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text, textAlign: 'center', marginBottom: 8 }]}>Bulk Copy</Text>
-              <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-                Copy {selectedEntries.size} entries to...
-              </Text>
-
-              {
-                otherBooks.length === 0 ? (
-                  <Text style={styles.dialogEmpty}>No other books available</Text>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+                {otherBooks.length === 0 ? (
+                  <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
-                  <View style={styles.bookList}>
-                    {otherBooks.map(b => (
+                  otherBooks.map((b, index) => (
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
                       <TouchableOpacity
-                        key={b.id}
                         style={[
                           styles.bookOption,
                           { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#E2E8F0', borderWidth: 1 },
-                          targetBookId === b.id && { borderColor: '#10b981', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }
+                          targetBookId === b.id && { borderColor: isDark ? '#21C98D' : colors.primary, backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }
                         ]}
                         onPress={() => setTargetBookId(b.id)}
                         disabled={isBulkOperating}
                       >
-                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#10b981' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? (isDark ? '#21C98D' : colors.primary) : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                           <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
                         </View>
-                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#10b981' : '#059669' }]}>{b.name}</Text>
-                        {targetBookId === b.id && <Check size={20} color="#10b981" />}
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
+                        {targetBookId === b.id && <Check size={20} color={isDark ? '#21C98D' : '#059669'} />}
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                )
-              }
-              <View style={[styles.dialogActions, { marginTop: 12 }]}>
+                    </Animated.View>
+                  ))
+                )}
+              </ScrollView>
+
+              <View style={[styles.dialogActions, { padding: 20, gap: 12 }]}>
                 <TouchableOpacity
-                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16 }]}
+                  style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }]}
                   onPress={() => setBulkCopyModalVisible(false)}
                   disabled={isBulkOperating}
                 >
@@ -1582,7 +1607,7 @@ export default function BookDetailScreen() {
                   onPress={handleBulkCopy}
                 >
                   <LinearGradient
-                    colors={targetBookId ? ['#10b981', '#059669'] : ['#94a3b8', '#64748b']}
+                    colors={targetBookId ? (isDark ? ['#21C98D', '#10B981'] : ['#10b981', '#059669']) : ['#94a3b8', '#64748b']}
                     style={[
                       styles.dialogButton,
                       {
@@ -1633,7 +1658,10 @@ export default function BookDetailScreen() {
                   shadowRadius: 40,
                   elevation: 20,
                   width: '100%',
-                  maxWidth: 380
+                  maxWidth: 380,
+                  padding: 24,
+                  borderRadius: 24,
+                  overflow: 'hidden'
                 }
               ]}
             >
@@ -1645,17 +1673,19 @@ export default function BookDetailScreen() {
                     width: 72,
                     height: 72,
                     borderRadius: 36,
-                    marginBottom: 20
+                    marginBottom: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }
                 ]}>
-                  <Trash2 size={32} color="#ef4444" />
+                  <Trash2 size={32} color="#EF4444" />
                 </View>
                 <Text style={[styles.headerTitle, { fontSize: 22, color: colors.text, marginBottom: 8, textAlign: 'center' }]}>Delete Entries?</Text>
                 <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 28, paddingHorizontal: 10, lineHeight: 24 }}>
                   Are you sure you want to delete {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}? This cannot be undone.
                 </Text>
 
-                <View style={styles.dialogActions}>
+                <View style={[styles.dialogActions, { gap: 12 }]}>
                   <TouchableOpacity
                     style={[
                       styles.dialogButton,
@@ -1663,7 +1693,8 @@ export default function BookDetailScreen() {
                         backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9',
                         flex: 1,
                         paddingVertical: 16,
-                        borderRadius: 16
+                        borderRadius: 16,
+                        alignItems: 'center'
                       }
                     ]}
                     onPress={() => setBulkDeleteConfirmation(false)}
