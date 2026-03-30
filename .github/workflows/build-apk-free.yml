@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: 📥 Checkout code
@@ -62,11 +64,13 @@ jobs:
           ./gradlew assembleRelease --no-daemon --stacktrace
       
       - name: 📤 Upload APK
-        uses: actions/upload-artifact@v4
+        uses: softprops/action-gh-release@v2
         with:
-          name: cashiee-apk
-          path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 30
+          tag_name: "build-apk-${{ github.run_number }}"
+          name: "Free APK Build #${{ github.run_number }}"
+          files: android/app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: 📊 APK Info
         run: |
