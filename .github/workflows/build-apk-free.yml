@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     
     steps:
       - name: 📥 Checkout code
@@ -71,6 +73,18 @@ jobs:
           files: android/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 🔗 Create Direct Download Link
+        run: |
+          APK_PATH=$(ls android/app/build/outputs/apk/release/*.apk | head -n 1)
+          if [ -f "$APK_PATH" ]; then
+            echo "Uploading APK to get a direct download link..."
+            DOWNLOAD_URL=$(curl --upload-file "$APK_PATH" "https://transfer.sh/app-release.apk")
+            echo "✅ Direct Download Link: $DOWNLOAD_URL"
+            echo "::notice ::✅ Download your Android Build (APK) here: $DOWNLOAD_URL"
+          else
+            echo "❌ APK not found!"
+          fi
       
       - name: 📊 APK Info
         run: |
