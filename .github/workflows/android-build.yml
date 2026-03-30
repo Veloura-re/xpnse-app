@@ -69,13 +69,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Create Direct Download Link
+        continue-on-error: true
         run: |
           APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
           if [ -f "$APK_PATH" ]; then
             echo "Uploading APK to get a direct download link..."
-            DOWNLOAD_URL=$(curl --upload-file "$APK_PATH" "https://transfer.sh/app-release.apk")
-            echo "✅ Direct Download Link: $DOWNLOAD_URL"
-            echo "::notice ::✅ Download your Android Build (APK) here: $DOWNLOAD_URL"
+            # Try file.io as it's often more reliable than transfer.sh
+            DOWNLOAD_URL=$(curl -F "file=@$APK_PATH" https://file.io | jq -r '.link')
+            
+            if [ "$DOWNLOAD_URL" != "null" ] && [ -n "$DOWNLOAD_URL" ]; then
+              echo "✅ Direct Download Link: $DOWNLOAD_URL"
+              echo "::notice ::✅ Download your Android Build (APK) here: $DOWNLOAD_URL"
+            else
+              # Fallback to transfer.sh if file.io fails
+              DOWNLOAD_URL=$(curl --upload-file "$APK_PATH" "https://transfer.sh/app-release.apk")
+              echo "✅ Direct Download Link (Fallback): $DOWNLOAD_URL"
+              echo "::notice ::✅ Download your Android Build (APK) here: $DOWNLOAD_URL"
+            fi
           else
             echo "❌ APK not found!"
           fi
+      
+      - name: 📢 GitHub Release Link
+        run: |
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/build-${{ github.run_number }}"
+          echo "::notice ::📦 Your build is also available as a GitHub Release: $RELEASE_URL"
+          echo "🔗 Release URL: $RELEASE_URL"
