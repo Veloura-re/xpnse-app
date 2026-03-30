@@ -18,12 +18,14 @@ import { useTheme } from '@/providers/theme-provider';
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Eye, EyeOff, User, ArrowRight, Check, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 
 export default function RegisterScreen() {
   const { register } = useAuth();
   const { deviceFont, setDeviceFont, colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,7 +76,7 @@ export default function RegisterScreen() {
 
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
 
 
       {/* Decorative Circles */}

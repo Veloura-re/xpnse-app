@@ -1335,7 +1335,8 @@ export default function BookDetailScreen() {
                   width: '100%',
                   maxWidth: 380,
                   padding: 0,
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  maxHeight: '90%'
                 }
               ]}
             >
@@ -1350,7 +1351,7 @@ export default function BookDetailScreen() {
                 </Text>
               </View>
 
-              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 300, flexShrink: 1 }]} showsVerticalScrollIndicator={true}>
                 {otherBooks.length === 0 ? (
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
@@ -1444,7 +1445,8 @@ export default function BookDetailScreen() {
                   width: '100%',
                   maxWidth: 380,
                   padding: 0,
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  maxHeight: '90%'
                 }
               ]}
             >
@@ -1459,7 +1461,7 @@ export default function BookDetailScreen() {
                 </Text>
               </View>
 
-              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 300, flexShrink: 1 }]} showsVerticalScrollIndicator={true}>
                 {otherBooks.length === 0 ? (
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
@@ -1552,7 +1554,8 @@ export default function BookDetailScreen() {
                   width: '100%',
                   maxWidth: 380,
                   padding: 0,
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  maxHeight: '90%'
                 }
               ]}
             >
@@ -1567,7 +1570,7 @@ export default function BookDetailScreen() {
                 </Text>
               </View>
 
-              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 300, flexShrink: 1 }]} showsVerticalScrollIndicator={true}>
                 {otherBooks.length === 0 ? (
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (

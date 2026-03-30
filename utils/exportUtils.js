@@ -209,7 +209,7 @@ export const exportToPDF = async (book, entries, options = {}) => {
         // .slice(0, 50) // Removed limit to allow full export
         .map(entry => {
           return `
-          <tr>
+          <tr style="page-break-inside: avoid; page-break-after: auto;">
             <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
               ${entry.type === 'cash_in' ? '↗️ Cash In' : '↘️ Cash Out'}
             </td>
@@ -255,7 +255,7 @@ export const exportToPDF = async (book, entries, options = {}) => {
             </div>
           </div>
           ${periodEntries.length > 0 ? `
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); page-break-inside: auto;">
               <thead>
                 <tr style="background: #f3f4f6;">
                   <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Type</th>
@@ -349,6 +349,9 @@ export const exportToPDF = async (book, entries, options = {}) => {
             @media print {
               body { margin: 10px; }
               .page-break { page-break-before: always; }
+              table { page-break-inside: auto; }
+              tr { page-break-inside: avoid; page-break-after: auto; }
+              td { page-break-inside: avoid; page-break-after: auto; }
             }
           </style>
         </head>

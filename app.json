@@ -29,7 +29,12 @@
     },
     "web": {
       "favicon": "./assets/images/spendria-icon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "config": {
+        "notification": {
+          "vapidPublicKey": "BFV_REPLACE_WITH_YOUR_ACTUAL_VAPID_PUBLIC_KEY_FROM_FIREBASE_CONSOLE"
+        }
+      }
     },
     "experiments": {
       "typedRoutes": true

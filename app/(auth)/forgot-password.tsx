@@ -18,12 +18,14 @@ import { useTheme } from '@/providers/theme-provider';
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, ArrowLeft, Send } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 
 export default function ForgotPasswordScreen() {
   const { resetPassword, isLoading } = useAuth();
   const { deviceFont, setDeviceFont, colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
 
   // Fonts loaded in RootLayout
@@ -47,7 +49,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
 
 
       {/* Decorative Circles */}
@@ -57,7 +59,7 @@ export default function ForgotPasswordScreen() {
       <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
       <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
-      <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.card }]} onPress={() => router.back()}>
+      <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.card, top: insets.top + 10 }]} onPress={() => router.back()}>
         <ArrowLeft size={24} color={colors.primary} />
       </TouchableOpacity>
 

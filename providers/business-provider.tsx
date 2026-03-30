@@ -318,26 +318,28 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     try {
       await updateDoc(doc(db, currentBusiness.id), updates);
 
-      // Notify team members about business update
+      // Notify team members about business update - Batch send for speed
       const teamMembers = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
-      for (const member of teamMembers) {
-        try {
-          await addDoc(collection(db, 'notifications'), {
+      if (teamMembers.length > 0 && db) {
+        const batch = writeBatch(db);
+        teamMembers.forEach(member => {
+          const notifRef = doc(collection(db!, 'notifications'));
+          batch.set(notifRef, {
             userId: member.userId,
             title: 'Business Updated',
             message: `${user.displayName || user.name || user.email} updated settings for "${currentBusiness.name}"`,
             read: false,
             createdAt: new Date().toISOString(),
             type: 'business_updated',
+            businessId: currentBusiness.id,
             metadata: {
               businessId: currentBusiness.id,
               businessName: currentBusiness.name,
               updatedBy: user.displayName || user.name || user.email
             }
           });
-        } catch (notifError) {
-          console.error('Error sending notification to team member:', notifError);
-        }
+        });
+        await batch.commit();
       }
     } catch (error) {
       console.error("Error updating business:", error);
@@ -547,18 +549,21 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       const cleanActivity = JSON.parse(JSON.stringify(newActivity));
       await setDoc(doc(db, 'activityLogs', newActivity.id), cleanActivity);
 
-      // Notify team members about the new book
+      // Notify team members about the new book - Batch send for speed
       const teamMembers = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
 
-      for (const member of teamMembers) {
-        try {
-          await addDoc(collection(db, 'notifications'), {
+      if (teamMembers.length > 0 && db) {
+        const batch = writeBatch(db);
+        teamMembers.forEach(member => {
+          const notifRef = doc(collection(db!, 'notifications'));
+          batch.set(notifRef, {
             userId: member.userId,
             title: 'New Book Created',
             message: `${user.displayName || user.name || user.email} created a new book "${name}" in ${currentBusiness.name}`,
             read: false,
             createdAt: new Date().toISOString(),
             type: 'book_created',
+            businessId: currentBusiness.id,
             metadata: {
               businessId: currentBusiness.id,
               businessName: currentBusiness.name,
@@ -566,9 +571,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
               bookName: name
             }
           });
-        } catch (notifError) {
-          console.error('Error sending notification to team member:', notifError);
-        }
+        });
+        await batch.commit();
       }
     } catch (error) {
       console.error("Error creating book:", error);
@@ -624,18 +628,21 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       await batch.commit();
 
-      // Notify team members about book deletion
+      // Notify team members about book deletion - Batch send for speed
       if (bookName && bookName !== 'Unknown Book') {
         const membersToNotify = currentBusiness.members.filter((m: BusinessMember) => m.userId !== user.id);
-        for (const member of membersToNotify) {
-          try {
-            await addDoc(collection(db, 'notifications'), {
+        if (membersToNotify.length > 0 && db) {
+          const notifBatch = writeBatch(db);
+          membersToNotify.forEach(member => {
+            const notifRef = doc(collection(db!, 'notifications'));
+            notifBatch.set(notifRef, {
               userId: member.userId,
               title: 'Book Deleted',
               message: `${user.name || user.email} deleted the book "${bookName}"`,
               read: false,
               createdAt: new Date().toISOString(),
               type: 'book_deleted',
+              businessId: currentBusiness.id,
               metadata: {
                 businessId: currentBusiness.id,
                 businessName: currentBusiness.name,
@@ -643,9 +650,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
                 deletedBy: user.name || user.email
               }
             });
-          } catch (notifError) {
-            console.error('Error sending notification to team member:', notifError);
-          }
+          });
+          await notifBatch.commit();
         }
       }
     } catch (error) {
@@ -737,10 +743,12 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       const balanceText = newBalanceStr ? `. Balance: ${newBalanceStr}` : '';
 
       if (bookName && bookName !== 'Unknown Book') {
-        for (const member of membersToNotify) {
-          try {
+        if (membersToNotify.length > 0 && db) {
+          const notifBatch = writeBatch(db);
+          membersToNotify.forEach(member => {
             const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
-            await addDoc(collection(db, 'notifications'), {
+            const notifRef = doc(collection(db!, 'notifications'));
+            notifBatch.set(notifRef, {
               title: entryData.type === 'cash_in' ? 'Money Received' : 'Money Paid',
               message: `${user.displayName || user.name || user.email} added ${entryTypeName} of ${formatCurrency(amount, currentBusiness.currency)} for ${description} to "${bookName}"${balanceText}`,
               createdAt: new Date().toISOString(),
@@ -761,9 +769,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
                 newBalance: newBalanceStr
               }
             });
-          } catch (notifError) {
-            console.error('Error sending notification to team member:', notifError);
-          }
+          });
+          await notifBatch.commit();
         }
       }
     } catch (error) {

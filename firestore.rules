@@ -129,5 +129,13 @@ service cloud.firestore {
       // Users can delete their own notifications
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
+
+    // Collection Group Rule for entries - needed for Global Analytics
+    match /{path=**}/entries/{entryId} {
+      // Allow read if user is a member of the parent business
+      // Using a recursive path and checking business membership
+      allow read: if request.auth != null && 
+                     (resource == null || (request.auth.uid in get(/databases/$(database)/documents/businesses/$(resource.data.businessId)).data.memberIds));
+    }
   }
 }

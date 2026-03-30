@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 import { useFirebase } from '@/providers/firebase-provider';
@@ -10,6 +11,7 @@ export default function VerifyEmailScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { resendVerificationEmail, reloadCurrentUser } = useFirebase();
+  const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<'idle' | 'verifying' | 'verified' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const params = useLocalSearchParams<{ mode?: string; oobCode?: string }>();
@@ -57,7 +59,7 @@ export default function VerifyEmailScreen() {
   }, [reloadCurrentUser, router]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 24 }]}>
       <View style={styles.card}>
         <Text style={styles.title}>Verify your email</Text>
         <Text style={styles.subtitle}>

@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './auth-provider';
 import { db } from '@/config/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, arrayUnion, getDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, arrayUnion, getDoc, writeBatch, limit } from 'firebase/firestore';
 import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -179,7 +179,8 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         const q = query(
             collection(db, 'notifications'),
             where('userId', '==', user.id),
-            orderBy('createdAt', 'desc')
+            orderBy('createdAt', 'desc'),
+            limit(50)
         );
 
         // Track if this is the initial load

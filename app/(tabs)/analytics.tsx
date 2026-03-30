@@ -76,6 +76,8 @@ export default function AnalyticsScreen() {
     const [sortModalVisible, setSortModalVisible] = useState(false);
     const [selectedSort, setSelectedSort] = useState<string>('balance-desc');
     const [aggregateTotals, setAggregateTotals] = useState<{ totalCashIn: number, totalCashOut: number, netBalance: number, count: number } | null>(null);
+    const [isGlobal, setIsGlobal] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Calculate dates for transaction fetching
     const { startDate, endDate } = useMemo(() => {
@@ -112,8 +114,8 @@ export default function AnalyticsScreen() {
         hasMore: hasMoreTransactions,
         loadMore: loadMoreTransactions,
         getTotals
-    } = usePaginatedEntries(currentBusiness?.id || null, undefined, {
-        pageSize: 50, // Reduced from 10,000
+    } = usePaginatedEntries(isGlobal ? null : (currentBusiness?.id || null), undefined, {
+        pageSize: 50,
         startDate,
         endDate: timeRange !== 'all' ? endDate : undefined
     });
@@ -129,7 +131,7 @@ export default function AnalyticsScreen() {
 
     // Calculate analytics from transactions and books
     const analytics = useMemo(() => {
-        const businessBooks = books.filter(b => b.businessId === currentBusiness?.id);
+        const businessBooks = isGlobal ? books : books.filter(b => b.businessId === currentBusiness?.id);
 
         if (!businessBooks || businessBooks.length === 0) {
             return {
@@ -155,21 +157,21 @@ export default function AnalyticsScreen() {
                 totalCashOut += Number(book.totalCashOut) || 0;
             });
             totalTransactions = transactions.length;
-        } else if (aggregateTotals) {
+        } else if (aggregateTotals && (aggregateTotals.count > 0 || transactions.length === 0)) {
             // Use server-side aggregate totals for filtered periods
             totalCashIn = aggregateTotals.totalCashIn;
             totalCashOut = aggregateTotals.totalCashOut;
             totalTransactions = aggregateTotals.count;
 
             // Still calculate per-book period balance from loaded transactions
-            // Note: This will only be accurate for books that have transactions in the loaded pages
             transactions.forEach((entry: BookEntry) => {
                 const amount = Number(entry.amount) || 0;
                 if (!periodBalanceMap[entry.bookId]) periodBalanceMap[entry.bookId] = 0;
                 periodBalanceMap[entry.bookId] += (entry.type === 'cash_in' ? amount : -amount);
             });
         } else {
-            // Fallback to client-side aggregation of loaded transactions
+            // Fallback to client-side aggregation of loaded transactions 
+            // useful when index is missing or for small data sets
             transactions.forEach((entry: BookEntry) => {
                 const amount = Number(entry.amount) || 0;
                 if (entry.type === 'cash_in') {
@@ -228,10 +230,61 @@ export default function AnalyticsScreen() {
                     <Text style={[styles.appName, { color: colors.primary }]}>Analytics</Text>
                     <View style={styles.headerActions}>
                         <TouchableOpacity
-                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                            onPress={() => router.push('/notes')}
+                            style={[
+                                styles.headerIconButton, 
+                                { backgroundColor: colors.surface, borderColor: colors.border },
+                                isGlobal && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
+                            ]}
+                            onPress={() => setIsGlobal(!isGlobal)}
                         >
-                            <FileText size={16} color={colors.textSecondary} />
+                            <BarChart3 size={16} color={isGlobal ? colors.primary : colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            onPress={async () => {
+                                if (isExporting) return;
+                                setIsExporting(true);
+                                try {
+                                    const { exportToPDF } = require('@/utils/exportUtils');
+                                    
+                                    // Create a virtual book object for the report utility
+                                    const reportBook = {
+                                        name: isGlobal ? 'Global Business Report' : (currentBusiness?.name || 'Business Report'),
+                                        currency: currentBusiness?.currency || 'USD',
+                                        totalCashIn: analytics.totalCashIn,
+                                        totalCashOut: analytics.totalCashOut,
+                                        netBalance: analytics.netBalance
+                                    };
+
+                                    // Map transactions to the format expected by exportToPDF
+                                    const reportEntries = transactions.map(t => ({
+                                        ...t,
+                                        date: t.date || t.createdAt, // Fallback if date is missing
+                                        displayBalance: 0 // Calculation within export utility handles this usually
+                                    }));
+
+                                    const options = {
+                                        fileName: `${reportBook.name.replace(/\s+/g, '_')}_${timeRange}_${new Date().toISOString().split('T')[0]}`,
+                                        rangeLabel: timeRange === 'all' ? 'All Time' : `Last ${timeRange}`
+                                    };
+
+                                    await exportToPDF(reportBook, reportEntries, options);
+                                } catch (error) {
+                                    console.error('Export failed:', error);
+                                    if (Platform.OS !== 'web') {
+                                        const { Alert } = require('react-native');
+                                        Alert.alert('Export Error', 'Failed to generate PDF report. Please check if you have transactions in the selected period.');
+                                    }
+                                } finally {
+                                    setIsExporting(false);
+                                }
+                            }}
+                        >
+                            {isExporting ? (
+                                <ActivityIndicator size="small" color={colors.primary} />
+                            ) : (
+                                <FileText size={16} color={colors.textSecondary} />
+                            )}
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -252,7 +305,7 @@ export default function AnalyticsScreen() {
                 </View>
                 {!isSearchExpanded ? (
                     <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>
-                        {currentBusiness?.name || 'Overview'}
+                        {isGlobal ? 'Global Overview' : (currentBusiness?.name || 'Overview')}
                     </Text>
                 ) : (
                     <View style={styles.searchBarContainer}>

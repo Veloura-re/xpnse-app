@@ -19,7 +19,7 @@ import { useTheme } from '@/providers/theme-provider';
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const { width } = Dimensions.get('window');
@@ -27,6 +27,7 @@ const { width } = Dimensions.get('window');
 export default function LoginScreen() {
   const { login } = useAuth();
   const { deviceFont, setDeviceFont, colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +61,7 @@ export default function LoginScreen() {
 
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
 
 
       {/* Decorative Circles */}

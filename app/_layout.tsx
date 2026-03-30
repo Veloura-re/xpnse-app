@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useCallback } from "react";
 import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/providers/auth-provider";
 import { BusinessProvider } from "@/providers/business-provider";
 import { StorageProvider } from "@/providers/storage-provider";
@@ -101,6 +102,7 @@ function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void
   const { isDark } = useTheme();
 
   return (
+    <SafeAreaProvider>
     <GestureHandlerRootView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#ffffff' }]} onLayout={onLayoutRootView}>
       <FirebaseProvider>
         <AuthProvider>
@@ -112,6 +114,7 @@ function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void
         </AuthProvider>
       </FirebaseProvider>
     </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 
