@@ -1,0 +1,12 @@
+To reduce scrolling in both login and register pages, I need to:
+
+1. Reduce title from 42px to 32px
+2. Reduce header marginBottom from 40px to 20px
+3. Reduce icon size from 64px to 48px  
+4. Reduce padding: 20px → 16px
+5. Reduce inputGroup marginBottom: 20px → 14px
+6. Reduce formContent padding: 24px → 18px
+7. Reduce button margins
+8. Reduce footer marginTop: 32px → 16px
+
+This will make both pages fit better on screen with less scrolling.

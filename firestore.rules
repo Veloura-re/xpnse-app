@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isMember(businessId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/businesses/$(businessId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.memberIds;
+    }
+
+    // Fast membership check for denormalized data
+    function isMemberDenormalized() {
+      return isAuthenticated() && 
+             (resource == null || request.auth.uid in resource.data.memberIds);
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Businesses collection
+    match /businesses/{businessId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
+      
+      allow create: if isAuthenticated() &&
+                       request.resource.data.ownerId == request.auth.uid &&
+                       request.auth.uid in request.resource.data.memberIds;
+      
+      allow update: if isAuthenticated() && 
+                        (
+                          request.auth.uid == resource.data.ownerId || 
+                          (
+                            request.auth.uid in resource.data.memberIds && 
+                            resource.data.members.any(m, m.userId == request.auth.uid && m.role == 'partner')
+                          ) ||
+                          (
+                            request.auth.uid in resource.data.memberIds && 
+                            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberIds']) &&
+                            !(request.auth.uid in request.resource.data.memberIds)
+                          )
+                        );
+      
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.ownerId;
+    }
+    
+    // Books subcollection
+    match /businesses/{businessId}/books/{bookId} {
+      allow read, write: if isMember(businessId);
+    }
+    
+    // Entries subcollection
+    match /businesses/{businessId}/entries/{entryId} {
+      // Use the faster denormalized check if available, otherwise fallback to business doc
+      allow read: if isMemberDenormalized() || isMember(businessId);
+      allow create, update, delete: if isMember(businessId);
+    }
+    
+    // Parties subcollection
+    match /businesses/{businessId}/parties/{partyId} {
+      allow read, write: if isMember(businessId);
+    }
+    
+    // Invitations collection
+    match /invitations/{invitationId} {
+      allow read: if isAuthenticated() && 
+                     (request.auth.uid == resource.data.invitedUserId || 
+                      request.auth.uid == resource.data.invitedBy);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.invitedUserId;
+    }
+
+    // Activity Logs collection
+    match /activityLogs/{logId} {
+      allow read: if isAuthenticated() && isMember(resource.data.businessId);
+      allow create: if isAuthenticated();
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+    }
+
+    // Global Analytics: Collection Group Rule for entries
+    match /{path=**}/entries/{entryId} {
+      // CRITICAL: This allows Global Analytics to scale infinitely.
+      // It skips the 10-read limit by using denormalized memberIds on the document itself.
+      allow read: if isMemberDenormalized();
+    }
+  }
+}

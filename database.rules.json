@@ -1,0 +1,52 @@
+{
+    "rules": {
+        "users": {
+            "$userId": {
+                ".read": "auth != null && auth.uid == $userId",
+                ".write": "auth != null && auth.uid == $userId"
+            }
+        },
+        "businesses": {
+            "$businessId": {
+                ".read": "auth != null && data.child('memberIds').hasChild(auth.uid)",
+                ".write": "auth != null && data.child('ownerId').val() == auth.uid",
+                "books": {
+                    "$bookId": {
+                        ".read": "auth != null && root.child('businesses').child($businessId).child('memberIds').hasChild(auth.uid)",
+                        ".write": "auth != null && root.child('businesses').child($businessId).child('memberIds').hasChild(auth.uid)"
+                    }
+                },
+                "entries": {
+                    "$entryId": {
+                        ".read": "auth != null && root.child('businesses').child($businessId).child('memberIds').hasChild(auth.uid)",
+                        ".write": "auth != null && root.child('businesses').child($businessId).child('memberIds').hasChild(auth.uid)"
+                    }
+                },
+                "parties": {
+                    "$partyId": {
+                        ".read": "auth != null && root.child('businesses').child($businessId).child('memberIds').hasChild(auth.uid)",
+                        ".write": "auth != null && root.child('businesses').child($businessId).child('memberIds').hasChild(auth.uid)"
+                    }
+                }
+            }
+        },
+        "invitations": {
+            "$invitationId": {
+                ".read": "auth != null && (data.child('invitedUserId').val() == auth.uid || data.child('invitedBy').val() == auth.uid)",
+                ".write": "auth != null && (!data.exists() || data.child('invitedUserId').val() == auth.uid)"
+            }
+        },
+        "notifications": {
+            "$userId": {
+                ".read": "auth != null && auth.uid == $userId",
+                ".write": "auth != null && auth.uid == $userId"
+            }
+        },
+        "activityLogs": {
+            "$logId": {
+                ".read": "auth != null && root.child('businesses').child(data.child('businessId').val()).child('memberIds').hasChild(auth.uid)",
+                ".write": "auth != null"
+            }
+        }
+    }
+}

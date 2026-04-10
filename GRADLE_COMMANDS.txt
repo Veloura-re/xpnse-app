@@ -1,0 +1,85 @@
+===========================================
+   GRADLE BUILD COMMANDS - QUICK REFERENCE
+===========================================
+
+📍 LOCATION: Run from project root or android folder
+
+-----------------
+OPTION 1: SCRIPT
+-----------------
+.\gradle-build.ps1
+
+Output: cashiee-release.apk (in project root)
+
+
+--------------------
+OPTION 2: MANUAL
+--------------------
+cd android
+.\gradlew clean
+.\gradlew assembleRelease
+
+Output: android\app\build\outputs\apk\release\app-release.apk
+
+
+--------------------
+ALL GRADLE COMMANDS
+--------------------
+cd android
+
+# Clean
+.\gradlew clean
+
+# Debug APK
+.\gradlew assembleDebug
+
+# Release APK
+.\gradlew assembleRelease
+
+# AAB for Play Store
+.\gradlew bundleRelease
+
+# Install on device
+.\gradlew installRelease
+
+# List all tasks
+.\gradlew tasks
+
+
+--------------------
+INSTALL APK
+--------------------
+# Via ADB
+adb install cashiee-release.apk
+
+# Or copy to phone and install manually
+
+
+--------------------
+TROUBLESHOOTING
+--------------------
+Problem: "gradlew not found"
+Fix: cd android
+
+Problem: "ANDROID_HOME not set"
+Fix: setx ANDROID_HOME "C:\Users\YourName\AppData\Local\Android\Sdk"
+
+Problem: "Signing error"
+Fix: See BUILD_WITH_GRADLE.md for keystore setup
+
+Problem: Build too slow
+Fix: Add to android\gradle.properties:
+     org.gradle.daemon=true
+     org.gradle.parallel=true
+
+
+--------------------
+QUICK START
+--------------------
+1. cd android
+2. .\gradlew assembleRelease
+3. APK at: app\build\outputs\apk\release\app-release.apk
+4. adb install app\build\outputs\apk\release\app-release.apk
+
+
+===========================================

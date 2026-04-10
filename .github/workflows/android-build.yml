@@ -1,0 +1,97 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env file
+        run: |
+          echo "EXPO_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}" >> .env
+          echo "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}" >> .env
+          echo "EXPO_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env
+          echo "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> .env
+          echo "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" >> .env
+          echo "EXPO_PUBLIC_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}" >> .env
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --clean
+
+      - name: Build Android APK
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "build-${{ github.run_number }}"
+          name: "APK Build #${{ github.run_number }}"
+          files: android/app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Create Direct Download Link
+        continue-on-error: true
+        run: |
+          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+          if [ -f "$APK_PATH" ]; then
+            echo "Uploading APK to get a direct download link..."
+            # Try file.io as it's often more reliable than transfer.sh
+            DOWNLOAD_URL=$(curl -F "file=@$APK_PATH" https://file.io | jq -r '.link')
+            
+            if [ "$DOWNLOAD_URL" != "null" ] && [ -n "$DOWNLOAD_URL" ]; then
+              echo "✅ Direct Download Link: $DOWNLOAD_URL"
+              echo "::notice ::✅ Download your Android Build (APK) here: $DOWNLOAD_URL"
+            else
+              # Fallback to transfer.sh if file.io fails
+              DOWNLOAD_URL=$(curl --upload-file "$APK_PATH" "https://transfer.sh/app-release.apk")
+              echo "✅ Direct Download Link (Fallback): $DOWNLOAD_URL"
+              echo "::notice ::✅ Download your Android Build (APK) here: $DOWNLOAD_URL"
+            fi
+          else
+            echo "❌ APK not found!"
+          fi
+      
+      - name: 📢 GitHub Release Link
+        run: |
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/build-${{ github.run_number }}"
+          echo "::notice ::📦 Your build is also available as a GitHub Release: $RELEASE_URL"
+          echo "🔗 Release URL: $RELEASE_URL"
