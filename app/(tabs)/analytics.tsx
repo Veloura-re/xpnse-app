@@ -80,6 +80,8 @@ export default function AnalyticsScreen() {
     const [aggregateTotals, setAggregateTotals] = useState<{ totalCashIn: number, totalCashOut: number, netBalance: number, count: number } | null>(null);
     const [isGlobal, setIsGlobal] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [exportModalVisible, setExportModalVisible] = useState(false);
+    const [exportFileName, setExportFileName] = useState('');
 
     // Calculate dates for transaction fetching
     const { startDate, endDate } = useMemo(() => {
@@ -239,9 +241,28 @@ export default function AnalyticsScreen() {
     const handleExportBusinessPDF = async () => {
         if (!currentBusiness || transactions.length === 0) return;
         const dateStr = new Date().toISOString().split('T')[0];
-        const fileName = `${currentBusiness.name.replace(/[^a-zA-Z0-9]/g, '_')}_Business_Export_${dateStr}`;
-        const rangeLabel = timeRange === 'all' ? 'All Time' : timeRange.charAt(0).toUpperCase() + timeRange.slice(1);
-        await exportToPDF(currentBusiness, transactions, { fileName, isBusiness: true, rangeLabel });
+        const defaultName = `${currentBusiness.name.replace(/[^a-zA-Z0-9]/g, '_')}_Business_Export_${dateStr}`;
+        setExportFileName(defaultName);
+        setExportModalVisible(true);
+    };
+
+    const confirmExportPDF = async () => {
+        if (!currentBusiness || transactions.length === 0) return;
+        setExportModalVisible(false);
+        setIsExporting(true);
+        try {
+            const rangeLabel = timeRange === 'all' ? 'All Time' : timeRange.charAt(0).toUpperCase() + timeRange.slice(1);
+            await exportToPDF(currentBusiness, transactions, { 
+                fileName: exportFileName || 'Business_Export', 
+                isBusiness: true, 
+                rangeLabel 
+            });
+        } catch (error) {
+            console.error('Error exporting PDF:', error);
+            // Alert.alert('Export Error', 'Failed to generate PDF report.');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const renderHeader = () => (
@@ -284,8 +305,9 @@ export default function AnalyticsScreen() {
                         <TouchableOpacity
                             style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                             onPress={handleExportBusinessPDF}
+                            disabled={isExporting}
                         >
-                            <FileDown size={16} color={colors.textSecondary} />
+                            {isExporting ? <ActivityIndicator size="small" color={colors.primary} /> : <FileDown size={16} color={colors.textSecondary} />}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -605,6 +627,70 @@ export default function AnalyticsScreen() {
                     </View>
                 </TouchableOpacity>
             </Modal >
+
+            {/* Export Filename Modal */}
+            <Modal
+                visible={exportModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setExportModalVisible(false)}
+                statusBarTranslucent={true}
+            >
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity 
+                        style={StyleSheet.absoluteFill} 
+                        activeOpacity={1} 
+                        onPress={() => setExportModalVisible(false)} 
+                    >
+                        <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+                    </TouchableOpacity>
+
+                    <View style={[styles.popupContainer, { backgroundColor: colors.surface }]}>
+                        <View style={[styles.popupHeader, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.popupTitle, { color: colors.text }]}>Name Your File</Text>
+                            <TouchableOpacity onPress={() => setExportModalVisible(false)} style={styles.popupCloseButton}>
+                                <X size={20} color={colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.popupContent}>
+                            <View style={styles.inputWrapper}>
+                                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Filename</Text>
+                                <TextInput
+                                    style={[styles.modalTextInput, { 
+                                        backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                                        borderColor: colors.border,
+                                        color: colors.text
+                                    }]}
+                                    value={exportFileName}
+                                    onChangeText={setExportFileName}
+                                    placeholder="Enter filename"
+                                    placeholderTextColor={colors.textSecondary}
+                                    autoFocus={true}
+                                />
+                                <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                                    Extension (.pdf) will be added automatically
+                                </Text>
+                            </View>
+
+                            <View style={styles.popupFooter}>
+                                <TouchableOpacity
+                                    style={[styles.modalCancelButton, { backgroundColor: isDark ? colors.border : '#F1F5F9' }]}
+                                    onPress={() => setExportModalVisible(false)}
+                                >
+                                    <Text style={[styles.modalCancelButtonText, { color: colors.text }]}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.modalSaveButton, { backgroundColor: colors.primary }]}
+                                    onPress={confirmExportPDF}
+                                >
+                                    <Text style={styles.modalSaveButtonText}>Export Report</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View >
     );
 }
@@ -988,5 +1074,91 @@ const styles = StyleSheet.create({
     loadMoreText: {
         fontSize: 14,
         fontWeight: '600',
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        padding: 20,
+    },
+    popupContainer: {
+        width: '100%',
+        maxWidth: 400,
+        borderRadius: 24,
+        overflow: 'hidden',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+    },
+    popupHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 18,
+        borderBottomWidth: 1,
+    },
+    popupTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    popupCloseButton: {
+        padding: 4,
+    },
+    popupContent: {
+        padding: 20,
+    },
+    inputWrapper: {
+        marginBottom: 20,
+    },
+    inputLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    modalTextInput: {
+        height: 52,
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    helperText: {
+        fontSize: 11,
+        marginTop: 6,
+        fontStyle: 'italic',
+    },
+    popupFooter: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    modalCancelButton: {
+        flex: 1,
+        height: 52,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalCancelButtonText: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    modalSaveButton: {
+        flex: 2,
+        height: 52,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalSaveButtonText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#FFFFFF',
     },
 });

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { X, Trash2, CreditCard, Tag, Copy, ArrowRight, Send } from 'lucide-react-native';
+import { X, Trash2, CreditCard, Tag, Copy, ArrowRight, Send, Check } from 'lucide-react-native';
 import { Book } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -48,9 +48,11 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
     const [isDeleting, setIsDeleting] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
     const [isMoving, setIsMoving] = useState(false);
+    const [selectedTargetBusinessId, setSelectedTargetBusinessId] = useState<string | null>(null);
 
     useEffect(() => {
         if (visible) {
+            setSelectedTargetBusinessId(null);
             if (book) {
                 setBookName(book.name);
                 setShowPaymentMode(book.settings?.showPaymentMode ?? true);
@@ -105,31 +107,11 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
         setShowDeleteModal(true);
     };
 
-    const handleCopyBook = async (targetBusinessId: string) => {
-        if (!book) return;
-        try {
-            setIsCopying(true);
-            const result = await copyBook(book.id, targetBusinessId);
-            if (result.success) {
-                Alert.alert('Success', result.message);
-                setShowCopyModal(false);
-                onClose();
-            } else {
-                Alert.alert('Error', result.message);
-            }
-        } catch (error) {
-            console.error('Failed to copy book:', error);
-            Alert.alert('Error', 'Failed to copy book');
-        } finally {
-            setIsCopying(false);
-        }
-    };
-
-    const handleMoveBook = async (targetBusinessId: string) => {
-        if (!book) return;
+    const handleMoveBook = async () => {
+        if (!book || !selectedTargetBusinessId) return;
         try {
             setIsMoving(true);
-            const result = await moveBook(book.id, targetBusinessId);
+            const result = await moveBook(book.id, selectedTargetBusinessId);
             if (result.success) {
                 Alert.alert('Success', result.message);
                 setShowMoveModal(false);
@@ -142,6 +124,26 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
             Alert.alert('Error', 'Failed to move book');
         } finally {
             setIsMoving(false);
+        }
+    };
+
+    const handleCopyBook = async () => {
+        if (!book || !selectedTargetBusinessId) return;
+        try {
+            setIsCopying(true);
+            const result = await copyBook(book.id, selectedTargetBusinessId);
+            if (result.success) {
+                Alert.alert('Success', result.message);
+                setShowCopyModal(false);
+                onClose();
+            } else {
+                Alert.alert('Error', result.message);
+            }
+        } catch (error) {
+            console.error('Failed to copy book:', error);
+            Alert.alert('Error', 'Failed to copy book');
+        } finally {
+            setIsCopying(false);
         }
     };
 
@@ -449,27 +451,45 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                             </View>
 
                             <ScrollView style={[styles.businessList, { paddingHorizontal: 20 }]} showsVerticalScrollIndicator={false}>
-                                {availableBusinesses.map((business, index) => (
-                                    <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
-                                        <TouchableOpacity
-                                            style={[styles.businessItem, { backgroundColor: cardBg, borderColor: borderColor }]}
-                                            onPress={() => handleCopyBook(business.id)}
-                                            disabled={isCopying}
-                                        >
-                                            <View style={[styles.businessItemIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.primary }]}>
-                                                <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
-                                                <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
-                                            </View>
-                                            {isCopying ? <ActivityIndicator size="small" color="#10b981" /> : <ArrowRight size={18} color={subTextColor} />}
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                ))}
+                                {availableBusinesses.map((business, index) => {
+                                    const isSelected = selectedTargetBusinessId === business.id;
+                                    return (
+                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.businessItem, 
+                                                    { backgroundColor: cardBg, borderColor: isSelected ? colors.primary : borderColor },
+                                                    isSelected && { borderWidth: 1.5 }
+                                                ]}
+                                                onPress={() => setSelectedTargetBusinessId(business.id)}
+                                                disabled={isCopying}
+                                            >
+                                                <View style={[styles.businessItemIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.primary }]}>
+                                                    <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
+                                                    <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
+                                                </View>
+                                                {isSelected && <Check size={18} color={colors.primary} />}
+                                            </TouchableOpacity>
+                                        </Animated.View>
+                                    );
+                                })}
                             </ScrollView>
 
-                            <View style={{ padding: 20, width: '100%' }}>
+                            <View style={{ padding: 20, width: '100%', gap: 12 }}>
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.confirmSaveButton, 
+                                        { backgroundColor: colors.primary },
+                                        (!selectedTargetBusinessId || isCopying) && styles.disabledButton
+                                    ]} 
+                                    onPress={handleCopyBook}
+                                    disabled={!selectedTargetBusinessId || isCopying}
+                                >
+                                    {isCopying ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.confirmSaveButtonText}>Confirm Copy</Text>}
+                                </TouchableOpacity>
                                 <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: isDark ? '#1A1A1A' : '#F1F5F9', borderRadius: 16 }]} onPress={() => setShowCopyModal(false)}>
                                     <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
                                 </TouchableOpacity>
@@ -497,27 +517,45 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                             </View>
 
                             <ScrollView style={[styles.businessList, { paddingHorizontal: 20 }]} showsVerticalScrollIndicator={false}>
-                                {availableBusinesses.map((business, index) => (
-                                    <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
-                                        <TouchableOpacity
-                                            style={[styles.businessItem, { backgroundColor: cardBg, borderColor: borderColor }]}
-                                            onPress={() => handleMoveBook(business.id)}
-                                            disabled={isMoving}
-                                        >
-                                            <View style={[styles.businessItemIcon, { backgroundColor: '#0EA5E9' }]}>
-                                                <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
-                                                <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
-                                            </View>
-                                            {isMoving ? <ActivityIndicator size="small" color="#0EA5E9" /> : <ArrowRight size={18} color={subTextColor} />}
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                ))}
+                                {availableBusinesses.map((business, index) => {
+                                    const isSelected = selectedTargetBusinessId === business.id;
+                                    return (
+                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.businessItem, 
+                                                    { backgroundColor: cardBg, borderColor: isSelected ? '#0EA5E9' : borderColor },
+                                                    isSelected && { borderWidth: 1.5 }
+                                                ]}
+                                                onPress={() => setSelectedTargetBusinessId(business.id)}
+                                                disabled={isMoving}
+                                            >
+                                                <View style={[styles.businessItemIcon, { backgroundColor: '#0EA5E9' }]}>
+                                                    <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
+                                                    <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
+                                                </View>
+                                                {isSelected && <Check size={18} color="#0EA5E9" />}
+                                            </TouchableOpacity>
+                                        </Animated.View>
+                                    );
+                                })}
                             </ScrollView>
 
-                            <View style={{ padding: 20, width: '100%' }}>
+                            <View style={{ padding: 20, width: '100%', gap: 12 }}>
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.confirmSaveButton, 
+                                        { backgroundColor: '#0EA5E9' },
+                                        (!selectedTargetBusinessId || isMoving) && styles.disabledButton
+                                    ]} 
+                                    onPress={handleMoveBook}
+                                    disabled={!selectedTargetBusinessId || isMoving}
+                                >
+                                    {isMoving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.confirmSaveButtonText}>Confirm Move</Text>}
+                                </TouchableOpacity>
                                 <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: isDark ? '#1A1A1A' : '#F1F5F9', borderRadius: 16 }]} onPress={() => setShowMoveModal(false)}>
                                     <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
                                 </TouchableOpacity>
@@ -792,5 +830,22 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         fontWeight: '600',
+    },
+    confirmSaveButton: {
+        width: '100%',
+        paddingVertical: 18,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+    },
+    confirmSaveButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
     },
 });

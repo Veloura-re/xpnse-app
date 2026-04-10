@@ -114,7 +114,6 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
 
     // Initial load - re-run when filters change
     useEffect(() => {
-        setEntries([]);
         refresh();
     }, [businessId, bookId, type, startDate?.toISOString(), endDate?.toISOString()]);
 

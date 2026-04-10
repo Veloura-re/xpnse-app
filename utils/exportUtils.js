@@ -197,6 +197,17 @@ export const exportToExcel = async (book, entries, options = {}) => {
 
 // Enhanced PDF Export  
 export const exportToPDF = async (entity, entries, options = {}) => {
+  console.log('[exportToPDF] Starting export', { 
+    entityName: entity?.name, 
+    entryCount: entries?.length, 
+    options 
+  });
+
+  if (!entity || !entries) {
+    console.error('[exportToPDF] Missing entity or entries:', { entity, entryCount: entries?.length });
+    throw new Error('Missing business/book data or entries for export.');
+  }
+
   try {
     const isBusiness = options.isBusiness || false;
     const currency = entity.currency || 'USD';
@@ -556,27 +567,53 @@ export const exportToPDF = async (entity, entries, options = {}) => {
 
     if (Platform.OS === 'web') {
       // Browser-based download logic
-      const byteCharacters = atob(result.base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
+      // On web, printToFileAsync often returns a blob URI directly
+      let downloadUrl = result.uri;
+      let shouldRevoke = false;
       
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Fallback: If no URI but we have base64, create a manual blob
+      if ((!downloadUrl || downloadUrl.startsWith('http')) && result.base64) {
+        try {
+          const byteCharacters = atob(result.base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+          downloadUrl = URL.createObjectURL(blob);
+          shouldRevoke = true;
+        } catch (e) {
+          console.warn('Manual blob conversion failed, falling back to system print');
+          downloadUrl = null;
+        }
+      }
+
+      if (downloadUrl) {
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          if (shouldRevoke && downloadUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(downloadUrl);
+          }
+        }, 100);
+      } else {
+        // Ultimate fallback for web: trigger system print dialog
+        // This is extremely robust as it uses the browser's own PDF engine
+        await Print.printAsync({ html });
+      }
       return { success: true };
     } else {
       // Native mobile logic
-      const targetUri = FileSystem.cacheDirectory + fileName;
+      // Ensure path is correctly formatted with a separator
+      const cacheDir = FileSystem.cacheDirectory;
+      const separator = cacheDir.endsWith('/') ? '' : '/';
+      const targetUri = `${cacheDir}${separator}${fileName}`;
+      
       await FileSystem.moveAsync({
         from: result.uri,
         to: targetUri
