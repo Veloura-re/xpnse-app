@@ -219,7 +219,7 @@ export default function AnalyticsScreen() {
             topBooks: topBooks, // Show all books instead of just top 5
             isLoading: loadingTransactions && transactions.length === 0
         };
-    }, [books, currentBusiness, searchQuery, timeRange, selectedSort, transactions, loadingTransactions]);
+    }, [books, currentBusiness, searchQuery, timeRange, selectedSort, transactions, loadingTransactions, aggregateTotals, isGlobal]);
 
 
 

@@ -42,9 +42,11 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   const { colors, theme, isDark } = useTheme();
   const [type, setType] = useState<'cash_in' | 'cash_out'>('cash_in');
   const [amount, setAmount] = useState('');
+  const [displayAmount, setDisplayAmount] = useState('');
   const [date, setDate] = useState('');
   const [autoDate, setAutoDate] = useState(true);
   const [description, setDescription] = useState('');
+  const [descriptionError, setDescriptionError] = useState(false);
   const [paymentMode, setPaymentMode] = useState('');
   const [customPaymentMode, setCustomPaymentMode] = useState('');
   const [category, setCategory] = useState('');
@@ -52,6 +54,22 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   const [attachments, setAttachments] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Format a raw numeric string with thousand commas
+  const formatWithCommas = (raw: string) => {
+    // Remove all non-digit and non-dot characters
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.length > 1 ? parts[0] + '.' + parts[1] : parts[0];
+  };
+
+  const handleAmountChange = (text: string) => {
+    // Strip commas to get raw value
+    const raw = text.replace(/,/g, '');
+    setAmount(raw);
+    setDisplayAmount(formatWithCommas(raw));
+  };
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isTablet = width > 600;
@@ -67,9 +85,12 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   useEffect(() => {
     if (entry) {
       setType(entry.type);
-      setAmount(entry.amount.toString());
+      const rawAmt = entry.amount.toString();
+      setAmount(rawAmt);
+      setDisplayAmount(formatWithCommas(rawAmt));
       setDate(entry.date);
       setDescription(entry.description);
+      setDescriptionError(false);
       setPaymentMode(entry.paymentMode || '');
       setCategory(entry.category || '');
       // setPartyId(entry.partyId); // Removed
@@ -78,7 +99,9 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     } else {
       setType(initialType || 'cash_in');
       setAmount('');
+      setDisplayAmount('');
       setDescription('');
+      setDescriptionError(false);
       setPaymentMode('');
       setCategory('');
       // setPartyId(undefined); // Removed
@@ -125,9 +148,10 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
 
   const handleSave = async () => {
     if (!description.trim()) {
-      Alert.alert('Error', 'Please enter description');
+      setDescriptionError(true);
       return;
     }
+    setDescriptionError(false);
 
     const resolvedPaymentMode = paymentMode === 'Custom' ? customPaymentMode.trim() : paymentMode.trim();
     const entryData: BookEntry = {
@@ -229,8 +253,8 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                       </Text>
                       <TextInput
                         style={[styles.amountInput, { color: type === 'cash_in' ? '#10b981' : '#ef4444', fontSize: 32, fontWeight: '800', minWidth: 100 }]}
-                        value={amount}
-                        onChangeText={setAmount}
+                        value={displayAmount}
+                        onChangeText={handleAmountChange}
                         placeholder="0.00"
                         placeholderTextColor={isDark ? 'rgba(255,255,255,0.1)' : "#e2e8f0"}
                         keyboardType="numeric"
@@ -241,15 +265,20 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
 
                   {/* Description */}
                   <View style={styles.inputGroup}>
-                    <Text style={[styles.inputLabel, { color: colors.text }]}>Description</Text>
-                    <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-                      <AlignLeft size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginLeft: 4 }}>
+                      <Text style={[styles.inputLabel, { color: descriptionError ? '#ef4444' : colors.text, marginBottom: 0 }]}>Description</Text>
+                      {descriptionError && (
+                        <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: '600' }}>Required ✕</Text>
+                      )}
+                    </View>
+                    <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: descriptionError ? '#ef4444' : colors.border, borderWidth: descriptionError ? 2 : 1 }]}>
+                      <AlignLeft size={20} color={descriptionError ? '#ef4444' : colors.textSecondary} style={styles.inputIcon} />
                       <TextInput
                         style={[styles.textInput, { color: colors.text }]}
                         value={description}
-                        onChangeText={setDescription}
+                        onChangeText={(t) => { setDescription(t); if (t.trim()) setDescriptionError(false); }}
                         placeholder="What is this for?"
-                        placeholderTextColor={colors.textSecondary}
+                        placeholderTextColor={descriptionError ? 'rgba(239,68,68,0.4)' : colors.textSecondary}
                       />
                     </View>
                   </View>
