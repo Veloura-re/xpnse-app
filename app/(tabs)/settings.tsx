@@ -36,6 +36,7 @@ import {
   Plus,
   FileText,
   Bell,
+  Heart,
 } from 'lucide-react-native';
 import { useAuth } from '@/providers/auth-provider';
 import { useBusiness } from '@/providers/business-provider';
@@ -57,7 +58,7 @@ type ExpandedSection = 'feedback' | 'privacy' | null;
 
 export default function SettingsScreen() {
   const { user, logout, updateProfile, deleteAccount, reauthenticate } = useAuth();
-  const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont } = useBusiness();
+  const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont, books, addEntry } = useBusiness();
   const { expoPushToken } = useNotifications();
   const { colors, deviceFont, setDeviceFont, isDark, theme } = useTheme();
   const userRole = getUserRole();
@@ -302,7 +303,8 @@ export default function SettingsScreen() {
             </>
           )}
 
-          {/* Support Section */}
+
+
           <SectionHeader title="Support" />
           <SettingsCard>
             <SettingsRow
@@ -317,6 +319,14 @@ export default function SettingsScreen() {
               label="Privacy Policy"
               onPress={() => setShowPrivacyModal(true)}
               color="#10b981"
+            />
+
+            <SettingsRow
+              icon={Heart}
+              label="Support the Developer"
+              subLabel="Help us keep the app growing"
+              onPress={() => router.push('/donate')}
+              color="#ef4444"
               isLast
             />
           </SettingsCard>
@@ -330,7 +340,9 @@ export default function SettingsScreen() {
             <ChevronRight size={18} color="#ef4444" />
           </TouchableOpacity>
 
-          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0 • Spendria</Text>
+
+
+          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0 • Cashbook</Text>
         </View>
       </ScrollView>
 
@@ -1060,7 +1072,7 @@ export default function SettingsScreen() {
                     <Mail size={28} color={colors.primary} />
                   </View>
                   <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
-                    spendria.feedback@gmail.com
+                    cashbook.feedback@gmail.com
                   </Text>
                   <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
                     Send us your questions, feedback, or just say hello!
@@ -1070,7 +1082,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                   style={{ borderRadius: 16, overflow: 'hidden' }}
                   onPress={() => {
-                    Linking.openURL('mailto:spendria.feedback@gmail.com');
+                    Linking.openURL('mailto:cashbook.feedback@gmail.com');
                     setShowFeedbackModal(false);
                   }}
                   activeOpacity={0.9}
@@ -1148,7 +1160,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     style={{ borderRadius: 16, overflow: 'hidden' }}
                     onPress={() => {
-                      Linking.openURL('https://spendria.app/privacy');
+                      Linking.openURL('https://cashbook.app/privacy');
                       setShowPrivacyModal(false);
                     }}
                     activeOpacity={0.9}
@@ -1167,7 +1179,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     style={{ borderRadius: 16, overflow: 'hidden' }}
                     onPress={() => {
-                      Linking.openURL('mailto:privacy@spendria.app');
+                      Linking.openURL('mailto:privacy@cashbook.app');
                       setShowPrivacyModal(false);
                     }}
                     activeOpacity={0.9}

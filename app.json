@@ -1,34 +1,34 @@
 {
   "expo": {
-    "name": "Spendria Cash Manager",
-    "slug": "spendria-cash-manager",
+    "name": "Cashbook Cash Manager",
+    "slug": "cashbook",
     "version": "1.0.0",
     "description": "Track your expenses",
     "assetBundlePatterns": [
       "**/*"
     ],
     "newArchEnabled": true,
-    "icon": "./assets/images/spendria-icon.png",
+    "icon": "./assets/images/cashbook-icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/spendria-icon.png",
+      "image": "./assets/images/cashbook-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000",
       "dark": {
-        "image": "./assets/images/spendria-icon.png",
+        "image": "./assets/images/cashbook-icon.png",
         "resizeMode": "contain",
         "backgroundColor": "#000000"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/spendria-icon.png",
+        "foregroundImage": "./assets/images/cashbook-icon.png",
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.zzz1.businessfinancemanagementappkkqzwnt"
     },
     "web": {
-      "favicon": "./assets/images/spendria-icon.png",
+      "favicon": "./assets/images/cashbook-icon.png",
       "bundler": "metro",
       "config": {
         "notification": {
@@ -43,11 +43,11 @@
       "icon": "./assets/images/notification-icon-transparent.png",
       "color": "#10b981",
       "androidMode": "default",
-      "androidCollapsedTitle": "Spendria"
+      "androidCollapsedTitle": "Cashbook"
     },
     "extra": {
       "router": {
-        "origin": "https://spendria.app/"
+        "origin": "https://cashbook.app/"
       },
       "eas": {
         "projectId": "02593026-0eb9-421d-8a29-b57812d626ba"

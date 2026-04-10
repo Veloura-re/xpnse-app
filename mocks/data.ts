@@ -10,6 +10,7 @@ export const mockUsers: User[] = [
     name: 'John Doe',
     email: 'john@example.com',
     phone: '+1234567890',
+    metadata: {}, providerData: []
   },
   {
     id: '2',
@@ -20,6 +21,7 @@ export const mockUsers: User[] = [
     name: 'Jane Smith',
     email: 'jane@example.com',
     phone: '+1234567891',
+    metadata: {}, providerData: []
   },
   {
     id: '3',
@@ -30,6 +32,7 @@ export const mockUsers: User[] = [
     name: 'Mike Johnson',
     email: 'mike@example.com',
     phone: '+1234567892',
+    metadata: {}, providerData: []
   },
 ];
 

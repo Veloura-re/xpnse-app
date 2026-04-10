@@ -82,7 +82,9 @@ export default function BookDetailScreen() {
     hasMore,
     loadMore,
     refresh
-  } = usePaginatedEntries(currentBusiness?.id || null, id);
+  } = usePaginatedEntries(currentBusiness?.id || null, id, {
+    pageSize: 10000
+  });
 
   // Modal and UI States
   const [editModalVisible, setEditModalVisible] = useState(false);

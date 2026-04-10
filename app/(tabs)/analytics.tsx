@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -31,8 +31,9 @@ import {
     X,
     Check,
     FileText,
+    FileDown,
 } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/providers/theme-provider';
 import { useBusiness } from '@/providers/business-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,6 +42,7 @@ import { getFontFamily } from '@/config/font-config';
 import { BlurView } from 'expo-blur';
 import { StatCard, ProgressBar } from '@/components/analytics/analytics-components';
 import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
+import { exportToPDF } from '@/utils/exportUtils';
 import { ActivityIndicator } from 'react-native';
 import { BookEntry } from '@/types';
 
@@ -113,21 +115,32 @@ export default function AnalyticsScreen() {
         loading: loadingTransactions,
         hasMore: hasMoreTransactions,
         loadMore: loadMoreTransactions,
-        getTotals
+        getTotals,
+        refresh: refreshTransactions
     } = usePaginatedEntries(isGlobal ? null : (currentBusiness?.id || null), undefined, {
-        pageSize: 50,
+        pageSize: 10000,
         startDate,
         endDate: timeRange !== 'all' ? endDate : undefined
     });
 
-    // Fetch aggregate totals when period changes
-    useEffect(() => {
-        const fetchTotals = async () => {
-            const totals = await getTotals();
-            setAggregateTotals(totals);
-        };
-        fetchTotals();
-    }, [getTotals]);
+    // Fetch aggregate totals when period changes or screen is focused
+    useFocusEffect(
+        useCallback(() => {
+            let isActive = true;
+            const fetchTotals = async () => {
+                const totals = await getTotals();
+                if (isActive) {
+                    setAggregateTotals(totals);
+                }
+            };
+            fetchTotals();
+            refreshTransactions();
+
+            return () => {
+                isActive = false;
+            };
+        }, [getTotals, refreshTransactions])
+    );
 
     // Calculate analytics from transactions and books
     const analytics = useMemo(() => {
@@ -223,6 +236,14 @@ export default function AnalyticsScreen() {
 
 
 
+    const handleExportBusinessPDF = async () => {
+        if (!currentBusiness || transactions.length === 0) return;
+        const dateStr = new Date().toISOString().split('T')[0];
+        const fileName = `${currentBusiness.name.replace(/[^a-zA-Z0-9]/g, '_')}_Business_Export_${dateStr}`;
+        const rangeLabel = timeRange === 'all' ? 'All Time' : timeRange.charAt(0).toUpperCase() + timeRange.slice(1);
+        await exportToPDF(currentBusiness, transactions, { fileName, isBusiness: true, rangeLabel });
+    };
+
     const renderHeader = () => (
         <View>
             <View style={styles.header}>
@@ -259,6 +280,12 @@ export default function AnalyticsScreen() {
                             onPress={() => setSortModalVisible(true)}
                         >
                             <SlidersHorizontal size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            onPress={handleExportBusinessPDF}
+                        >
+                            <FileDown size={16} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
                 </View>

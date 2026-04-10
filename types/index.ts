@@ -123,6 +123,7 @@ export interface BookEntry {
   attachmentUrl?: string; // Deprecated, use attachments instead
   attachments?: string[]; // Array of Firebase Storage URLs for images
   partyId?: string;
+  memberIds?: string[];
   createdAt: string;
 }
 

@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import * as XLSX from 'xlsx';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 // Helper function to format currency
 const formatCurrency = (amount, currency = 'USD') => {
@@ -196,224 +196,402 @@ export const exportToExcel = async (book, entries, options = {}) => {
 };
 
 // Enhanced PDF Export  
-export const exportToPDF = async (book, entries, options = {}) => {
+export const exportToPDF = async (entity, entries, options = {}) => {
   try {
+    const isBusiness = options.isBusiness || false;
+    const currency = entity.currency || 'USD';
+    const entityLabel = isBusiness ? '🏢 Business' : '📚 Ledger Book';
+    
     const grouped = groupEntriesByPeriod(entries);
-    const bookTotals = calculateGroupTotals(entries);
+    const totals = calculateGroupTotals(entries);
 
     // Create detailed HTML report
-    const generateSectionHTML = (title, periodEntries, totals) => {
+    const generateSectionHTML = (title, periodEntries, periodTotals) => {
       if (periodEntries.length === 0) return '';
 
       const rows = periodEntries
-        // .slice(0, 50) // Removed limit to allow full export
         .map(entry => {
           return `
           <tr style="page-break-inside: avoid; page-break-after: auto;">
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
-              ${entry.type === 'cash_in' ? '↗️ Cash In' : '↘️ Cash Out'}
+            <td style="padding: 12px 14px; border-bottom: 1px solid #f3f4f6; font-size: 13px;">
+              ${entry.type === 'cash_in' ? '↙️ IN' : '↗️ OUT'}
             </td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; text-align: right; font-weight: bold; color: ${entry.type === 'cash_in' ? '#10b981' : '#ef4444'};">
-              ${formatCurrency(entry.amount, book.currency)}
+            <td style="padding: 12px 14px; border-bottom: 1px solid #f3f4f6; font-size: 13px; text-align: left; max-width: 280px; word-wrap: break-word;">
+              <strong>${entry.description || 'N/A'}</strong><br/>
+              <span style="font-size: 11px; color:#6b7280;">
+                ${formatDate(entry.date)} 
+                ${entry.category ? ' • ' + entry.category : ''} 
+                ${entry.paymentMode ? ' • ' + entry.paymentMode : ''}
+                ${isBusiness && entry.bookName ? ' • Book: ' + entry.bookName : ''}
+              </span>
             </td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
-              ${formatDate(entry.date)}
+            <td style="padding: 12px 14px; border-bottom: 1px solid #f3f4f6; font-size: 14px; text-align: right; font-weight: 700; color: ${entry.type === 'cash_in' ? '#059669' : '#dc2626'};">
+              ${entry.type === 'cash_in' ? '+' : '-'}${formatCurrency(entry.amount, currency)}
             </td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; max-width: 200px;">
-              ${entry.description || 'N/A'}
-            </td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
-              ${entry.paymentMode || 'N/A'}
-            </td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px;">
-              ${entry.category || 'N/A'}
-            </td>
-            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 10px; text-align: right; font-weight: bold;">
-              ${formatCurrency(entry.displayBalance || 0, book.currency)}
-            </td>
+            ${!isBusiness ? `
+            <td style="padding: 12px 14px; border-bottom: 1px solid #f3f4f6; font-size: 13px; text-align: right; font-weight: 600; color: #4b5563;">
+              ${formatCurrency(entry.displayBalance || 0, currency)}
+            </td>` : ''}
           </tr>
         `;
         }).join('');
 
       return `
-        <div style="margin-bottom: 30px;">
-          <h3 style="color: #10b981; font-size: 16px; margin-bottom: 10px; border-bottom: 2px solid #10b981; padding-bottom: 5px;">
-            ${title} (${periodEntries.length} entries)
-          </h3>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 15px; background: #f8fafc; padding: 12px; border-radius: 8px;">
-            <div style="text-align: center;">
-              <div style="font-size: 12px; color: #6b7280;">Cash In</div>
-              <div style="font-size: 14px; font-weight: bold; color: #10b981;">${formatCurrency(totals.cashIn, book.currency)}</div>
+        <div style="margin-bottom: 40px; page-break-inside: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; border-bottom: 2px solid #059669; padding-bottom: 8px;">
+            <h3 style="color: #059669; font-size: 18px; margin: 0; font-weight: 700; letter-spacing: -0.5px;">
+              ${title}
+            </h3>
+            <span style="color: #6b7280; font-size: 13px; font-weight: 500;">${periodEntries.length} items</span>
+          </div>
+          
+          <div style="display: flex; justify-content: flex-end; gap: 24px; margin-bottom: 16px; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="text-align: right;">
+              <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cash In</div>
+              <div style="font-size: 15px; font-weight: 700; color: #059669;">${formatCurrency(periodTotals.cashIn, currency)}</div>
             </div>
-            <div style="text-align: center;">
-              <div style="font-size: 12px; color: #6b7280;">Cash Out</div>
-              <div style="font-size: 14px; font-weight: bold; color: #ef4444;">${formatCurrency(totals.cashOut, book.currency)}</div>
+            <div style="text-align: right;">
+              <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cash Out</div>
+              <div style="font-size: 15px; font-weight: 700; color: #dc2626;">${formatCurrency(periodTotals.cashOut, currency)}</div>
             </div>
-            <div style="text-align: center;">
-              <div style="font-size: 12px; color: #6b7280;">Net</div>
-              <div style="font-size: 14px; font-weight: bold; color: ${totals.net >= 0 ? '#10b981' : '#ef4444'};">${formatCurrency(totals.net, book.currency)}</div>
+            <div style="text-align: right;">
+              <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Net Period</div>
+              <div style="font-size: 15px; font-weight: 700; color: ${periodTotals.net >= 0 ? '#059669' : '#dc2626'};">${formatCurrency(periodTotals.net, currency)}</div>
             </div>
           </div>
-          ${periodEntries.length > 0 ? `
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: white; border: 1px solid #e5e7eb; page-break-inside: auto;">
-              <thead>
-                <tr style="background: #f3f4f6;">
-                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Type</th>
-                  <th style="padding: 8px; text-align: right; font-size: 10px; color: #6b7280;">Amount</th>
-                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Date</th>
-                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Description</th>
-                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Payment</th>
-                  <th style="padding: 8px; text-align: left; font-size: 10px; color: #6b7280;">Category</th>
-                  <th style="padding: 8px; text-align: right; font-size: 10px; color: #6b7280;">Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows}
-              </tbody>
-            </table>
-          ` : '<p style="color: #6b7280; font-style: italic;">No entries in this period</p>'}
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; page-break-inside: auto;">
+            <thead>
+              <tr style="background: #f1f5f9;">
+                <th style="padding: 12px 14px; text-align: left; font-size: 12px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Type</th>
+                <th style="padding: 12px 14px; text-align: left; font-size: 12px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Details</th>
+                <th style="padding: 12px 14px; text-align: right; font-size: 12px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Amount</th>
+                ${!isBusiness ? `<th style="padding: 12px 14px; text-align: right; font-size: 12px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Bal.</th>` : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
         </div>
       `;
     };
 
     const rangeLabel = options.rangeLabel ? `Range: ${options.rangeLabel}` : '';
-    const balanceColor = book.netBalance >= 0 ? '#10b981' : '#ef4444';
+    const displayBalance = isBusiness ? totals.net : entity.netBalance;
+    const balanceColor = displayBalance >= 0 ? '#059669' : '#dc2626';
+
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>${book.name} - Financial Report</title>
+          <title>${entity.name} - Financial Report</title>
           <style>
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; 
-              margin: 15px; 
-              line-height: 1.3;
-              color: #374151;
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            
+            /* Root Styles */
+            html, body {
+              margin: 0;
+              padding: 0;
+              background-color: #ffffff;
+              -webkit-print-color-adjust: exact;
             }
+            body { 
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+              color: #1e293b;
+              line-height: 1.6;
+              padding: 50px;
+            }
+
+            /* Header Section */
             .header { 
-              text-align: center; 
-              margin-bottom: 20px; 
-              padding-bottom: 15px; 
-              border-bottom: 2px solid #10b981;
+              margin-bottom: 50px; 
+              padding-bottom: 30px; 
+              border-bottom: 4px solid #0f172a;
+            }
+            .header-top {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 25px;
             }
             .header h1 { 
-              color: #1f2937; 
+              color: #0f172a; 
               margin: 0; 
-              font-size: 22px; 
+              font-size: 38px; 
+              font-weight: 800;
+              letter-spacing: -1.5px;
+            }
+            .header h2 {
+              color: #64748b;
+              margin: 8px 0 0 0;
+              font-size: 18px;
+              font-weight: 500;
+            }
+            .meta-box {
+              text-align: right;
+            }
+            .meta-box .label {
+              font-size: 13px;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              font-weight: 600;
+            }
+            .meta-box .value {
+              font-size: 16px;
+              font-weight: 600;
+              color: #0f172a;
+            }
+
+            /* Financial Status Bar */
+            .balance-bar {
+              background: #f1f5f9;
+              padding: 24px 30px;
+              border-radius: 12px;
+              margin-bottom: 50px;
+              border-left: 6px solid #3b82f6;
+            }
+            .balance-label {
+              font-size: 14px;
+              color: #1d4ed8;
               font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 4px;
             }
-            .header .subtitle { 
-              color: #6b7280; 
-              margin: 4px 0; 
-              font-size: 12px;
+            .balance-value {
+              font-size: 34px;
+              font-weight: 800;
+              color: ${balanceColor};
             }
+
+            /* Overview Cards */
             .overview { 
               display: grid; 
               grid-template-columns: repeat(3, 1fr); 
-              gap: 10px; 
-              margin-bottom: 25px;
+              gap: 30px; 
+              margin-bottom: 60px;
             }
             .overview-card { 
-              background: white; 
-              padding: 12px; 
-              border-radius: 8px; 
-              text-align: center; 
-              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-              border: 1px solid #e5e7eb;
+              background: #f8fafc; 
+              padding: 24px; 
+              border-radius: 16px; 
+              text-align: left; 
+              border: 1px solid #e2e8f0;
             }
             .overview-card h3 { 
-              margin: 0 0 4px 0; 
-              font-size: 12px; 
-              color: #6b7280; 
-              font-weight: 500;
+              margin: 0 0 10px 0; 
+              font-size: 14px; 
+              color: #475569; 
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
             }
             .overview-card .value { 
-              font-size: 16px; 
-              font-weight: 700; 
+              font-size: 28px; 
+              font-weight: 800; 
               margin: 0;
+              letter-spacing: -0.5px;
             }
-            .cash-in { color: #10b981; }
-            .cash-out { color: #ef4444; }
-            .net-positive { color: #10b981; }
-            .net-negative { color: #ef4444; }
+
+            /* Table Styles */
+            table {
+              width: 100%;
+              border-collapse: separate;
+              border-spacing: 0;
+              margin-bottom: 40px;
+              background: white;
+              border: 1px solid #e5e7eb;
+              border-radius: 12px;
+              overflow: hidden;
+            }
+            thead {
+              display: table-header-group;
+              background: #f1f5f9;
+            }
+            th {
+              padding: 16px 20px;
+              text-align: left;
+              font-size: 13px;
+              color: #475569;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #e5e7eb;
+            }
+            td {
+              padding: 16px 20px;
+              border-bottom: 1px solid #f1f5f9;
+              font-size: 15px;
+            }
+
+            /* Utilities */
+            .cash-in { color: #059669; }
+            .cash-out { color: #dc2626; }
             .footer { 
-              margin-top: 30px; 
+              margin-top: 80px; 
               text-align: center; 
-              color: #6b7280; 
-              font-size: 10px; 
-              border-top: 1px solid #e5e7eb; 
-              padding-top: 15px;
+              color: #94a3b8; 
+              font-size: 13px; 
+              border-top: 1px solid #e2e8f0; 
+              padding-top: 30px;
             }
+
+            /* Print Fixes for Multi-page */
             @media print {
-              body { margin: 15px; height: auto !important; }
-              .page-break { page-break-before: always; }
-              table { page-break-inside: auto; width: 100%; table-layout: fixed; }
-              tr { page-break-inside: avoid; page-break-after: auto; }
-              td, th { overflow-wrap: break-word; word-wrap: break-word; }
+              html, body {
+                height: auto !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              body {
+                padding: 1.5cm !important; /* Proper print margins */
+              }
+              .header, .header-top, .overview {
+                display: block !important;
+                width: 100% !important;
+                float: none !important;
+              }
+              .overview-card {
+                display: inline-block !important;
+                width: 30% !important;
+                margin-right: 3% !important;
+                vertical-align: top !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                margin-bottom: 20px !important;
+              }
+              table {
+                display: table !important;
+                width: 100% !important;
+                page-break-inside: auto !important;
+                break-inside: auto !important;
+              }
+              tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                page-break-after: auto !important;
+              }
+              thead {
+                display: table-header-group !important;
+              }
+              .balance-bar {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+              }
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>📚 ${book.name}</h1>
-            <div class="subtitle">Financial Report • Generated at ${new Date().toLocaleString()}</div>
-            <div class="subtitle">Balance: <span style="color: ${balanceColor}; font-weight: 700;">${formatCurrency(book.netBalance, book.currency)}</span></div>
-            <div class="subtitle">Total Entries: ${entries.length}${rangeLabel ? ` • ${rangeLabel}` : ''}</div>
-          </div>
-
-          <div class="overview">
-            <div class="overview-card">
-              <h3>💰 Total Cash In</h3>
-              <p class="value cash-in">${formatCurrency(book.totalCashIn, book.currency)}</p>
+          <div style="width: 100%; display: block; overflow: visible;">
+            <div class="header">
+              <div class="header-top">
+                <div>
+                  <h1>${entityLabel}: ${entity.name}</h1>
+                  <h2>Comprehensive Financial Statement</h2>
+                </div>
+                <div class="meta-box">
+                  <div class="label">Generated on</div>
+                  <div class="value">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                  <div style="margin-top: 10px;">
+                    <span class="label">Filtered Items:</span>
+                    <span class="value">${entries.length}${rangeLabel ? ` (${rangeLabel})` : ''}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="balance-bar">
+                <div class="balance-label">Closing ${isBusiness ? 'Net Difference' : 'Current Balance'}</div>
+                <div class="balance-value">${formatCurrency(displayBalance, currency)}</div>
+              </div>
             </div>
-            <div class="overview-card">
-              <h3>💸 Total Cash Out</h3>
-              <p class="value cash-out">${formatCurrency(book.totalCashOut, book.currency)}</p>
-            </div>
-            <div class="overview-card">
-              <h3>📊 Net Balance</h3>
-              <p class="value ${book.netBalance >= 0 ? 'net-positive' : 'net-negative'}">${formatCurrency(book.netBalance, book.currency)}</p>
-            </div>
-          </div>
 
-          ${generateSectionHTML('📅 Today', grouped.today, calculateGroupTotals(grouped.today))}
-          ${generateSectionHTML('📆 This Week', grouped.thisWeek, calculateGroupTotals(grouped.thisWeek))}
-          ${generateSectionHTML('🗓️ This Month', grouped.thisMonth, calculateGroupTotals(grouped.thisMonth))}
-          ${generateSectionHTML('⏰ Older Entries', grouped.older, calculateGroupTotals(grouped.older))}
+            <div class="overview">
+              <div class="overview-card">
+                <h3>Total Inflows</h3>
+                <p class="value cash-in">${formatCurrency(totals.cashIn, currency)}</p>
+              </div>
+              <div class="overview-card">
+                <h3>Total Outflows</h3>
+                <p class="value cash-out">${formatCurrency(totals.cashOut, currency)}</p>
+              </div>
+              <div class="overview-card" style="background: ${totals.net >= 0 ? '#ecfdf5' : '#fef2f2'}; border-color: ${totals.net >= 0 ? '#a7f3d0' : '#fecaca'};">
+                <h3 style="color: ${totals.net >= 0 ? '#065f46' : '#991b1b'};">Net Movement</h3>
+                <p class="value ${totals.net >= 0 ? 'cash-in' : 'cash-out'}">${formatCurrency(totals.net, currency)}</p>
+              </div>
+            </div>
 
-          <div class="footer">
-            <p>Generated by Business Finance Management App</p>
-            <p>For detailed analysis and complete data, please refer to the Excel export.</p>
+            <div style="display: block; width: 100%;">
+              ${generateSectionHTML('📅 Today', grouped.today, calculateGroupTotals(grouped.today))}
+              ${generateSectionHTML('📆 This Week', grouped.thisWeek, calculateGroupTotals(grouped.thisWeek))}
+              ${generateSectionHTML('🗓️ This Month', grouped.thisMonth, calculateGroupTotals(grouped.thisMonth))}
+              ${generateSectionHTML('⏰ Older Entries', grouped.older, calculateGroupTotals(grouped.older))}
+            </div>
+
+            <div class="footer">
+              <p><strong>${entity.name}</strong> • ${entityLabel} Financial Report</p>
+              <p>Generated securely by Cashbook App. For full analysis, export as Excel.</p>
+            </div>
           </div>
         </body>
       </html>
     `;
 
-    const defaultName = `${book.name.replace(/[^a-zA-Z0-9]/g, '_')}_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    const defaultName = `${entity.name.replace(/[^a-zA-Z0-9]/g, '_')}_report_${new Date().toISOString().split('T')[0]}.pdf`;
     const fileName = (options && options.fileName) ? (options.fileName.endsWith('.pdf') ? options.fileName : `${options.fileName}.pdf`) : defaultName;
-    const { uri } = await Print.printToFileAsync({
+    
+    // Generate PDF
+    const printOptions = {
       html,
-      base64: false
-    });
+      base64: Platform.OS === 'web' // For web we need base64 to trigger download effectively
+    };
 
-    const targetUri = FileSystem.cacheDirectory + fileName;
-    await FileSystem.moveAsync({
-      from: uri,
-      to: targetUri
-    });
+    const result = await Print.printToFileAsync(printOptions);
 
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(targetUri, {
-        mimeType: 'application/pdf',
-        dialogTitle: 'Export PDF Report'
-      });
+    if (Platform.OS === 'web') {
+      // Browser-based download logic
+      const byteCharacters = atob(result.base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return { success: true };
     } else {
-      Alert.alert('Export Successful', `PDF report saved to: ${targetUri}`);
-    }
+      // Native mobile logic
+      const targetUri = FileSystem.cacheDirectory + fileName;
+      await FileSystem.moveAsync({
+        from: result.uri,
+        to: targetUri
+      });
 
-    return { success: true, uri };
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(targetUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Export PDF Report'
+        });
+      } else {
+        Alert.alert('Export Successful', `PDF report saved to: ${targetUri}`);
+      }
+      return { success: true, uri: targetUri };
+    }
   } catch (err) {
     console.error('PDF export error:', err);
     Alert.alert('Export Failed', 'Could not generate PDF report. Please try again.');
