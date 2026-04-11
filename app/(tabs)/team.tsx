@@ -204,7 +204,7 @@ export default function TeamManagementScreen() {
             {/* Header */}
             <View style={styles.headerContainer}>
                 <View style={styles.headerTopRow}>
-                    <Text style={[styles.appName, { color: colors.primary }]}>Collaboration</Text>
+                    <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                         {(userRole === 'owner' || userRole === 'partner') && (
                             <TouchableOpacity

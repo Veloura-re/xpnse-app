@@ -97,7 +97,7 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerContainer}>
-            <Text style={[styles.appName, { color: colors.primary }]}>Cashbook</Text>
+            <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
             <Text style={[styles.welcomeText, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Create Account</Text>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>Join us to start tracking your wealth.</Text>
           </View>

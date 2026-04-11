@@ -160,11 +160,11 @@ export default function BusinessSwitcherScreen() {
   };
   const handleSelectLogo = () => {
     setIsSelectingLogo(true);
-    // Simulate a small delay for better UX
+    // Dismiss quickly
     setTimeout(() => {
       setShowLogoPicker(false);
       setIsSelectingLogo(false);
-    }, 100);
+    }, 30);
   };
 
   const renderBusinessItem = ({ item }: { item: Business }) => {

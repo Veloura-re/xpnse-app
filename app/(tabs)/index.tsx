@@ -320,7 +320,7 @@ export default function BooksScreen() {
             <BookOpen size={48} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {businesses.length === 0 ? 'Welcome to Cashbook' : 'No Business Selected'}
+            {businesses.length === 0 ? 'Welcome to spndy' : 'No Business Selected'}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {businesses.length === 0
@@ -409,7 +409,7 @@ export default function BooksScreen() {
       {/* Header */}
       <View style={styles.headerContainer}>
         <View style={styles.headerTopRow}>
-          <Text style={[styles.appName, { color: colors.primary }]}>Dashboard</Text>
+          <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity
               style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -457,7 +457,7 @@ export default function BooksScreen() {
                 <TouchableOpacity
                   style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                   onPress={() => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
                     setIsSearchExpanded(true);
                   }}
                 >
@@ -483,14 +483,14 @@ export default function BooksScreen() {
                   autoFocus
                   onBlur={() => {
                     if (!inputValue) {
-                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
                       setIsSearchExpanded(false);
                     }
                   }}
                 />
                 <TouchableOpacity onPress={() => {
                   handleSearch('');
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
                   setIsSearchExpanded(false);
                   Keyboard.dismiss();
                 }}>

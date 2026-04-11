@@ -27,7 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GUIDE_STEPS = [
     {
         id: 'welcome',
-        title: 'Welcome to Cashbook',
+        title: 'Welcome to spndy',
         description: 'Your complete solution for managing business finances, tracking cash flow, and collaborating with your team.',
         icon: <Sparkles size={48} color="#fff" />,
         colors: ['#10b981', '#059669'] as readonly [string, string, ...string[]],
@@ -81,7 +81,7 @@ export function VirtualGuideModal({ visible, onClose }: VirtualGuideModalProps) 
 
     useEffect(() => {
         if (visible) {
-            progress.value = withTiming(1, { duration: 100 });
+            progress.value = withTiming(1, { duration: 50 });
         } else {
             progress.value = 0;
             setCurrentStep(0);
@@ -169,7 +169,7 @@ export function VirtualGuideModal({ visible, onClose }: VirtualGuideModalProps) 
                         {GUIDE_STEPS.map((step, index) => (
                             <View key={step.id} style={styles.stepContainer}>
                                 <Animated.View
-                                    entering={ZoomIn.delay(300).duration(100)}
+                                    entering={ZoomIn.delay(50).duration(50)}
                                     style={[styles.iconWrapper]}
                                 >
                                     <LinearGradient
@@ -187,7 +187,7 @@ export function VirtualGuideModal({ visible, onClose }: VirtualGuideModalProps) 
                                     ]} />
                                 </Animated.View>
 
-                                <Animated.View entering={FadeInDown.delay(400).duration(100)} style={styles.textContainer}>
+                                <Animated.View entering={FadeInDown.delay(100).duration(50)} style={styles.textContainer}>
                                     <Text style={[
                                         styles.title,
                                         {
@@ -209,7 +209,7 @@ export function VirtualGuideModal({ visible, onClose }: VirtualGuideModalProps) 
                     </ScrollView>
 
                     {/* Bottom Action */}
-                    <Animated.View entering={FadeInUp.delay(600).duration(100)} style={styles.footer}>
+                    <Animated.View entering={FadeInUp.delay(150).duration(50)} style={styles.footer}>
                         <TouchableOpacity
                             style={styles.buttonWrapper}
                             onPress={handleNext}

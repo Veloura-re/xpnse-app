@@ -112,7 +112,7 @@ export const LogoPickerModal = ({
 
                 {/* Modal Content */}
                 <Animated.View
-                    entering={SlideInDown.duration(100)}
+                    entering={SlideInDown.duration(50)}
                     exiting={SlideOutDown}
                     style={[
                         styles.modalContainer,

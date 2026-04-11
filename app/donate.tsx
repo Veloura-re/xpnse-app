@@ -50,7 +50,7 @@ export default function DonateScreen() {
           
           <Text style={[styles.title, { color: colors.text, fontFamily: fontStyle }]}>Support the Developer</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            If you find Cashbook helpful, consider supporting the developer. Your contributions help keep the app updated, secure, and free for everyone!
+            If you find spndy helpful, consider supporting the developer. Your contributions help keep the app updated, secure, and free for everyone!
           </Text>
 
           <View style={[styles.donateCard, { 
@@ -98,7 +98,7 @@ export default function DonateScreen() {
 
           <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              Every donation helps me cover server costs and dedicate more time to building new features for Cashbook. Thank you for being part of the community!
+              Every donation helps me cover server costs and dedicate more time to building new features for spndy. Thank you for being part of the community!
             </Text>
           </View>
         </View>

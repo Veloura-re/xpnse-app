@@ -37,6 +37,8 @@ import {
   FileText,
   Bell,
   Heart,
+  FileDown,
+  SlidersHorizontal,
 } from 'lucide-react-native';
 import { useAuth } from '@/providers/auth-provider';
 import { useBusiness } from '@/providers/business-provider';
@@ -52,6 +54,21 @@ import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatf
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
 import { FlatList } from 'react-native';
+import { exportToPDF } from '@/utils/exportUtils';
+import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
+import { BlurView } from 'expo-blur';
+
+const ANALYTICS_SORT_OPTIONS = [
+  { label: 'Top Books (Balance)', value: 'balance-desc', group: 'Sort By' },
+  { label: 'Smallest Balance', value: 'balance-asc', group: 'Sort By' },
+  { label: 'Name (A-Z)', value: 'name-asc', group: 'Sort By' },
+  { label: 'Name (Z-A)', value: 'name-desc', group: 'Sort By' },
+  { label: 'All Time', value: 'all', group: 'Time Filter' },
+  { label: 'This Year', value: 'year', group: 'Time Filter' },
+  { label: 'This Month', value: 'month', group: 'Time Filter' },
+  { label: 'This Week', value: 'week', group: 'Time Filter' },
+  { label: 'Today', value: 'today', group: 'Time Filter' },
+];
 
 // Expandable sections state type
 type ExpandedSection = 'feedback' | 'privacy' | null;
@@ -90,6 +107,51 @@ export default function SettingsScreen() {
   );
 
   const [isDeletingBusiness, setIsDeletingBusiness] = useState(false);
+
+  // Analytics tools state
+  const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [selectedSort, setSelectedSort] = useState<string>('balance-desc');
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exportFileName, setExportFileName] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'year' | 'all'>('month');
+
+  const {
+    entries: transactions,
+    getTotals
+  } = usePaginatedEntries(currentBusiness?.id || null, undefined, {
+    pageSize: 1000, // Reasonable size for export
+  });
+
+  const handleExportBusinessPDF = async () => {
+    if (!currentBusiness || transactions.length === 0) {
+      Alert.alert('No Data', 'There are no transactions in this business to export.');
+      return;
+    }
+    const dateStr = new Date().toISOString().split('T')[0];
+    const defaultName = `${currentBusiness.name.replace(/[^a-zA-Z0-9]/g, '_')}_Business_Export_${dateStr}`;
+    setExportFileName(defaultName);
+    setExportModalVisible(true);
+  };
+
+  const confirmExportPDF = async () => {
+    if (!currentBusiness || transactions.length === 0) return;
+    setExportModalVisible(false);
+    setIsExporting(true);
+    try {
+      const rangeLabel = timeRange === 'all' ? 'All Time' : timeRange.charAt(0).toUpperCase() + timeRange.slice(1);
+      await exportToPDF(currentBusiness, transactions, {
+        fileName: exportFileName || 'Business_Export',
+        isBusiness: true,
+        rangeLabel
+      });
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      Alert.alert('Export Error', 'Failed to generate PDF report.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Fonts loaded in RootLayout
 
@@ -305,6 +367,25 @@ export default function SettingsScreen() {
 
 
 
+          <SectionHeader title="Reports & Tools" />
+          <SettingsCard>
+            <SettingsRow
+              icon={FileText}
+              label="View Notes"
+              onPress={() => router.push('/notes')}
+              color="#f59e0b"
+            />
+            <SettingsRow
+              icon={FileDown}
+              label="Export Business Report"
+              subLabel="Generate PDF statement"
+              onPress={handleExportBusinessPDF}
+              color="#ec4899"
+              isLast
+              rightElement={isExporting ? <ActivityIndicator size="small" color="#ec4899" /> : null}
+            />
+          </SettingsCard>
+
           <SectionHeader title="Support" />
           <SettingsCard>
             <SettingsRow
@@ -342,7 +423,7 @@ export default function SettingsScreen() {
 
 
 
-          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0 • Cashbook</Text>
+          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0.0 • spndy</Text>
         </View>
       </ScrollView>
 
@@ -813,6 +894,119 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
+      {/* Analytics Sort Modal */}
+      <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)} statusBarTranslucent={true}>
+        <View style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setSortModalVisible(false)}>
+            <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+          </TouchableOpacity>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border, padding: 0, maxWidth: 400, maxHeight: '80%', overflow: 'hidden' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', justifyContent: 'center', alignItems: 'center' }}>
+                  <SlidersHorizontal size={20} color="#10b981" />
+                </View>
+                <Text style={[styles.modalTitle, { color: colors.text, fontSize: 20 }]}>Sort & Filter</Text>
+              </View>
+              <TouchableOpacity onPress={() => setSortModalVisible(false)} style={[styles.closeButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9' }]}>
+                <X size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+              {['Sort By', 'Time Filter'].map((group) => (
+                <View key={group} style={{ marginBottom: 20 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>{group}</Text>
+                  <View style={{ gap: 8 }}>
+                    {ANALYTICS_SORT_OPTIONS.filter(opt => opt.group === group).map(option => {
+                      const isActive = group === 'Sort By' ? selectedSort === option.value : timeRange === option.value;
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC' },
+                            isActive && { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }
+                          ]}
+                          onPress={() => {
+                            if (group === 'Sort By') {
+                              setSelectedSort(option.value);
+                            } else {
+                              setTimeRange(option.value as any);
+                            }
+                            setSortModalVisible(false);
+                          }}
+                        >
+                          <Text style={[{ fontSize: 15, color: colors.textSecondary }, isActive && { color: colors.text, fontWeight: '600' }]}>
+                            {option.label}
+                          </Text>
+                          {isActive && <Check size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Export Business Modal */}
+      <Modal visible={exportModalVisible} transparent animationType="fade" onRequestClose={() => setExportModalVisible(false)} statusBarTranslucent={true}>
+        <View style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setExportModalVisible(false)}>
+            <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+          </TouchableOpacity>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border, padding: 0, maxWidth: 400, overflow: 'hidden' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: isDark ? 'rgba(236, 72, 153, 0.15)' : '#fdf2f8', justifyContent: 'center', alignItems: 'center' }}>
+                  <FileDown size={20} color="#ec4899" />
+                </View>
+                <Text style={[styles.modalTitle, { color: colors.text, fontSize: 20 }]}>Export Report</Text>
+              </View>
+              <TouchableOpacity onPress={() => setExportModalVisible(false)} style={[styles.closeButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9' }]}>
+                <X size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 24 }}>
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 8, textTransform: 'uppercase' }}>Filename</Text>
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: colors.border, color: colors.text, margin: 0 }]}
+                  value={exportFileName}
+                  onChangeText={setExportFileName}
+                  placeholder="Enter filename"
+                  placeholderTextColor={colors.textSecondary}
+                  autoFocus={true}
+                />
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>.pdf will be added automatically</Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  style={[styles.modalCancel, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9' }]}
+                  onPress={() => setExportModalVisible(false)}
+                >
+                  <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalConfirm, { backgroundColor: '#ec4899', flex: 2, opacity: isExporting ? 0.7 : 1 }]}
+                  onPress={confirmExportPDF}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>Export PDF</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Logo Edit Modal */}
       {/* Logo Edit Modal */}
       <Modal visible={showLogoModal} transparent animationType="fade" onRequestClose={() => setShowLogoModal(false)} statusBarTranslucent={true}>
@@ -1072,7 +1266,7 @@ export default function SettingsScreen() {
                     <Mail size={28} color={colors.primary} />
                   </View>
                   <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
-                    cashbook.feedback@gmail.com
+                    spndy.feedback@gmail.com
                   </Text>
                   <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
                     Send us your questions, feedback, or just say hello!
@@ -1082,7 +1276,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                   style={{ borderRadius: 16, overflow: 'hidden' }}
                   onPress={() => {
-                    Linking.openURL('mailto:cashbook.feedback@gmail.com');
+                    Linking.openURL('mailto:spndy.feedback@gmail.com');
                     setShowFeedbackModal(false);
                   }}
                   activeOpacity={0.9}
@@ -1160,7 +1354,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     style={{ borderRadius: 16, overflow: 'hidden' }}
                     onPress={() => {
-                      Linking.openURL('https://cashbook.app/privacy');
+                      Linking.openURL('https://spndy.app/privacy');
                       setShowPrivacyModal(false);
                     }}
                     activeOpacity={0.9}
@@ -1179,7 +1373,7 @@ export default function SettingsScreen() {
                   <TouchableOpacity
                     style={{ borderRadius: 16, overflow: 'hidden' }}
                     onPress={() => {
-                      Linking.openURL('mailto:privacy@cashbook.app');
+                      Linking.openURL('mailto:privacy@spndy.app');
                       setShowPrivacyModal(false);
                     }}
                     activeOpacity={0.9}

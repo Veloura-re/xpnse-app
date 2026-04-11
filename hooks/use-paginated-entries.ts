@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
     collection, 
     query, 
@@ -31,9 +31,12 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
     const [hasMore, setHasMore] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
-    const loadEntries = useCallback(async (isRefresh = false) => {
-        if ((!businessId && !db) || (!isRefresh && !hasMore) || loading || !db) return;
+    const loadingRef = useRef(false);
 
+    const loadEntries = useCallback(async (isRefresh = false) => {
+        if ((!businessId && !db) || (!isRefresh && !hasMore) || loadingRef.current || !db) return;
+
+        loadingRef.current = true;
         setLoading(true);
         setError(null);
 
@@ -102,15 +105,18 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
                 console.warn('Index required for this query. Follow the link in the console.');
             }
         } finally {
+            loadingRef.current = false;
             setLoading(false);
         }
-    }, [businessId, bookId, type, pageSize, startDate?.toISOString(), endDate?.toISOString(), lastDoc, hasMore, loading]);
+    }, [businessId, bookId, type, pageSize, startDate?.toISOString(), endDate?.toISOString()]);
 
     const refresh = useCallback(() => {
         setLastDoc(null);
         setHasMore(true);
+        // We use a small timeout to ensure state updates (lastDoc=null) have been processed
+        // or we could use the newEntries logic inside loadEntries
         loadEntries(true);
-    }, [loadEntries]);
+    }, [loadEntries, businessId, bookId, type, pageSize, startDate?.toISOString(), endDate?.toISOString()]);
 
     // Initial load - re-run when filters change
     useEffect(() => {

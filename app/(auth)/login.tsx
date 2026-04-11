@@ -83,7 +83,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerContainer}>
-            <Text style={[styles.appName, { color: colors.primary }]}>Cashbook</Text>
+            <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
             <Text style={[styles.welcomeText, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Welcome Back!</Text>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>Sign in to manage your finances.</Text>
           </View>

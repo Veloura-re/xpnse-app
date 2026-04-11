@@ -83,7 +83,7 @@ export default function BookDetailScreen() {
     loadMore,
     refresh
   } = usePaginatedEntries(currentBusiness?.id || null, id, {
-    pageSize: 10000
+    pageSize: 100
   });
 
   // Modal and UI States
@@ -348,7 +348,7 @@ export default function BookDetailScreen() {
 
     let currentBalance = book.netBalance;
 
-    return bookEntries.map(entry => {
+    return bookEntries.map((entry: BookEntry) => {
       const entryWithBalance = { ...entry, displayBalance: currentBalance };
 
       // Calculate balance for the NEXT entry (going backwards in time)
@@ -590,7 +590,7 @@ export default function BookDetailScreen() {
               <ArrowLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
-              <Text style={[styles.appName, { color: colors.primary }]}>Ledger</Text>
+              <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
               <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]} numberOfLines={1}>{book?.name}</Text>
             </View>
             <View style={styles.headerActions}>
@@ -1279,7 +1279,7 @@ export default function BookDetailScreen() {
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
                   otherBooks.map((b, index) => (
-                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 10).duration(100)}>
                       <TouchableOpacity
                         style={[
                           styles.bookOption,
@@ -1395,7 +1395,7 @@ export default function BookDetailScreen() {
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
                   otherBooks.map((b, index) => (
-                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 10).duration(100)}>
                       <TouchableOpacity
                         key={b.id}
                         style={[
@@ -1505,7 +1505,7 @@ export default function BookDetailScreen() {
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
                   otherBooks.map((b, index) => (
-                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 10).duration(100)}>
                       <TouchableOpacity
                         style={[
                           styles.bookOption,
@@ -1614,7 +1614,7 @@ export default function BookDetailScreen() {
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
                   otherBooks.map((b, index) => (
-                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                    <Animated.View key={b.id} entering={FadeInUp.delay(index * 10).duration(100)}>
                       <TouchableOpacity
                         style={[
                           styles.bookOption,

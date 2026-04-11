@@ -181,7 +181,7 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                     </TouchableWithoutFeedback>
 
                     <Animated.View
-                        entering={FadeInDown.duration(100)}
+                        entering={FadeInDown.duration(50)}
                         style={[
                             styles.popupContainer,
                             {
@@ -454,7 +454,7 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                                 {availableBusinesses.map((business, index) => {
                                     const isSelected = selectedTargetBusinessId === business.id;
                                     return (
-                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 10).duration(100)}>
                                             <TouchableOpacity
                                                 style={[
                                                     styles.businessItem, 
@@ -520,7 +520,7 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                                 {availableBusinesses.map((business, index) => {
                                     const isSelected = selectedTargetBusinessId === business.id;
                                     return (
-                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 50).duration(400)}>
+                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 10).duration(100)}>
                                             <TouchableOpacity
                                                 style={[
                                                     styles.businessItem, 

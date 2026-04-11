@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Cashbook Cash Manager",
-    "slug": "cashbook",
+    "name": "spndy",
+    "slug": "spndy",
     "version": "1.0.0",
     "description": "Track your expenses",
     "assetBundlePatterns": [
@@ -43,11 +43,11 @@
       "icon": "./assets/images/notification-icon-transparent.png",
       "color": "#10b981",
       "androidMode": "default",
-      "androidCollapsedTitle": "Cashbook"
+      "androidCollapsedTitle": "spndy"
     },
     "extra": {
       "router": {
-        "origin": "https://cashbook.app/"
+        "origin": "https://spndy.app/"
       },
       "eas": {
         "projectId": "02593026-0eb9-421d-8a29-b57812d626ba"

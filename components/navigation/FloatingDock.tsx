@@ -94,8 +94,8 @@ function TabButton({ isFocused, onPress, icon, colors }: any) {
 
     useEffect(() => {
         scale.value = withSpring(isFocused ? 1.2 : 1, {
-            damping: 10,
-            stiffness: 100,
+            damping: 15,
+            stiffness: 300,
         });
         opacity.value = withTiming(isFocused ? 1 : 0.6);
     }, [isFocused]);

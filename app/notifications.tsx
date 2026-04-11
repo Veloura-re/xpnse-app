@@ -96,7 +96,7 @@ export default function NotificationsScreen() {
     };
 
     const toggleExpand = (id: string, read: boolean) => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
         setExpandedIds(prev => {
             const newSet = new Set(prev);
             if (newSet.has(id)) {
@@ -248,7 +248,7 @@ export default function NotificationsScreen() {
                         )}
                     </View>
                 </View>
-                <Text style={[styles.appName, { color: colors.primary }]}>Dashboard</Text>
+                <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
                 <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>{isSelectionMode ? `${selectedIds.size} Selected` : 'Notifications'}</Text>
             </View>
 

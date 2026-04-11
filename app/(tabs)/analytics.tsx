@@ -120,7 +120,7 @@ export default function AnalyticsScreen() {
         getTotals,
         refresh: refreshTransactions
     } = usePaginatedEntries(isGlobal ? null : (currentBusiness?.id || null), undefined, {
-        pageSize: 10000,
+        pageSize: 100,
         startDate,
         endDate: timeRange !== 'all' ? endDate : undefined
     });
@@ -156,7 +156,7 @@ export default function AnalyticsScreen() {
                 totalTransactions: 0,
                 bookCount: 0,
                 topBooks: [],
-                isLoading: loadingTransactions && transactions.length === 0
+                isLoading: loadingTransactions
             };
         }
 
@@ -232,7 +232,7 @@ export default function AnalyticsScreen() {
             totalTransactions,
             bookCount: businessBooks.length,
             topBooks: topBooks, // Show all books instead of just top 5
-            isLoading: loadingTransactions && transactions.length === 0
+            isLoading: loadingTransactions
         };
     }, [books, currentBusiness, searchQuery, timeRange, selectedSort, transactions, loadingTransactions, aggregateTotals, isGlobal]);
 
@@ -269,7 +269,7 @@ export default function AnalyticsScreen() {
         <View>
             <View style={styles.header}>
                 <View style={styles.headerTopRow}>
-                    <Text style={[styles.appName, { color: colors.primary }]}>Analytics</Text>
+                    <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
                     <View style={styles.headerActions}>
                         <TouchableOpacity
                             style={[
@@ -280,34 +280,6 @@ export default function AnalyticsScreen() {
                             onPress={() => setIsGlobal(!isGlobal)}
                         >
                             <BarChart3 size={16} color={isGlobal ? colors.primary : colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                            onPress={() => router.push('/notes')}
-                        >
-                            <FileText size={16} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                            onPress={() => {
-                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                setIsSearchExpanded(true);
-                            }}
-                        >
-                            <Search size={16} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                            onPress={() => setSortModalVisible(true)}
-                        >
-                            <SlidersHorizontal size={16} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                            onPress={handleExportBusinessPDF}
-                            disabled={isExporting}
-                        >
-                            {isExporting ? <ActivityIndicator size="small" color={colors.primary} /> : <FileDown size={16} color={colors.textSecondary} />}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -329,7 +301,7 @@ export default function AnalyticsScreen() {
                             />
                             <TouchableOpacity
                                 onPress={() => {
-                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                    LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
                                     setIsSearchExpanded(false);
                                     setSearchQuery('');
                                 }}
@@ -681,10 +653,15 @@ export default function AnalyticsScreen() {
                                     <Text style={[styles.modalCancelButtonText, { color: colors.text }]}>Cancel</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.modalSaveButton, { backgroundColor: colors.primary }]}
+                                    style={[styles.modalSaveButton, { backgroundColor: colors.primary, opacity: isExporting ? 0.7 : 1 }]}
                                     onPress={confirmExportPDF}
+                                    disabled={isExporting}
                                 >
-                                    <Text style={styles.modalSaveButtonText}>Export Report</Text>
+                                    {isExporting ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <Text style={styles.modalSaveButtonText}>Export Report</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </View>

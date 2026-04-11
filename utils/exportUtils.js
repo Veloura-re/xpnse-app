@@ -547,7 +547,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
 
             <div class="footer">
               <p><strong>${entity.name}</strong> • ${entityLabel} Financial Report</p>
-              <p>Generated securely by Cashbook App. For full analysis, export as Excel.</p>
+              <p>Generated securely by spndy App. For full analysis, export as Excel.</p>
             </div>
           </div>
         </body>
