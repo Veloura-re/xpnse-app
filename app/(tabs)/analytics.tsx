@@ -72,7 +72,7 @@ export default function AnalyticsScreen() {
     const { colors, isDark, deviceFont, theme } = useTheme();
     const { books, currentBusiness } = useBusiness();
     const insets = useSafeAreaInsets();
-    const [timeRange, setTimeRange] = useState<TimeRange>('month');
+    const [timeRange, setTimeRange] = useState<TimeRange>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const [sortModalVisible, setSortModalVisible] = useState(false);

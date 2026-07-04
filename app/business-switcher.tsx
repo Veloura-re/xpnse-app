@@ -23,6 +23,7 @@ import { RoleBadge } from '@/components/role-badge';
 import { useFonts } from '@expo-google-fonts/abril-fatface';
 
 import { LinearGradient } from 'expo-linear-gradient';
+import { NeumorphView } from '@/components/neumorphism';
 import { getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
 
@@ -177,19 +178,25 @@ export default function BusinessSwitcherScreen() {
 
     return (
 
-      <TouchableOpacity
-        style={[
-          styles.businessItem,
-          {
-            backgroundColor: isSelected ? (isDark ? 'rgba(33, 201, 141, 0.1)' : 'rgba(16, 185, 129, 0.1)') : 'rgba(255, 255, 255, 0.05)',
-            borderColor: isSelected ? (isDark ? 'rgba(33, 201, 141, 0.3)' : 'rgba(16, 185, 129, 0.3)') : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'),
-            borderWidth: 1,
-            shadowOpacity: 0,
-          }
-        ]}
-        onPress={() => handleSwitchBusiness(item.id)}
-        activeOpacity={0.7}
+      <NeumorphView 
+        style={{ marginBottom: 12, marginHorizontal: 4 }} 
+        borderRadius={20} 
+        inset={isSelected}
       >
+        <TouchableOpacity
+          style={[
+            styles.businessItem,
+            {
+              backgroundColor: 'transparent',
+              borderColor: 'transparent',
+              borderWidth: 0,
+              borderBottomWidth: 0,
+              padding: 16,
+            }
+          ]}
+          onPress={() => handleSwitchBusiness(item.id)}
+          activeOpacity={0.7}
+        >
         <View style={[
           styles.businessIcon,
           {
@@ -221,12 +228,15 @@ export default function BusinessSwitcherScreen() {
             <Check size={20} color={colors.primary} />
           </View>
         )}
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </NeumorphView>
     );
   };
 
+    const baseBgColor = isDark ? '#1a1a1c' : '#eff2f5';
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: baseBgColor }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Decorative Circles */}
@@ -261,14 +271,10 @@ export default function BusinessSwitcherScreen() {
           style={[
             styles.card,
             {
-              backgroundColor: isDark ? 'rgba(30, 30, 30, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-              borderColor: colors.border,
-              overflow: 'hidden',
-              shadowColor: isDark ? 'transparent' : '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 8,
-              elevation: isDark ? 0 : 2,
+              backgroundColor: 'transparent',
+              borderColor: 'transparent',
+              borderWidth: 0,
+              elevation: 0,
             }
           ]}
         >
@@ -276,7 +282,7 @@ export default function BusinessSwitcherScreen() {
             data={filteredBusinesses}
             renderItem={renderBusinessItem}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: 4, paddingTop: 8 }]}
             showsVerticalScrollIndicator={false}
             removeClippedSubviews={true}
             maxToRenderPerBatch={10}
@@ -290,29 +296,27 @@ export default function BusinessSwitcherScreen() {
       <View
         style={[styles.fabContainer, { bottom: insets.bottom + 110 }]}
       >
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            {
-              shadowColor: isDark ? 'transparent' : '#000',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
-              shadowRadius: 16,
-              elevation: isDark ? 0 : 12,
-            }
-          ]}
-          onPress={() => setShowCreateForm(true)}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={[colors.primary, '#059669']}
-            style={styles.fabGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        <NeumorphView borderRadius={32}>
+          <TouchableOpacity
+            style={[
+              styles.fab,
+              {
+                backgroundColor: 'transparent',
+              }
+            ]}
+            onPress={() => setShowCreateForm(true)}
+            activeOpacity={0.7}
           >
-            <Plus size={32} color="#fff" strokeWidth={2.5} />
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={[colors.primary, '#059669']}
+              style={styles.fabGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Plus size={32} color="#fff" strokeWidth={2.5} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </NeumorphView>
       </View>
 
       <Modal
