@@ -46,6 +46,9 @@ interface NotificationState {
     deleteNotification: (notificationId: string) => Promise<void>;
     isLoading: boolean;
     refreshNotifications: () => Promise<void>;
+    // Dynamic Island toast
+    toastNotification: Notification | null;
+    clearToast: () => void;
 }
 
 export const [NotificationProvider, useNotifications] = createContextHook((): NotificationState => {
@@ -53,8 +56,11 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+    const [toastNotification, setToastNotification] = useState<Notification | null>(null);
     const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
     const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
+
+    const clearToast = () => setToastNotification(null);
 
     // Register for push notifications when user logs in
     useEffect(() => {
@@ -202,12 +208,14 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
             if (!isInitialLoad) {
                 snapshot.docChanges().forEach((change) => {
                     if (change.type === 'added') {
-                        const notif = change.doc.data() as Notification;
+                        const notif = { id: change.doc.id, ...change.doc.data() } as Notification;
                         // Determine if we should show a local notification
                         // Don't show if it's just marked as read update
                         if (!notif.read) {
+                            // Show Dynamic Island toast
+                            setToastNotification(notif);
+
                             // Send actual push notification
-                            // Use metadata as data payload if available
                             const payload = notif.data || notif.metadata || {};
 
                             sendLocalNotification(
@@ -253,6 +261,8 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         deleteNotification,
         isLoading,
         refreshNotifications,
+        toastNotification,
+        clearToast,
     };
 });
 

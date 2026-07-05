@@ -11,7 +11,8 @@ import { BusinessProvider } from "@/providers/business-provider";
 import { StorageProvider } from "@/providers/storage-provider";
 import { FirebaseProvider } from "@/providers/firebase-provider";
 import { ThemeProvider, useTheme } from "@/providers/theme-provider";
-import { NotificationProvider } from "@/providers/notification-provider";
+import { NotificationProvider, useNotifications } from "@/providers/notification-provider";
+import { DynamicIslandNotification } from "@/components/dynamic-island-notification";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
@@ -98,6 +99,17 @@ function RootLayoutNav() {
   );
 }
 
+// Renders the Dynamic Island banner on top of all screens
+function DynamicIslandOverlay() {
+  const { toastNotification, clearToast } = useNotifications();
+  return (
+    <DynamicIslandNotification
+      notification={toastNotification}
+      onDismiss={clearToast}
+    />
+  );
+}
+
 function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void> }) {
   const { isDark } = useTheme();
 
@@ -109,6 +121,8 @@ function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void
           <BusinessProvider>
             <NotificationProvider>
               <RootLayoutNav />
+              {/* Dynamic Island sits above everything */}
+              <DynamicIslandOverlay />
             </NotificationProvider>
           </BusinessProvider>
         </AuthProvider>

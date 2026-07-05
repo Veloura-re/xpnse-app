@@ -317,16 +317,21 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
 
     try {
-      await updateDoc(doc(db, currentBusiness.id), updates);
+      // Fix 1: Correct Firestore collection path ('businesses' was missing)
+      await updateDoc(doc(db, 'businesses', currentBusiness.id), updates);
 
-      // Notify team members about business update - Batch send for speed
-      const teamMembers = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
-      if (teamMembers.length > 0 && db) {
+      // Notify team members about business update
+      // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
+      const businessSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const liveMemberIds: string[] = businessSnap.exists() ? (businessSnap.data().memberIds || []) : [];
+      const teamMemberIds = liveMemberIds.filter((id: string) => id !== user.id);
+
+      if (teamMemberIds.length > 0 && db) {
         const batch = writeBatch(db);
-        teamMembers.forEach(member => {
+        teamMemberIds.forEach((memberId: string) => {
           const notifRef = doc(collection(db!, 'notifications'));
           batch.set(notifRef, {
-            userId: member.userId,
+            userId: memberId,
             title: 'Business Updated',
             message: `${user.displayName || user.name || user.email} updated settings for "${currentBusiness.name}"`,
             read: false,
@@ -454,9 +459,34 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         memberIds: updatedMemberIds
       });
 
+      // Bug fix: Notify remaining team members when someone leaves
+      if (updatedMemberIds.length > 0 && db) {
+        const leavingName = user.displayName || user.name || user.email;
+        const batch = writeBatch(db);
+        updatedMemberIds.forEach((memberId: string) => {
+          const notifRef = doc(collection(db!, 'notifications'));
+          batch.set(notifRef, {
+            userId: memberId,
+            title: 'Team Update',
+            message: `${leavingName} has left ${business.name}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: 'team_removal',
+            businessId: businessId,
+            metadata: {
+              businessId: businessId,
+              businessName: business.name,
+              leftBy: leavingName
+            }
+          });
+        });
+        await batch.commit();
+      }
+
       if (currentBusiness?.id === businessId) {
         setCurrentBusiness(null);
-        await storage.removeItem('currentBusinessId');
+        // Bug fix: use the correct per-user storage key
+        await storage.removeItem(`currentBusinessId_${user.id}`);
       }
     } catch (error) {
       console.error("Error leaving business:", error);
@@ -550,15 +580,17 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       const cleanActivity = JSON.parse(JSON.stringify(newActivity));
       await setDoc(doc(db, 'activityLogs', newActivity.id), cleanActivity);
 
-      // Notify team members about the new book - Batch send for speed
-      const teamMembers = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
+      // Bug fix: Re-read live memberIds from Firestore for createBook notification
+      const createBookBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const createBookMemberIds: string[] = createBookBizSnap.exists() ? (createBookBizSnap.data().memberIds || []) : [];
+      const createBookMembersToNotify = createBookMemberIds.filter((id: string) => id !== user.id);
 
-      if (teamMembers.length > 0 && db) {
+      if (createBookMembersToNotify.length > 0 && db) {
         const batch = writeBatch(db);
-        teamMembers.forEach(member => {
+        createBookMembersToNotify.forEach((memberId: string) => {
           const notifRef = doc(collection(db!, 'notifications'));
           batch.set(notifRef, {
-            userId: member.userId,
+            userId: memberId,
             title: 'New Book Created',
             message: `${user.displayName || user.name || user.email} created a new book "${name}" in ${currentBusiness.name}`,
             read: false,
@@ -609,7 +641,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Fetch book data first to get the name for notification
       const bookRef = doc(db, 'businesses', currentBusiness.id, 'books', bookId);
       const bookSnap = await getDoc(bookRef);
-      const bookName = bookSnap.exists() ? (bookSnap.data() as Book).name : (books.find((b: Book) => b.id === bookId)?.name || 'Unknown Book');
+      const bookName = bookSnap.exists() ? (bookSnap.data() as Book).name : (books.find((b: Book) => b.id === bookId)?.name || '');
 
 
       const batch = writeBatch(db);
@@ -629,31 +661,33 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       await batch.commit();
 
-      // Notify team members about book deletion - Batch send for speed
-      if (bookName && bookName !== 'Unknown Book') {
-        const membersToNotify = currentBusiness.members.filter((m: BusinessMember) => m.userId !== user.id);
-        if (membersToNotify.length > 0 && db) {
-          const notifBatch = writeBatch(db);
-          membersToNotify.forEach(member => {
-            const notifRef = doc(collection(db!, 'notifications'));
-            notifBatch.set(notifRef, {
-              userId: member.userId,
-              title: 'Book Deleted',
-              message: `${user.name || user.email} deleted the book "${bookName}"`,
-              read: false,
-              createdAt: new Date().toISOString(),
-              type: 'book_deleted',
+      // Bug fix: Re-read live memberIds from Firestore; always notify regardless of bookName
+      const deleteBookBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const deleteBookMemberIds: string[] = deleteBookBizSnap.exists() ? (deleteBookBizSnap.data().memberIds || []) : [];
+      const deleteBookMembersToNotify = deleteBookMemberIds.filter((id: string) => id !== user.id);
+      const resolvedDeleteBookName = bookName !== 'Unknown Book' ? bookName : 'a book';
+
+      if (deleteBookMembersToNotify.length > 0 && db) {
+        const notifBatch = writeBatch(db);
+        deleteBookMembersToNotify.forEach((memberId: string) => {
+          const notifRef = doc(collection(db!, 'notifications'));
+          notifBatch.set(notifRef, {
+            userId: memberId,
+            title: 'Book Deleted',
+            message: `${user.displayName || user.name || user.email} deleted the book "${resolvedDeleteBookName}"`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: 'book_deleted',
+            businessId: currentBusiness.id,
+            metadata: {
               businessId: currentBusiness.id,
-              metadata: {
-                businessId: currentBusiness.id,
-                businessName: currentBusiness.name,
-                bookId: bookId,
-                deletedBy: user.name || user.email
-              }
-            });
+              businessName: currentBusiness.name,
+              bookId: bookId,
+              deletedBy: user.displayName || user.name || user.email
+            }
           });
-          await notifBatch.commit();
-        }
+        });
+        await notifBatch.commit();
       }
     } catch (error) {
       console.error("Error deleting book:", error);
@@ -714,14 +748,16 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         });
       }
 
-      // Notify team members about new entry
-      const membersToNotify = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
+      // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
+      const businessDocSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const liveMemberIds: string[] = businessDocSnap.exists() ? (businessDocSnap.data().memberIds || []) : [];
+      const memberIdsToNotify = liveMemberIds.filter((id: string) => id !== user.id);
 
       // Get book name for notification
-      let bookName = context?.bookName || 'Unknown Book';
+      let bookName = context?.bookName || '';
 
       // If not provided in context, try to find in state
-      if (bookName === 'Unknown Book') {
+      if (!bookName) {
         const knownBook = books.find((b: Book) => b.id === entryData.bookId);
         if (knownBook) {
           bookName = knownBook.name;
@@ -750,37 +786,37 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       const description = entryData.description ? `"${entryData.description}"` : 'an entry';
       const balanceText = newBalanceStr ? `. Balance: ${newBalanceStr}` : '';
+      const resolvedBookName = bookName || 'the book';
 
-      if (bookName && bookName !== 'Unknown Book' && !context?.silent) {
-        if (membersToNotify.length > 0 && db) {
-          const notifBatch = writeBatch(db);
-          membersToNotify.forEach(member => {
-            const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
-            const notifRef = doc(collection(db!, 'notifications'));
-            notifBatch.set(notifRef, {
-              title: entryData.type === 'cash_in' ? 'Money Received' : 'Money Paid',
-              message: `${user.displayName || user.name || user.email} added ${entryTypeName} of ${formatCurrency(amount, currentBusiness.currency)} for ${description} to "${bookName}"${balanceText}`,
-              createdAt: new Date().toISOString(),
-              read: false,
-              type: entryData.type === 'cash_in' ? 'success' : 'error',
-              userId: member.userId,
+      // Fix 2: Always send notification regardless of book name resolution
+      if (!context?.silent && memberIdsToNotify.length > 0 && db) {
+        const notifBatch = writeBatch(db);
+        memberIdsToNotify.forEach((memberId: string) => {
+          const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
+          const notifRef = doc(collection(db!, 'notifications'));
+          notifBatch.set(notifRef, {
+            title: entryData.type === 'cash_in' ? 'Money Received' : 'Money Paid',
+            message: `${user.displayName || user.name || user.email} added ${entryTypeName} of ${formatCurrency(amount, currentBusiness.currency)} for ${description} to "${resolvedBookName}"${balanceText}`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            type: entryData.type === 'cash_in' ? 'success' : 'error',
+            userId: memberId,
+            businessId: currentBusiness.id,
+            metadata: {
               businessId: currentBusiness.id,
-              metadata: {
-                businessId: currentBusiness.id,
-                businessName: currentBusiness.name,
-                bookId: entryData.bookId,
-                bookName: bookName,
-                entryId: newEntryId,
-                amount: amount,
-                description: entryData.description,
-                type: entryData.type,
-                addedBy: user.displayName || user.name || user.email,
-                newBalance: newBalanceStr
-              }
-            });
+              businessName: currentBusiness.name,
+              bookId: entryData.bookId,
+              bookName: resolvedBookName,
+              entryId: newEntryId,
+              amount: amount,
+              description: entryData.description,
+              type: entryData.type,
+              addedBy: user.displayName || user.name || user.email,
+              newBalance: newBalanceStr
+            }
           });
-          await notifBatch.commit();
-        }
+        });
+        await notifBatch.commit();
       }
     } catch (error) {
       console.error("Error adding entry:", error);
@@ -910,14 +946,16 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         }
       }
 
-      // Notify team members about updated entry
-      const membersToNotify = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
+      // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
+      const updateBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const updateLiveMemberIds: string[] = updateBizSnap.exists() ? (updateBizSnap.data().memberIds || []) : [];
+      const updateMemberIdsToNotify = updateLiveMemberIds.filter((id: string) => id !== user.id);
 
       // Get book name
-      let bookName = context?.bookName || 'Unknown Book';
+      let bookName = context?.bookName || '';
 
       // If not provided in context, try to find in state
-      if (bookName === 'Unknown Book') {
+      if (!bookName) {
         const knownBook = books.find((b: Book) => b.id === oldEntry.bookId);
         if (knownBook) {
           bookName = knownBook.name;
@@ -944,35 +982,35 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       const description = updates.description || oldEntry.description || 'an entry';
       const balanceText = newBalanceStr ? `. Balance: ${newBalanceStr}` : '';
+      const resolvedBookName = bookName || 'the book';
 
-      if (bookName && bookName !== 'Unknown Book' && !context?.silent) {
-        if (membersToNotify.length > 0 && db) {
-          const entryTypeName = (updates.type || oldEntry.type) === 'cash_in' ? 'Cash In' : 'Cash Out';
-          const notifBatch = writeBatch(db);
-          membersToNotify.forEach(member => {
-            const notifRef = doc(collection(db!, 'notifications'));
-            notifBatch.set(notifRef, {
-              userId: member.userId,
-              title: 'Entry Updated',
-              message: `${user.displayName || user.name || user.email} updated a ${entryTypeName} (${description}) in "${bookName}"${balanceText}`,
-              read: false,
-              createdAt: new Date().toISOString(),
-              type: 'entry_updated',
+      // Fix 2: Always send notification regardless of book name resolution
+      if (!context?.silent && updateMemberIdsToNotify.length > 0 && db) {
+        const entryTypeName = (updates.type || oldEntry.type) === 'cash_in' ? 'Cash In' : 'Cash Out';
+        const notifBatch = writeBatch(db);
+        updateMemberIdsToNotify.forEach((memberId: string) => {
+          const notifRef = doc(collection(db!, 'notifications'));
+          notifBatch.set(notifRef, {
+            userId: memberId,
+            title: 'Entry Updated',
+            message: `${user.displayName || user.name || user.email} updated a ${entryTypeName} (${description}) in "${resolvedBookName}"${balanceText}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: 'entry_updated',
+            businessId: currentBusiness.id,
+            metadata: {
               businessId: currentBusiness.id,
-              metadata: {
-                businessId: currentBusiness.id,
-                businessName: currentBusiness.name,
-                bookId: oldEntry.bookId,
-                bookName: bookName,
-                entryId: entryId,
-                description: description,
-                updatedBy: user.displayName || user.name || user.email,
-                newBalance: newBalanceStr
-              }
-            });
+              businessName: currentBusiness.name,
+              bookId: oldEntry.bookId,
+              bookName: resolvedBookName,
+              entryId: entryId,
+              description: description,
+              updatedBy: user.displayName || user.name || user.email,
+              newBalance: newBalanceStr
+            }
           });
-          await notifBatch.commit();
-        }
+        });
+        await notifBatch.commit();
       }
     } catch (error) {
       console.error("Error updating entry:", error);
@@ -1018,7 +1056,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             }
           }
         }
-        bookName = bookName || 'Unknown Book';
+        bookName = bookName || 'the book';
 
         // Delete the entry
         await deleteDoc(entryRef);
@@ -1042,36 +1080,39 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
         const description = entryData.description ? `"${entryData.description}"` : 'an entry';
 
-        // Notify team members about entry deletion (unless silent)
-        if (bookName && bookName !== 'Unknown Book' && !context?.silent) {
-          const membersToNotify = currentBusiness.members.filter((m: BusinessMember) => m.userId !== user.id);
-          if (membersToNotify.length > 0 && db) {
-            const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
-            const notifBatch = writeBatch(db);
-            membersToNotify.forEach(member => {
-              const notifRef = doc(collection(db!, 'notifications'));
-              notifBatch.set(notifRef, {
-                title: entryData.type === 'cash_in' ? 'Cash In Deleted' : 'Cash Out Deleted',
-                message: `${user.name || user.email} deleted ${entryTypeName} (${description}) of ${formatCurrency(amount, currentBusiness.currency)} from "${bookName}"`,
-                createdAt: new Date().toISOString(), // ✅ was 'timestamp' — caused date to show as undefined
-                read: false,
-                type: 'warning',
-                userId: member.userId,
+        // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
+        const deleteBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+        const deleteLiveMemberIds: string[] = deleteBizSnap.exists() ? (deleteBizSnap.data().memberIds || []) : [];
+        const deleteMemberIdsToNotify = deleteLiveMemberIds.filter((id: string) => id !== user.id);
+        const resolvedDeleteBookName = bookName || 'the book';
+
+        // Fix 2: Always send notification regardless of book name resolution
+        if (!context?.silent && deleteMemberIdsToNotify.length > 0 && db) {
+          const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
+          const notifBatch = writeBatch(db);
+          deleteMemberIdsToNotify.forEach((memberId: string) => {
+            const notifRef = doc(collection(db!, 'notifications'));
+            notifBatch.set(notifRef, {
+              title: entryData.type === 'cash_in' ? 'Cash In Deleted' : 'Cash Out Deleted',
+              message: `${user.displayName || user.name || user.email} deleted ${entryTypeName} (${description}) of ${formatCurrency(amount, currentBusiness.currency)} from "${resolvedDeleteBookName}"`,
+              createdAt: new Date().toISOString(),
+              read: false,
+              type: 'warning',
+              userId: memberId,
+              businessId: currentBusiness.id,
+              metadata: {
                 businessId: currentBusiness.id,
-                metadata: {
-                  businessId: currentBusiness.id,
-                  businessName: currentBusiness.name,
-                  bookId: entryData.bookId,
-                  bookName: bookName,
-                  entryId: entryId,
-                  amount: amount,
-                  description: entryData.description,
-                  deletedBy: user.name || user.email
-                }
-              });
+                businessName: currentBusiness.name,
+                bookId: entryData.bookId,
+                bookName: resolvedDeleteBookName,
+                entryId: entryId,
+                amount: amount,
+                description: entryData.description,
+                deletedBy: user.displayName || user.name || user.email
+              }
             });
-            await notifBatch.commit();
-          }
+          });
+          await notifBatch.commit();
         }
       }
     } catch (error) {
@@ -1592,12 +1633,15 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   }) => {
     if (!user || !currentBusiness || !db) return;
 
-    const membersToNotify = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
-    if (membersToNotify.length === 0) return;
-
+    // Bug fix: Re-read live memberIds from Firestore to avoid stale closure
     try {
+      const bulkBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const bulkMemberIds: string[] = bulkBizSnap.exists() ? (bulkBizSnap.data().memberIds || []) : [];
+      const bulkMembersToNotify = bulkMemberIds.filter((id: string) => id !== user.id);
+      if (bulkMembersToNotify.length === 0) return;
+
       const batch = writeBatch(db);
-      membersToNotify.forEach(member => {
+      bulkMembersToNotify.forEach((memberId: string) => {
         const notifRef = doc(collection(db!, 'notifications'));
         batch.set(notifRef, {
           title: options.title,
@@ -1605,7 +1649,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           createdAt: new Date().toISOString(),
           read: false,
           type: options.type || 'info',
-          userId: member.userId,
+          userId: memberId,
           businessId: currentBusiness.id,
           metadata: {
             ...options.metadata,
@@ -1776,13 +1820,15 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       await setDoc(doc(db, 'businesses', currentBusiness.id, 'parties', newPartyId), partyData);
 
-      // Notify team members about new party
-      const membersToNotify = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
+      // Bug fix: Re-read live memberIds from Firestore for createParty notification
+      const createPartyBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const createPartyMemberIds: string[] = createPartyBizSnap.exists() ? (createPartyBizSnap.data().memberIds || []) : [];
+      const createPartyMembersToNotify = createPartyMemberIds.filter((id: string) => id !== user.id);
 
-      for (const member of membersToNotify) {
+      for (const memberId of createPartyMembersToNotify) {
         try {
           await addDoc(collection(db, 'notifications'), {
-            userId: member.userId,
+            userId: memberId,
             title: `New ${type === 'customer' ? 'Customer' : 'Vendor'} Added`,
             message: `${user.displayName || user.name || user.email} added "${name}" as a ${type} in ${currentBusiness.name}`,
             read: false,
