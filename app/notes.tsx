@@ -17,7 +17,6 @@ import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Save, Check } from 'lucide-react-native';
 
-import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { getFontFamily } from '@/config/font-config';
 
 export default function NotesScreen() {
@@ -67,9 +66,6 @@ export default function NotesScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
         >
             <Stack.Screen options={{ headerShown: false }} />
-            {/* Decorative Circles */}
-            <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-            <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
             {/* Header */}
             <View
@@ -111,8 +107,8 @@ export default function NotesScreen() {
                         )}
                     </TouchableOpacity>
                 </View>
-                <Text style={[styles.appName, { color: colors.primary }]}>Workspace</Text>
-                <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Business Notes</Text>
+                <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>Workspace</Text>
+                <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Business Notes</Text>
             </View>
 
             {/* Content */}
@@ -199,8 +195,8 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     headerTitle: {
-        fontFamily: 'AbrilFatface_400Regular',
-        fontSize: 36,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontSize: 32,
         color: '#0f172a',
     },
     saveButton: {

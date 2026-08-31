@@ -7,17 +7,15 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   LayoutAnimation,
-  TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { formatCurrency } from '@/utils/currency-utils';
-
 import { router } from 'expo-router';
 import {
   Plus,
@@ -32,30 +30,43 @@ import {
   ChevronDown,
   FileText,
   Bell,
+  Building2,
+  Sun,
+  Moon,
 } from 'lucide-react-native';
 import { useBusiness } from '@/providers/business-provider';
 import { Book } from '@/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BookEditModal } from '@/components/book-edit-modal';
+import * as Haptics from 'expo-haptics';
 import { useFirebase } from '@/providers/firebase-provider';
 import { VirtualGuideModal } from '@/components/virtual-guide-modal';
 import { useStorage } from '@/providers/storage-provider';
 import { db } from '@/config/firebase';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { debounce } from '@/utils/debounce';
+import { BackgroundDecor } from '@/components/ui/background-decor';
 import { getFontFamily } from '@/config/font-config';
 import { useTheme } from '@/providers/theme-provider';
-import { BUSINESS_ICONS, LOGO_OPTIONS } from '@/constants/logos';
-import { Building2 } from 'lucide-react-native';
+import { BUSINESS_ICONS } from '@/constants/logos';
 
 type SortOption =
-  | 'name-asc' | 'name-desc'
-  | 'balance-asc' | 'balance-desc'
-  | 'cashin-asc' | 'cashin-desc'
-  | 'cashout-asc' | 'cashout-desc'
-  | 'date-asc' | 'date-desc'
+  | 'name-asc'
+  | 'name-desc'
+  | 'balance-asc'
+  | 'balance-desc'
+  | 'cashin-asc'
+  | 'cashin-desc'
+  | 'cashout-asc'
+  | 'cashout-desc'
+  | 'date-asc'
+  | 'date-desc'
   | 'activity-desc'
-  | 'today' | 'week' | 'month' | 'year' | 'all';
+  | 'today'
+  | 'week'
+  | 'month'
+  | 'year'
+  | 'all';
 
 interface SortConfig {
   label: string;
@@ -77,67 +88,141 @@ const SORT_OPTIONS: SortConfig[] = [
 ];
 
 // Memoized Book Card Component
-const BookCard = React.memo(({ item, userRole, currency, onEdit, onPress }: { item: Book; userRole: string | null; currency: string; onEdit: (book: Book) => void; onPress: () => void }) => {
-  const { colors, theme, isDark } = useTheme();
-  const { currentBusiness } = useBusiness();
+const BookCard = React.memo(
+  ({
+    item,
+    userRole,
+    currency,
+    onEdit,
+    onPress,
+  }: {
+    item: Book;
+    userRole: string | null;
+    currency: string;
+    onEdit: (book: Book) => void;
+    onPress: () => void;
+  }) => {
+    const { colors, isDark, deviceFont } = useTheme();
+    const { currentBusiness } = useBusiness();
+    const bookCurrency = item.currency || item.settings?.currency || currentBusiness?.currency || 'USD';
 
-  return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <TouchableOpacity
-        style={styles.cardContent}
-        onPress={() => {
-          onPress();
-          router.push(`/book/${item.id}`);
-        }}
-        activeOpacity={0.7}
+    return (
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.cardGlass,
+            borderColor: colors.borderGlass,
+            shadowColor: colors.shadow,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isDark ? 0.3 : 0.05,
+            shadowRadius: 12,
+            elevation: 3,
+          },
+        ]}
       >
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconContainer, { backgroundColor: theme === 'dark' ? '#333' : '#f0fdf4' }]}>
-            <BookOpen size={20} color={colors.primary} />
-          </View>
-          <View style={styles.cardHeaderText}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={[styles.bookName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-              <Text style={[styles.statValue, item.netBalance >= 0 ? styles.textSuccess : styles.textDanger, { fontSize: 13, marginLeft: 'auto', marginRight: 8 }]}>
-                {formatCurrency(Math.abs(item.netBalance), currentBusiness?.currency)}
-              </Text>
-              {(userRole === 'owner' || userRole === 'partner') && (
-                <TouchableOpacity
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    onEdit(item);
-                  }}
-                >
-                  <Edit3 size={16} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
+        <TouchableOpacity
+          style={[styles.cardContent, { padding: 14 }]}
+          onPress={() => {
+            onPress();
+            router.push(`/book/${item.id}`);
+          }}
+          onLongPress={() => {
+            if (userRole === 'owner' || userRole === 'partner') {
+              if (Platform.OS !== 'web') {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                } catch (e) {}
+              }
+              onEdit(item);
+            }
+          }}
+          delayLongPress={500}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardHeader}>
+            <View
+              style={[
+                styles.iconContainer,
+                {
+                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                },
+              ]}
+            >
+              <BookOpen size={20} color={colors.primary} />
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-              <Text style={[styles.bookDate, { color: colors.textSecondary }]}>
-                {new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TrendingUp size={12} color="#10b981" style={{ marginRight: 2 }} />
-                  <Text style={[styles.miniStatValue, { color: colors.textSecondary }]}>{formatCurrency(item.totalCashIn || 0, currentBusiness?.currency)}</Text>
+            <View style={styles.cardHeaderText}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.bookName,
+                      { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold'), fontSize: 16 },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.name}
+                  </Text>
+                  <View style={[styles.bookCurrencyBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: colors.border }]}>
+                    <Text style={[styles.bookCurrencyBadgeText, { color: colors.textSecondary }]}>{bookCurrency}</Text>
+                  </View>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TrendingDown size={12} color="#ef4444" style={{ marginRight: 2 }} />
-                  <Text style={[styles.miniStatValue, { color: colors.textSecondary }]}>{formatCurrency(item.totalCashOut || 0, currentBusiness?.currency)}</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    item.netBalance >= 0 ? styles.textSuccess : styles.textDanger,
+                    { fontSize: 14, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold', marginLeft: 'auto', marginRight: 8 },
+                  ]}
+                >
+                  {formatCurrency(Math.abs(item.netBalance), bookCurrency)}
+                </Text>
+                {(userRole === 'owner' || userRole === 'partner') && (
+                  <TouchableOpacity
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onEdit(item);
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Edit3 size={15} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                <Text style={[styles.bookDate, { color: colors.textSecondary, fontSize: 12 }]}>
+                  {new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TrendingUp size={13} color="#10B981" style={{ marginRight: 3 }} />
+                    <Text style={[styles.miniStatValue, { color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      {formatCurrency(item.totalCashIn || 0, bookCurrency)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TrendingDown size={13} color="#EF4444" style={{ marginRight: 3 }} />
+                    <Text style={[styles.miniStatValue, { color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      {formatCurrency(item.totalCashOut || 0, bookCurrency)}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
-});
+        </TouchableOpacity>
+      </View>
+    );
+  }
+);
 
 export default function BooksScreen() {
-  const { currentBusiness, businesses, getUserRole, createBook, updateBook, deleteBook, createBusiness, isLoading, touchBook } = useBusiness();
-  const { deviceFont, colors, theme } = useTheme();
+  const { currentBusiness, businesses, getUserRole, createBook, updateBook, deleteBook, createBusiness, isLoading, touchBook } =
+    useBusiness();
+  const { deviceFont, colors, isDark, setTheme } = useTheme();
   const userRole = getUserRole();
   const insets = useSafeAreaInsets();
   const { user: fbUser, resendVerificationEmail } = useFirebase();
@@ -172,15 +257,19 @@ export default function BooksScreen() {
     }
 
     const booksQuery = query(collection(db, 'businesses', currentBusiness.id, 'books'));
-    const unsubscribe = onSnapshot(booksQuery, (snapshot) => {
-      const booksList: Book[] = [];
-      snapshot.forEach((doc) => {
-        booksList.push({ id: doc.id, ...doc.data() } as Book);
-      });
-      setLocalBooks(booksList);
-    }, (error) => {
-      console.error("Error fetching books:", error);
-    });
+    const unsubscribe = onSnapshot(
+      booksQuery,
+      (snapshot) => {
+        const booksList: Book[] = [];
+        snapshot.forEach((doc) => {
+          booksList.push({ id: doc.id, ...doc.data() } as Book);
+        });
+        setLocalBooks(booksList);
+      },
+      (error) => {
+        console.error('Error fetching books:', error);
+      }
+    );
 
     return () => unsubscribe();
   }, [currentBusiness?.id]);
@@ -191,10 +280,13 @@ export default function BooksScreen() {
     []
   );
 
-  const handleSearch = useCallback((text: string) => {
-    setInputValue(text);
-    debouncedSearch(text);
-  }, [debouncedSearch]);
+  const handleSearch = useCallback(
+    (text: string) => {
+      setInputValue(text);
+      debouncedSearch(text);
+    },
+    [debouncedSearch]
+  );
 
   // Virtual guide logic
   useEffect(() => {
@@ -228,57 +320,64 @@ export default function BooksScreen() {
     await storage.setItem('has_seen_guide_v1', 'true');
   };
 
-  const isWithinTimeRange = useCallback((dateString: string, range: 'today' | 'week' | 'month' | 'year' | 'all') => {
-    if (range === 'all') return true;
-    const bookDate = new Date(dateString);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    switch (range) {
-      case 'today': return bookDate >= today;
-      case 'week':
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return bookDate >= weekAgo;
-      case 'month':
-        const monthAgo = new Date(today);
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        return bookDate >= monthAgo;
-      case 'year':
-        const yearAgo = new Date(today);
-        yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-        return bookDate >= yearAgo;
-      default: return true;
-    }
-  }, []);
-
-  const recentlyActiveBooks = useMemo(() => {
-    return [...localBooks]
-      .filter(b => b.lastActiveAt)
-      .sort((a, b) => new Date(b.lastActiveAt!).getTime() - new Date(a.lastActiveAt!).getTime())
-      .slice(0, 4);
-  }, [localBooks]);
+  const isWithinTimeRange = useCallback(
+    (dateString: string, range: 'today' | 'week' | 'month' | 'year' | 'all') => {
+      if (range === 'all') return true;
+      const bookDate = new Date(dateString);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      switch (range) {
+        case 'today':
+          return bookDate >= today;
+        case 'week':
+          const weekAgo = new Date(today);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return bookDate >= weekAgo;
+        case 'month':
+          const monthAgo = new Date(today);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          return bookDate >= monthAgo;
+        case 'year':
+          const yearAgo = new Date(today);
+          yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+          return bookDate >= yearAgo;
+        default:
+          return true;
+      }
+    },
+    []
+  );
 
   const filteredAndSortedBooks = useMemo(() => {
     let result = [...localBooks];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(book => book.name.toLowerCase().includes(q));
+      result = result.filter((book) => book.name.toLowerCase().includes(q));
     }
     if (['today', 'week', 'month', 'year', 'all'].includes(selectedSort)) {
-      result = result.filter(book => isWithinTimeRange(book.createdAt, selectedSort as any));
+      result = result.filter((book) => isWithinTimeRange(book.createdAt, selectedSort as any));
     }
     result.sort((a, b) => {
       switch (selectedSort) {
-        case 'activity-desc': return new Date(b.lastActiveAt || 0).getTime() - new Date(a.lastActiveAt || 0).getTime();
-        case 'name-asc': return a.name.localeCompare(b.name);
-        case 'name-desc': return b.name.localeCompare(a.name);
-        case 'balance-asc': return a.netBalance - b.netBalance;
-        case 'balance-desc': return b.netBalance - a.netBalance;
-        case 'cashin-desc': return b.totalCashIn - a.totalCashIn;
-        case 'cashout-desc': return b.totalCashOut - a.totalCashOut;
-        case 'date-asc': return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'activity-desc':
+          return new Date(b.lastActiveAt || 0).getTime() - new Date(a.lastActiveAt || 0).getTime();
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'balance-asc':
+          return a.netBalance - b.netBalance;
+        case 'balance-desc':
+          return b.netBalance - a.netBalance;
+        case 'cashin-desc':
+          return b.totalCashIn - a.totalCashIn;
+        case 'cashout-desc':
+          return b.totalCashOut - a.totalCashOut;
+        case 'date-asc':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         case 'date-desc':
-        default: return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
     return result;
@@ -289,37 +388,49 @@ export default function BooksScreen() {
     setEditModalVisible(true);
   }, []);
 
-  const handleSaveBook = useCallback((bookId: string | null, data: any) => {
-    if (bookId) {
-      updateBook(bookId, data);
-    } else {
-      createBook(data.name, data.settings);
-    }
-    setEditModalVisible(false);
-    setSelectedBook(null);
-  }, [updateBook, createBook]);
+  const handleSaveBook = useCallback(
+    (bookId: string | null, data: any) => {
+      if (bookId) {
+        updateBook(bookId, data);
+      } else {
+        createBook(data.name, data.settings);
+      }
+      setEditModalVisible(false);
+      setSelectedBook(null);
+    },
+    [updateBook, createBook]
+  );
 
-  const handleDeleteBook = useCallback((bookId: string) => {
-    deleteBook(bookId);
-    setEditModalVisible(false);
-    setSelectedBook(null);
-  }, [deleteBook]);
+  const handleDeleteBook = useCallback(
+    (bookId: string) => {
+      deleteBook(bookId);
+      setEditModalVisible(false);
+      setSelectedBook(null);
+    },
+    [deleteBook]
+  );
 
-  const renderBookCard = useCallback(({ item }: { item: Book }) => (
-    <BookCard item={item} userRole={userRole} currency={currentBusiness?.currency || 'USD'} onEdit={handleEditBook} onPress={() => touchBook(item.id)} />
-  ), [userRole, currentBusiness?.currency, handleEditBook, touchBook]);
+  const renderBookCard = useCallback(
+    ({ item }: { item: Book }) => (
+      <BookCard
+        item={item}
+        userRole={userRole}
+        currency={currentBusiness?.currency || 'USD'}
+        onEdit={handleEditBook}
+        onPress={() => touchBook(item.id)}
+      />
+    ),
+    [userRole, currentBusiness?.currency, handleEditBook, touchBook]
+  );
 
   if (!currentBusiness && !isLoading) {
     return (
-
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <View style={[styles.circle1, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-        <View style={[styles.circle2, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
         <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIconBg, { backgroundColor: theme === 'dark' ? '#333' : '#f0fdf4' }]}>
+          <View style={[styles.emptyIconBg, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)' }]}>
             <BookOpen size={48} color={colors.primary} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
             {businesses.length === 0 ? 'Welcome to spndy' : 'No Business Selected'}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -351,35 +462,48 @@ export default function BooksScreen() {
           animationType="fade"
           onRequestClose={() => setCreateBusinessModalVisible(false)}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
-            style={styles.modalOverlay}
-          >
-            <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setCreateBusinessModalVisible(false)} />
-            <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Create Business</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Give your business a name to get started.</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
-                placeholder="Business Name"
-                placeholderTextColor={colors.textSecondary}
-                value={newBusinessName}
-                onChangeText={setNewBusinessName}
-                autoFocus
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.modalCancel, { backgroundColor: colors.card }]} onPress={() => setCreateBusinessModalVisible(false)}>
-                  <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalConfirmWrapper}
-                  disabled={!newBusinessName.trim()}
-                  onPress={async () => {
-                    if (newBusinessName.trim()) {
-                      const isFirstBusiness = businesses.length === 0;
-                      await createBusiness(newBusinessName.trim());
-                      setCreateBusinessModalVisible(false);
+          <View style={styles.modalOverlay}>
+            <GlassBackdrop isDark={isDark} onPress={() => setCreateBusinessModalVisible(false)} />
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
+              style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <View style={[styles.modalContent, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1, borderRadius: 24, overflow: 'hidden' }]}>
+                {/* Top Sheen */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 20,
+                    right: 20,
+                    height: 1,
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                    zIndex: 10,
+                  }}
+                />
+                <Text style={[styles.modalTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>Create Business</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Give your business a name to get started.</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
+                  placeholder="Business Name"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newBusinessName}
+                  onChangeText={setNewBusinessName}
+                  autoFocus
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={[styles.modalCancel, { backgroundColor: colors.card }]} onPress={() => setCreateBusinessModalVisible(false)}>
+                    <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalConfirmWrapper}
+                    disabled={!newBusinessName.trim()}
+                    onPress={async () => {
+                      if (newBusinessName.trim()) {
+                        const isFirstBusiness = businesses.length === 0;
+                        await createBusiness(newBusinessName.trim());
+                        setCreateBusinessModalVisible(false);
                       setNewBusinessName('');
                       if (isFirstBusiness) setShowGuideAfterBusinessCreation(true);
                     }
@@ -396,30 +520,39 @@ export default function BooksScreen() {
               </View>
             </View>
           </KeyboardAvoidingView>
-        </Modal>
+        </View>
+      </Modal>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <View style={[styles.circle1, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-      <View style={[styles.circle2, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
+      <BackgroundDecor />
       {/* Header */}
       <View style={styles.headerContainer}>
         <View style={styles.headerTopRow}>
-          <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>spndy</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {/* Small Light / Dark Theme Switcher beside Note button */}
             <TouchableOpacity
-              style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              style={[styles.smallThemeButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
+              onPress={() => setTheme(isDark ? 'light' : 'dark')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {isDark ? <Sun size={17} color="#F59E0B" /> : <Moon size={17} color={colors.textSecondary} />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
               onPress={() => router.push('/notes')}
               activeOpacity={0.7}
             >
               <FileText size={20} color={colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
               onPress={() => router.push('/notifications')}
               activeOpacity={0.7}
             >
@@ -427,23 +560,23 @@ export default function BooksScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Books</Text>
+
+        <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Books</Text>
+
         {currentBusiness && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
             {!isSearchExpanded ? (
               <>
                 <TouchableOpacity
-                  style={[styles.businessSwitcher, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1 }]}
+                  style={[styles.businessSwitcher, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, flex: 1 }]}
                   onPress={() => router.push('/business-switcher')}
                   activeOpacity={0.7}
                 >
                   {(() => {
-                    // Safely resolve the business icon
                     const iconKey = currentBusiness.icon || 'store';
                     const BusinessIcon = BUSINESS_ICONS[iconKey] || Building2;
-                    // Ensure we have a valid color with fallback
                     const businessColor = currentBusiness.color || colors.primary;
-                    const bgColor = businessColor + (theme === 'dark' ? '20' : '15');
+                    const bgColor = businessColor + (isDark ? '25' : '15');
                     return (
                       <View style={[styles.businessIcon, { backgroundColor: bgColor }]}>
                         <BusinessIcon size={16} color={businessColor} />
@@ -451,11 +584,13 @@ export default function BooksScreen() {
                     );
                   })()}
                   <ChevronDown size={16} color={colors.textSecondary} />
-                  <Text style={[styles.businessName, { color: colors.text }]} numberOfLines={1}>{currentBusiness.name}</Text>
+                  <Text style={[styles.businessName, { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') }]} numberOfLines={1}>
+                    {currentBusiness.name}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  style={[styles.headerIconButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
                   onPress={() => {
                     LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
                     setIsSearchExpanded(true);
@@ -465,15 +600,27 @@ export default function BooksScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.headerIconButton, { backgroundColor: colors.surface, borderColor: colors.border }, selectedSort !== 'date-desc' && [styles.filterButtonActive, { backgroundColor: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', borderColor: '#10b981' }]]}
+                  style={[
+                    styles.headerIconButton,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    selectedSort !== 'date-desc' && [
+                      styles.filterButtonActive,
+                      { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', borderColor: '#10b981' },
+                    ],
+                  ]}
                   onPress={() => setSortModalVisible(true)}
                 >
                   <SlidersHorizontal size={20} color={selectedSort !== 'date-desc' ? '#10b981' : colors.textSecondary} />
                 </TouchableOpacity>
               </>
             ) : (
-              <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1, height: 44, borderRadius: 12 }]}>
-                <Search size={20} color={colors.textSecondary} />
+              <View
+                style={[
+                  styles.searchBar,
+                  { backgroundColor: colors.surface, borderColor: colors.border, flex: 1, height: 44, borderRadius: 14 },
+                ]}
+              >
+                <Search size={18} color={colors.textSecondary} />
                 <TextInput
                   style={[styles.searchInput, { color: colors.text }]}
                   placeholder="Search books..."
@@ -488,66 +635,65 @@ export default function BooksScreen() {
                     }
                   }}
                 />
-                <TouchableOpacity onPress={() => {
-                  handleSearch('');
-                  LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
-                  setIsSearchExpanded(false);
-                  Keyboard.dismiss();
-                }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    handleSearch('');
+                    LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
+                    setIsSearchExpanded(false);
+                    Keyboard.dismiss();
+                  }}
+                >
                   <X size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             )}
           </View>
-        )
-        }
-      </View >
+        )}
+      </View>
 
       <View style={{ flex: 1 }}>
-        {/* Search & Filter */}
-        {/* Expanded Search Bar - Moved to Header */}
-
         {/* Verification Banner */}
         {fbUser && fbUser.email && fbUser.emailVerified === false && !dismissVerifyBanner && (
-          <View style={styles.banner}>
-            <Text style={styles.bannerTitle}>Verify your email</Text>
-            <Text style={styles.bannerText}>Check {fbUser.email} for a link.</Text>
+          <View style={[styles.banner, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7', borderColor: '#F59E0B' }]}>
+            <Text style={[styles.bannerTitle, { color: isDark ? '#FCD34D' : '#92400E' }]}>Verify your email</Text>
+            <Text style={[styles.bannerText, { color: isDark ? '#F3F4F6' : '#78350F' }]}>Check {fbUser.email} for a link.</Text>
             <View style={styles.bannerActions}>
-              <TouchableOpacity onPress={async () => {
-                const { error } = await resendVerificationEmail();
-                setVerificationMessage(error ? 'Error sending' : 'Sent!');
-              }}>
-                <Text style={styles.bannerLink}>{verificationMessage || 'Resend'}</Text>
+              <TouchableOpacity
+                onPress={async () => {
+                  const { error } = await resendVerificationEmail();
+                  setVerificationMessage(error ? 'Error sending' : 'Sent!');
+                }}
+              >
+                <Text style={[styles.bannerLink, { color: colors.primary }]}>{verificationMessage || 'Resend'}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setDismissVerifyBanner(true)}>
-                <X size={16} color="#4b5563" />
+                <X size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Content */}
+        {/* Books List Content */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading books...</Text>
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading books...</Text>
           </View>
         ) : (
           <FlatList
             data={filteredAndSortedBooks}
             renderItem={renderBookCard}
-            keyExtractor={item => item.id}
-            ListHeaderComponent={
-              null
-            }
-            contentContainerStyle={styles.listContent}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 120 }]}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyList}>
-                <View style={styles.emptyListIcon}>
-                  <BookOpen size={40} color={colors.textSecondary} />
+                <View style={[styles.emptyListIconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                  <BookOpen size={36} color={colors.textSecondary} />
                 </View>
-                <Text style={[styles.emptyListTitle, { color: colors.text }]}>No books found</Text>
+                <Text style={[styles.emptyListTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                  No books found
+                </Text>
                 <Text style={[styles.emptyListText, { color: colors.textSecondary }]}>
                   {searchQuery ? `No results for "${searchQuery}"` : 'Create a book to start tracking.'}
                 </Text>
@@ -558,30 +704,44 @@ export default function BooksScreen() {
       </View>
 
       {/* FAB Add Button */}
-      {
-        (userRole === 'owner' || userRole === 'partner') && (
-          <TouchableOpacity
-            style={[styles.fab, { bottom: insets.bottom + 110 }]}
-            onPress={() => {
-              setSelectedBook(null);
-              setEditModalVisible(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient colors={['#10b981', '#059669']} style={styles.fabGradient} />
-            <Plus size={24} color="#fff" style={{ zIndex: 1 }} />
-          </TouchableOpacity>
-        )
-      }
+      {(userRole === 'owner' || userRole === 'partner') && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: insets.bottom + 105 }]}
+          onPress={() => {
+            setSelectedBook(null);
+            setEditModalVisible(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <LinearGradient colors={['#10b981', '#059669']} style={styles.fabGradient}>
+            <Plus size={24} color="#fff" strokeWidth={2.5} />
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
       {/* Sort & Filter Modal */}
       <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)}>
-        <TouchableOpacity style={styles.sortModalOverlay} activeOpacity={1} onPress={() => setSortModalVisible(false)}>
-          <View style={[styles.bottomSheet, { backgroundColor: colors.surface }]}>
+        <View style={styles.sortModalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setSortModalVisible(false)} />
+          <View style={[styles.bottomSheet, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1, borderBottomWidth: 0, overflow: 'hidden' }]}>
+            {/* Top Sheen */}
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 24,
+                right: 24,
+                height: 1,
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                zIndex: 10,
+              }}
+            />
             <View style={[styles.bottomSheetHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.bottomSheetTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Sort & Filter</Text>
+              <Text style={[styles.bottomSheetTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>
+                Sort & Filter
+              </Text>
               <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.card }]} onPress={() => setSortModalVisible(false)}>
-                <X size={20} color={colors.textSecondary} />
+                <X size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <View style={styles.bottomSheetContent}>
@@ -589,19 +749,32 @@ export default function BooksScreen() {
                 <View key={group} style={styles.sortSection}>
                   <Text style={[styles.sortSectionTitle, { color: colors.textSecondary }]}>{group}</Text>
                   <View style={styles.sortGrid}>
-                    {SORT_OPTIONS.filter(opt => opt.group === group).map(option => {
+                    {SORT_OPTIONS.filter((opt) => opt.group === group).map((option) => {
                       const isActive = selectedSort === option.value;
                       return (
                         <TouchableOpacity
                           key={option.value}
-                          style={[styles.sortOption, { backgroundColor: colors.card, borderColor: colors.border }, isActive && [styles.sortOptionActive, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.1)' : '#eff6ff', borderColor: colors.primary }]]}
+                          style={[
+                            styles.sortOption,
+                            { backgroundColor: colors.card, borderColor: colors.border },
+                            isActive && [
+                              styles.sortOptionActive,
+                              { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#eff6ff', borderColor: colors.primary },
+                            ],
+                          ]}
                           onPress={() => {
                             setSelectedSort(option.value);
                             setSortModalVisible(false);
                           }}
                         >
                           {isActive && <View style={[styles.activeDot, { backgroundColor: colors.primary }]} />}
-                          <Text style={[styles.sortOptionText, { color: colors.textSecondary }, isActive && [styles.sortOptionTextActive, { color: colors.text }]]}>
+                          <Text
+                            style={[
+                              styles.sortOptionText,
+                              { color: colors.textSecondary },
+                              isActive && [styles.sortOptionTextActive, { color: colors.text }],
+                            ]}
+                          >
                             {option.label}
                           </Text>
                           {isActive && <Check size={16} color={colors.primary} style={{ marginLeft: 'auto' }} />}
@@ -613,22 +786,27 @@ export default function BooksScreen() {
               ))}
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
-      <BookEditModal
-        visible={editModalVisible}
-        book={selectedBook}
-        onClose={() => {
-          setEditModalVisible(false);
-          setSelectedBook(null);
-        }}
-        onSave={handleSaveBook}
-        onDelete={handleDeleteBook}
-      />
+      {/* Book Edit Modal */}
+      {editModalVisible && (
+        <BookEditModal
+          visible={editModalVisible}
+          book={selectedBook}
+          onClose={() => {
+            setEditModalVisible(false);
+            setSelectedBook(null);
+          }}
+          onSave={handleSaveBook}
+          onDelete={handleDeleteBook}
+        />
+      )}
 
-      <VirtualGuideModal visible={virtualGuideVisible} onClose={handleCloseVirtualGuide} />
-
+      {/* Virtual Guide Modal */}
+      {virtualGuideVisible && (
+        <VirtualGuideModal visible={virtualGuideVisible} onClose={handleCloseVirtualGuide} />
+      )}
     </View>
   );
 }
@@ -636,245 +814,147 @@ export default function BooksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    overflow: 'hidden',
-  },
-  circle1: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-  },
-  circle2: {
-    position: 'absolute',
-    bottom: -100,
-    left: -50,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
   headerContainer: {
     paddingHorizontal: 24,
-    paddingTop: 20,
-    marginBottom: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
+  appName: {
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
   notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  appName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#10b981',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 8,
   },
   headerTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 36,
-    color: '#0f172a',
-    marginBottom: 12,
+    fontSize: 34,
+    marginBottom: 8,
+    letterSpacing: -0.8,
   },
   businessSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
     paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
-    gap: 10,
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
     height: 44,
+  },
+  businessIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  businessName: {
+    fontSize: 14,
+    marginLeft: 6,
+    flex: 1,
   },
   headerIconButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  businessIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#10b981',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  businessInitial: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  businessName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
-    maxWidth: 180,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 24,
-    marginBottom: 16,
+  filterButtonActive: {
+    borderWidth: 1.5,
   },
   searchBar: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 52,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 4,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#0f172a',
-  },
-  filterButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  filterButtonActive: {
-    borderWidth: 1, // Ensure border width is maintained or overridden if needed. Though borderWidth: 1 is already in filterButton.
-    // borderColor will be set dynamically
+    marginLeft: 10,
+    fontSize: 15,
   },
   listContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   card: {
-    borderRadius: 12,
-    marginBottom: 12, // Increased margin to prevent overlap
+    borderRadius: 18,
+    marginBottom: 12,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
     elevation: 2,
   },
   cardContent: {
-    padding: 10,
+    borderRadius: 18,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 12,
   },
   cardHeaderText: {
     flex: 1,
   },
   bookName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
     flex: 1,
     marginRight: 8,
   },
-  bookDate: {
+  statValue: {},
+  bookDate: {},
+  miniStatValue: {},
+  textSuccess: { color: '#10B981' },
+  textDanger: { color: '#EF4444' },
+  banner: {
+    marginHorizontal: 20,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  bannerTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  bannerText: {
     fontSize: 12,
-    color: '#64748b',
+    marginTop: 2,
   },
-  editButton: {
-    padding: 8,
-    borderRadius: 10,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 6,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  statItem: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: '#64748b',
-    marginBottom: 0,
-    fontWeight: '500',
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  textSuccess: { color: '#10b981' },
-  textDanger: { color: '#ef4444' },
-  statRow: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  miniStat: {
+  bannerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    justifyContent: 'space-between',
+    marginTop: 6,
   },
-  miniStatValue: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
+  bannerLink: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
@@ -883,28 +963,23 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyIconBg: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#eff6ff',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   emptyTitle: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 12,
+    marginBottom: 8,
     textAlign: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    color: '#64748b',
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
-    paddingHorizontal: 20,
+    lineHeight: 20,
+    marginBottom: 24,
   },
   primaryButtonWrapper: {
     borderRadius: 16,
@@ -913,70 +988,60 @@ const styles = StyleSheet.create({
   primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
   },
   primaryButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 17,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   emptyList: {
     alignItems: 'center',
     paddingTop: 60,
   },
-  emptyListIcon: {
-    marginBottom: 20,
-    opacity: 0.5,
+  emptyListIconBox: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   emptyListTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   emptyListText: {
-    fontSize: 15,
-    color: '#94a3b8',
+    fontSize: 14,
     textAlign: 'center',
   },
   fab: {
     position: 'absolute',
     right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
     elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
     zIndex: 100,
   },
   fabGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 30,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
   },
   sortModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
   },
   bottomSheet: {
     borderTopLeftRadius: 24,
@@ -988,256 +1053,136 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  bottomSheetLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#10b981',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 4,
   },
   bottomSheetTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 32,
-    color: '#0f172a',
+    fontSize: 22,
+  },
+  closeButton: {
+    padding: 6,
+    borderRadius: 10,
   },
   bottomSheetContent: {
     padding: 20,
   },
-  closeButton: {
-    padding: 8,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-  },
   sortSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sortSectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#64748b',
-    marginBottom: 14,
+    marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   sortGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     borderWidth: 1,
     minWidth: '48%',
     flex: 1,
   },
   sortOptionActive: {
-    borderColor: '#10b981',
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   activeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10b981',
-    marginRight: 10,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 8,
   },
   sortOptionText: {
-    fontSize: 15,
-    color: '#64748b',
+    fontSize: 13,
   },
   sortOptionTextActive: {
-    color: '#10b981',
-    fontWeight: '600',
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
   },
   modalTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   modalSubtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    marginBottom: 24,
-    lineHeight: 24,
+    fontSize: 13,
+    marginBottom: 16,
   },
   input: {
-    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 16,
-    color: '#0f172a',
-    marginBottom: 24,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 60,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#64748b',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    marginBottom: 16,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'flex-end',
+    gap: 10,
   },
   modalCancel: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
   modalCancelText: {
-    color: '#475569',
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 16,
   },
   modalConfirmWrapper: {
-    flex: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   modalConfirm: {
-    padding: 16,
-    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
   },
   modalConfirmText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   disabledButton: {
     opacity: 0.5,
   },
-  banner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    marginHorizontal: 24,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 16,
+  smallThemeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  bannerTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#991b1b',
-    marginBottom: 4,
-  },
-  bannerText: {
-    fontSize: 14,
-    color: '#b91c1c',
-    marginBottom: 12,
-  },
-  bannerActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  bannerLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#dc2626',
-  },
-  menuGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  menuCard: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    // Reduced shadow for cleaner look and to prevent overlap
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2, // Reduced from 3
-  },
-  menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  menuCardSubtitle: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  recentlyActiveSection: {
-    marginBottom: 20,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 12,
-    marginLeft: 0,
-    textTransform: 'uppercase',
-  },
-  recentlyActiveList: {
-    paddingBottom: 4,
-    gap: 12,
-  },
-  recentBookItem: {
-    width: 140,
-    padding: 12,
-    borderRadius: 16,
+  bookCurrencyBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     borderWidth: 1,
-    marginRight: 4,
   },
-  recentBookIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  recentBookName: {
-    fontSize: 14,
+  bookCurrencyBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
-    marginBottom: 2,
-  },
-  recentBookBalance: {
-    fontSize: 12,
-    fontWeight: '500',
+    letterSpacing: 0.3,
   },
 });

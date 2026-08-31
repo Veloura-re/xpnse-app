@@ -19,7 +19,7 @@ import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Building2, ChevronLeft, Edit3, Save, X, Check, Search, ArrowRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
 
@@ -99,10 +99,6 @@ export default function BusinessSettingsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-
-            {/* Decorative Circles */}
-            <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-            <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
 
             <ScrollView
                 style={styles.scrollContainer}
@@ -257,14 +253,15 @@ export default function BusinessSettingsScreen() {
 
             {/* Logo Picker Modal */}
             <Modal visible={showLogoPicker} transparent animationType="fade" onRequestClose={() => setShowLogoPicker(false)} statusBarTranslucent={true}>
-                <View style={[styles.modalOverlay, { justifyContent: 'flex-end', backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]}>
+                <View style={[styles.modalOverlay, { justifyContent: 'flex-end' }]}>
+                    <GlassBackdrop isDark={isDark} onPress={() => setShowLogoPicker(false)} />
                     <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]} pointerEvents="box-none">
                         <View style={[styles.modalContent, {
                             height: '85%',
                             maxHeight: '85%',
                             padding: 0,
-                            backgroundColor: isDark ? '#0A0A0A' : colors.card,
-                            borderColor: isDark ? '#2C3333' : colors.border,
+                            backgroundColor: colors.surfaceGlass,
+                            borderColor: colors.borderGlass,
                             borderTopLeftRadius: 32,
                             borderTopRightRadius: 32,
                             borderBottomLeftRadius: 0,
@@ -272,16 +269,28 @@ export default function BusinessSettingsScreen() {
                             overflow: 'hidden',
                             borderWidth: 1,
                         }]}>
+                            {/* Top Sheen */}
+                            <View
+                                style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 24,
+                                    right: 24,
+                                    height: 1,
+                                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                                    zIndex: 10,
+                                }}
+                            />
                             {/* Header with pill */}
                             <View style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 8 }}>
-                                <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: isDark ? '#333' : '#e2e8f0' }} />
+                                <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#e2e8f0' }} />
                             </View>
 
                             {/* Title Row */}
                             <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 24 }}>
                                 <View style={{ alignItems: 'center' }}>
-                                    <Text style={{ fontFamily: getFontFamily(deviceFont), fontSize: 28, color: colors.text, textAlign: 'center' }}>Choose Logo</Text>
-                                    <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>Select an icon for your business</Text>
+                                    <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 26, color: colors.text, textAlign: 'center' }}>Choose Logo</Text>
+                                    <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>Select an icon for your business</Text>
                                 </View>
                             </View>
 

@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Business } from '@/types';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import {
   Building2,
   Users,
@@ -39,24 +40,27 @@ import {
   Heart,
   FileDown,
   SlidersHorizontal,
+  Repeat,
+  Sun,
+  Moon,
 } from 'lucide-react-native';
 import { useAuth } from '@/providers/auth-provider';
 import { useBusiness } from '@/providers/business-provider';
 import { useNotifications } from '@/providers/notification-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { RoleBadge } from '@/components/role-badge';
+import { BackgroundDecor } from '@/components/ui/background-decor';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { CURRENCIES } from '@/constants/currencies';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CurrencyConverterCard } from '@/components/currency/currency-converter-card';
 
-import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
 import { FlatList } from 'react-native';
 import { exportToPDF } from '@/utils/exportUtils';
 import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
-import { BlurView } from 'expo-blur';
 
 const ANALYTICS_SORT_OPTIONS = [
   { label: 'Top Books (Balance)', value: 'balance-desc', group: 'Sort By' },
@@ -77,7 +81,7 @@ export default function SettingsScreen() {
   const { user, logout, updateProfile, deleteAccount, reauthenticate } = useAuth();
   const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont, books, addEntry } = useBusiness();
   const { expoPushToken } = useNotifications();
-  const { colors, deviceFont, setDeviceFont, isDark, theme } = useTheme();
+  const { colors, deviceFont, setDeviceFont, isDark, theme, setTheme } = useTheme();
   const userRole = getUserRole();
   const insets = useSafeAreaInsets();
 
@@ -90,7 +94,6 @@ export default function SettingsScreen() {
   const [showEditBusinessNameModal, setShowEditBusinessNameModal] = useState(false);
   const [editBusinessName, setEditBusinessName] = useState('');
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
-  const [showFontModal, setShowFontModal] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [selectedLogoId, setSelectedLogoId] = useState<string>('1');
   const [logoSearchQuery, setLogoSearchQuery] = useState('');
@@ -176,7 +179,7 @@ export default function SettingsScreen() {
   );
 
   const SettingsCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]}>
+    <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass }, style]}>
       {children}
     </View>
   );
@@ -221,12 +224,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-
-
-      {/* Decorative Circles */}
-      <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-      <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
+      <BackgroundDecor />
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
@@ -234,17 +232,26 @@ export default function SettingsScreen() {
       >
         <View style={styles.headerContainer}>
           <View style={styles.headerTopRow}>
-            <Text style={[styles.appName, { color: colors.primary }]}>Settings</Text>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>Settings</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {/* Small Theme Toggle */}
               <TouchableOpacity
-                style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
+                onPress={() => setTheme(isDark ? 'light' : 'dark')}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                {isDark ? <Sun size={17} color="#F59E0B" /> : <Moon size={17} color={colors.textSecondary} />}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
                 onPress={() => router.push('/notes')}
                 activeOpacity={0.7}
               >
                 <FileText size={20} color={colors.textSecondary} />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
                 onPress={() => router.push('/notifications')}
                 activeOpacity={0.7}
               >
@@ -252,14 +259,14 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Preferences</Text>
+          <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Preferences</Text>
         </View>
 
         <View>
           {/* Profile Card */}
-          <View style={[styles.profileCard, { backgroundColor: isDark ? colors.surface : colors.card, borderColor: colors.border }]}>
+          <View style={[styles.profileCard, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass }]}>
             <LinearGradient
-              colors={isDark ? [colors.surface, '#0A0C0C'] : ['#ffffff', '#f8fafc']}
+              colors={isDark ? ['rgba(34, 34, 32, 0.85)', 'rgba(20, 20, 18, 0.85)'] : ['rgba(255, 255, 255, 0.92)', 'rgba(248, 250, 252, 0.85)']}
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.profileHeader}>
@@ -342,14 +349,6 @@ export default function SettingsScreen() {
                       onPress={() => setShowCurrencyModal(true)}
                       color="#10b981"
                     />
-                    <SettingsRow
-                      icon={Type}
-                      label="Display Font"
-                      subLabel={AVAILABLE_FONTS.find(f => f.id === deviceFont)?.name || 'Inter'}
-                      onPress={() => setShowFontModal(true)}
-                      color={colors.primary}
-                      useGrayBackground={true}
-                    />
                   </>
                 )}
                 {userRole === 'owner' && (
@@ -367,8 +366,15 @@ export default function SettingsScreen() {
 
 
 
-          <SectionHeader title="Reports & Tools" />
+          <SectionHeader title="Financial Tools" />
           <SettingsCard>
+            <SettingsRow
+              icon={Repeat}
+              label="Recurring & Subscriptions"
+              subLabel="Manage automated bills, rent, and scheduled cash flow"
+              onPress={() => router.push('/recurring')}
+              color="#10b981"
+            />
             <SettingsRow
               icon={FileText}
               label="View Notes"
@@ -386,8 +392,22 @@ export default function SettingsScreen() {
             />
           </SettingsCard>
 
+          <SectionHeader title="Currency & FX Rates" />
+          <CurrencyConverterCard
+            initialBaseCurrency={currentBusiness?.currency || 'USD'}
+            initialTargetCurrency={currentBusiness?.currency === 'EUR' ? 'USD' : 'EUR'}
+          />
+
           <SectionHeader title="Support" />
           <SettingsCard>
+            <SettingsRow
+              icon={Heart}
+              label="Support the Developer"
+              subLabel="Donate and help keep spndy free & updated"
+              onPress={() => router.push('/donate')}
+              color="#10b981"
+            />
+
             <SettingsRow
               icon={MessageSquare}
               label="Send Feedback"
@@ -399,15 +419,7 @@ export default function SettingsScreen() {
               icon={Shield}
               label="Privacy Policy"
               onPress={() => setShowPrivacyModal(true)}
-              color="#10b981"
-            />
-
-            <SettingsRow
-              icon={Heart}
-              label="Support the Developer"
-              subLabel="Help us keep the app growing"
-              onPress={() => router.push('/donate')}
-              color="#ef4444"
+              color="#6366f1"
               isLast
             />
           </SettingsCard>
@@ -428,18 +440,16 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* Logout Modal */}
-      {/* Logout Modal */}
       <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={() => setShowLogoutModal(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
-        >
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setShowLogoutModal(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <View
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.borderGlass,
                   borderWidth: 1,
                   borderRadius: 32,
                   padding: 32,
@@ -450,9 +460,22 @@ export default function SettingsScreen() {
                   shadowOpacity: 0.3,
                   shadowRadius: 40,
                   elevation: 20,
+                  overflow: 'hidden',
                 }
               ]}
             >
+              {/* Top Sheen */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 24,
+                  right: 24,
+                  height: 1,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                  zIndex: 10,
+                }}
+              />
               <View style={{ alignItems: 'center', marginBottom: 20 }}>
                 <View style={{
                   width: 72,
@@ -465,8 +488,8 @@ export default function SettingsScreen() {
                 }}>
                   <LogOut size={32} color="#EF4444" />
                 </View>
-                <Text style={{ fontSize: 24, fontFamily: getFontFamily(deviceFont), color: colors.text, marginBottom: 8 }}>Sign Out</Text>
-                <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center' }}>Are you sure you want to sign out of your account?</Text>
+                <Text style={{ fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text, marginBottom: 8 }}>Sign Out</Text>
+                <Text style={{ fontSize: 15, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, textAlign: 'center' }}>Are you sure you want to sign out of your account?</Text>
               </View>
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -490,18 +513,16 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Delete Business Modal */}
-      {/* Delete Business Modal */}
       <Modal visible={showDeleteBusinessModal} transparent animationType="fade" onRequestClose={() => setShowDeleteBusinessModal(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
-        >
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setShowDeleteBusinessModal(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <View
               style={[
                 styles.deleteModalContent,
                 {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.borderGlass,
                   borderWidth: 1,
                   borderRadius: 32,
                   padding: 32,
@@ -512,9 +533,22 @@ export default function SettingsScreen() {
                   shadowOpacity: 0.3,
                   shadowRadius: 40,
                   elevation: 20,
+                  overflow: 'hidden',
                 }
               ]}
             >
+              {/* Top Sheen */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 24,
+                  right: 24,
+                  height: 1,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                  zIndex: 10,
+                }}
+              />
               <View style={{ alignItems: 'center', marginBottom: 24 }}>
                 <View style={{
                   width: 72,
@@ -596,18 +630,16 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Edit Business Name Modal */}
-      {/* Edit Business Name Modal */}
       <Modal visible={showEditBusinessNameModal} transparent animationType="fade" onRequestClose={() => setShowEditBusinessNameModal(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
-        >
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setShowEditBusinessNameModal(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <View
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.borderGlass,
                   borderWidth: 1,
                   borderRadius: 32,
                   padding: 32,
@@ -618,9 +650,22 @@ export default function SettingsScreen() {
                   shadowOpacity: 0.3,
                   shadowRadius: 40,
                   elevation: 20,
+                  overflow: 'hidden',
                 }
               ]}
             >
+              {/* Top Sheen */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 24,
+                  right: 24,
+                  height: 1,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                  zIndex: 10,
+                }}
+              />
               <View style={{ alignItems: 'center', marginBottom: 24 }}>
                 <View style={{
                   width: 72,
@@ -689,18 +734,16 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Currency Selection Modal */}
-      {/* Currency Selection Modal */}
       <Modal visible={showCurrencyModal} transparent animationType="fade" onRequestClose={() => setShowCurrencyModal(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
-        >
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setShowCurrencyModal(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <View
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.borderGlass,
                   borderWidth: 1,
                   borderRadius: 32,
                   padding: 0,
@@ -717,6 +760,18 @@ export default function SettingsScreen() {
                 }
               ]}
             >
+              {/* Top Sheen */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 24,
+                  right: 24,
+                  height: 1,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                  zIndex: 10,
+                }}
+              />
               <View style={[styles.modalHeader, { borderBottomColor: isDark ? '#2C3333' : '#e2e8f0', padding: 20 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <View style={{
@@ -802,104 +857,12 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* Font Modal */}
-      {/* Font Modal */}
-      <Modal visible={showFontModal} transparent animationType="fade" onRequestClose={() => setShowFontModal(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
-        >
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <View
-              style={[
-                styles.modalContent,
-                {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
-                  borderWidth: 1,
-                  borderRadius: 32,
-                  padding: 0,
-                  width: '100%',
-                  maxWidth: 400,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 20 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 40,
-                  elevation: 20,
-                  overflow: 'hidden'
-                }
-              ]}
-            >
-              <View style={[styles.modalHeader, { borderBottomColor: isDark ? '#2C3333' : '#e2e8f0', padding: 20 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#EFF6FF',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
-                    <Type size={20} color={isDark ? colors.primary : '#10b981'} />
-                  </View>
-                  <View>
-                    <Text style={[styles.modalTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Display Font</Text>
-                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Choose your preferred font</Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={[styles.closeButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9' }]}
-                  onPress={() => setShowFontModal(false)}
-                >
-                  <X size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
 
-              <ScrollView style={{ width: '100%', maxHeight: 400 }} contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
-                {AVAILABLE_FONTS.map((font) => (
-                  <TouchableOpacity
-                    key={font.id}
-                    style={[
-                      styles.fontOption,
-                      {
-                        backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
-                        borderColor: isDark ? '#333' : '#e2e8f0',
-                        borderWidth: 1,
-                        borderRadius: 16,
-                        marginBottom: 8,
-                        padding: 16
-                      },
-                      (deviceFont || 'abril') === font.id && [styles.fontOptionSelected, { borderColor: isDark ? colors.primary : '#10b981', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }]
-                    ]}
-                    onPress={() => {
-                      setDeviceFont(font.id);
-                      setShowFontModal(false);
-                    }}
-                  >
-                    <View style={styles.fontInfo}>
-                      <Text style={[styles.fontPreview, { color: colors.text, fontSize: 18, marginBottom: 4 }, font.id !== 'system' && { fontFamily: font.family }]}>
-                        {font.name}
-                      </Text>
-                      <Text style={[styles.fontDescription, { color: colors.textSecondary }]}>{font.displayText}</Text>
-                    </View>
-                    {(deviceFont || 'abril') === font.id && (
-                      <View style={[styles.checkDot, { backgroundColor: isDark ? colors.primary : '#10b981', borderColor: isDark ? 'rgba(33, 201, 141, 0.3)' : '#f0fdf4' }]}>
-                        <Check size={12} color="#fff" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
 
       {/* Analytics Sort Modal */}
       <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)} statusBarTranslucent={true}>
-        <View style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setSortModalVisible(false)}>
-            <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-          </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setSortModalVisible(false)} />
           <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border, padding: 0, maxWidth: 400, maxHeight: '80%', overflow: 'hidden' }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -952,10 +915,8 @@ export default function SettingsScreen() {
 
       {/* Export Business Modal */}
       <Modal visible={exportModalVisible} transparent animationType="fade" onRequestClose={() => setExportModalVisible(false)} statusBarTranslucent={true}>
-        <View style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setExportModalVisible(false)}>
-            <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-          </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setExportModalVisible(false)} />
           <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border, padding: 0, maxWidth: 400, overflow: 'hidden' }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -1214,9 +1175,8 @@ export default function SettingsScreen() {
 
       {/* Feedback Modal */}
       <Modal visible={showFeedbackModal} transparent animationType="fade" onRequestClose={() => setShowFeedbackModal(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
-        >
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setShowFeedbackModal(false)} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}>
             <TouchableWithoutFeedback onPress={() => setShowFeedbackModal(false)}>
               <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -1226,14 +1186,28 @@ export default function SettingsScreen() {
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.borderGlass,
                   borderWidth: 1,
+                  borderRadius: 32,
                   width: '90%',
-                  maxWidth: 400
+                  maxWidth: 400,
+                  overflow: 'hidden',
                 }
               ]}
             >
+              {/* Top Sheen */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 24,
+                  right: 24,
+                  height: 1,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                  zIndex: 10,
+                }}
+              />
               <View style={[styles.modalHeader, { borderBottomColor: colors.border, padding: 20 }]}>
                 <View>
                   <Text style={[styles.modalTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text, fontSize: 22 }]}>Contact Support</Text>
@@ -1455,8 +1429,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 36,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 32,
     marginBottom: 12,
   },
   sectionHeader: {
@@ -1651,8 +1625,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 22,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 20,
   },
   modalMessage: {
     fontSize: 14,
@@ -1807,8 +1781,8 @@ const styles = StyleSheet.create({
     }),
   },
   deleteModalTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 22,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 20,
   },
   deleteModalHint: {
     fontSize: 14,

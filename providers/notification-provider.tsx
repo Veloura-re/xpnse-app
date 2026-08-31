@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './auth-provider';
 import { db } from '@/config/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, arrayUnion, getDoc, writeBatch, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, arrayUnion, getDoc, writeBatch, limit, addDoc } from 'firebase/firestore';
 import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -43,6 +43,15 @@ interface NotificationState {
     markAllAsRead: () => Promise<void>;
     expoPushToken: string | null;
     sendLocalNotification: (title: string, body: string, data?: any, color?: string) => Promise<void>;
+    createNotification: (notifData: {
+        userId?: string;
+        title: string;
+        message: string;
+        type?: 'info' | 'warning' | 'error' | 'success' | 'entry_added' | 'book_created';
+        data?: any;
+        metadata?: any;
+        color?: string;
+    }) => Promise<void>;
     deleteNotification: (notificationId: string) => Promise<void>;
     isLoading: boolean;
     refreshNotifications: () => Promise<void>;
@@ -98,7 +107,6 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
                 // Generic path navigation support
                 router.push(data.path as any);
             }
-            // Removed default redirect to prevent unwanted navigation on some devices
         });
 
         return () => {
@@ -159,89 +167,146 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
     };
 
     const sendLocalNotification = async (title: string, body: string, data?: any, color?: string) => {
+        // Trigger Dynamic Island toast immediately
+        setToastNotification({
+            id: Date.now().toString(),
+            userId: user?.id || '',
+            title,
+            message: body,
+            read: false,
+            createdAt: new Date().toISOString(),
+            data,
+            color,
+        });
+
         if (Platform.OS === 'web') {
             console.log('🔔 Web Notification:', { title, body, color });
             return;
         }
 
-        await Notifications.scheduleNotificationAsync({
-            content: {
-                title,
-                body,
-                data,
-                sound: true,
-                color: color, // Android only
-            },
-            trigger: null, // Send immediately
-        });
+        try {
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title,
+                    body,
+                    data,
+                    sound: true,
+                    color: color, // Android only
+                },
+                trigger: null, // Send immediately
+            });
+        } catch (e) {
+            console.warn('Could not schedule native notification:', e);
+        }
+    };
+
+    const createNotification = async (notifData: {
+        userId?: string;
+        title: string;
+        message: string;
+        type?: 'info' | 'warning' | 'error' | 'success' | 'entry_added' | 'book_created';
+        data?: any;
+        metadata?: any;
+        color?: string;
+    }) => {
+        const targetUserId = notifData.userId || user?.id;
+        if (!targetUserId || !db) return;
+
+        const newNotif = {
+            userId: targetUserId,
+            title: notifData.title,
+            message: notifData.message,
+            read: false,
+            createdAt: new Date().toISOString(),
+            type: notifData.type || 'info',
+            data: notifData.data || {},
+            metadata: notifData.metadata || {},
+            color: notifData.color || '#10b981',
+        };
+
+        try {
+            const docRef = await addDoc(collection(db, 'notifications'), newNotif);
+            if (targetUserId === user?.id) {
+                setToastNotification({ id: docRef.id, ...newNotif });
+            }
+        } catch (err) {
+            console.error('Error creating notification:', err);
+        }
     };
 
     useEffect(() => {
         if (!user || !db) {
             setNotifications([]);
+            setIsLoading(false);
             return;
         }
 
+        setIsLoading(true);
+
+        // Resilient single-field query avoiding composite index requirements
         const q = query(
             collection(db, 'notifications'),
             where('userId', '==', user.id),
-            orderBy('createdAt', 'desc'),
-            limit(50)
+            limit(100)
         );
 
-        // Track if this is the initial load
         let isInitialLoad = true;
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const newNotifications: Notification[] = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                if (!data.deleted) {
-                    newNotifications.push({ id: doc.id, ...data } as Notification);
-                }
-            });
-
-            setNotifications(newNotifications);
-
-            // Only send push notifications for new notifications AFTER initial load
-            // This prevents old notifications from showing when user logs in
-            if (!isInitialLoad) {
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === 'added') {
-                        const notif = { id: change.doc.id, ...change.doc.data() } as Notification;
-                        // Determine if we should show a local notification
-                        // Don't show if it's just marked as read update
-                        if (!notif.read) {
-                            // Show Dynamic Island toast
-                            setToastNotification(notif);
-
-                            // Send actual push notification
-                            const payload = notif.data || notif.metadata || {};
-
-                            sendLocalNotification(
-                                notif.title || 'Notification',
-                                notif.message,
-                                payload,
-                                notif.color
-                            );
-                        }
+        const unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+                const newNotifications: Notification[] = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (!data.deleted) {
+                        newNotifications.push({ id: doc.id, ...data } as Notification);
                     }
                 });
-            }
 
-            // After first snapshot, all future changes are real-time updates
-            isInitialLoad = false;
-            setIsLoading(false);
-        });
+                // In-memory sorting for instant, error-free results
+                newNotifications.sort((a, b) => {
+                    const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+                    const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+                    return timeB - timeA;
+                });
+
+                setNotifications(newNotifications);
+
+                if (!isInitialLoad) {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const notif = { id: change.doc.id, ...change.doc.data() } as Notification;
+                            if (!notif.read) {
+                                setToastNotification(notif);
+                                const payload = notif.data || notif.metadata || {};
+                                sendLocalNotification(
+                                    notif.title || 'Notification',
+                                    notif.message,
+                                    payload,
+                                    notif.color
+                                );
+                            }
+                        }
+                    });
+                }
+
+                isInitialLoad = false;
+                setIsLoading(false);
+            },
+            (error) => {
+                console.error('Firestore notifications listener error:', error);
+                setIsLoading(false);
+            }
+        );
 
         // Update lastActiveAt periodically while app is active
         const activityInterval = setInterval(() => {
             if (db && user.id) {
                 updateDoc(doc(db, 'users', user.id), {
                     lastActiveAt: new Date().toISOString()
-                }).catch(() => { }); // Ignore errors for background activity update
+                }).catch(() => { });
             }
-        }, 30000); // Every 30 seconds
+        }, 30000);
 
         return () => {
             unsubscribe();
@@ -258,6 +323,7 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         markAllAsRead,
         expoPushToken,
         sendLocalNotification,
+        createNotification,
         deleteNotification,
         isLoading,
         refreshNotifications,

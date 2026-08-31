@@ -52,13 +52,6 @@ export default function ForgotPasswordScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
 
 
-      {/* Decorative Circles */}
-      <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-      <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
-      <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-      <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
       <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.card, top: insets.top + 10 }]} onPress={() => router.back()}>
         <ArrowLeft size={24} color={colors.primary} />
       </TouchableOpacity>
@@ -180,8 +173,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   welcomeText: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 42,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 34,
     color: '#0f172a',
     marginBottom: 8,
     textAlign: 'center',

@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,120 +8,174 @@ import Animated, {
     withSpring,
     useSharedValue,
     withTiming,
-    interpolateColor
 } from 'react-native-reanimated';
 import { BookOpen, BarChart3, Settings, Users } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
+export interface FloatingDockProps {
+    state: {
+        index: number;
+        routes: Array<{ key: string; name: string; params?: any }>;
+    };
+    descriptors: Record<string, { options: any }>;
+    navigation: {
+        emit: (event: { type: string; target: string; canPreventDefault: boolean }) => { defaultPrevented: boolean };
+        navigate: (name: string, params?: any) => void;
+    };
+}
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const DOCK_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 400);
+const DOCK_WIDTH = Math.min(SCREEN_WIDTH * 0.88, 380);
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
-export default function FloatingDock({ state, descriptors, navigation }: BottomTabBarProps) {
+export default function FloatingDock({ state, descriptors, navigation }: FloatingDockProps | any) {
     const { isDark, colors } = useTheme();
     const insets = useSafeAreaInsets();
-    const activeIndex = state.index;
 
-    const getIcon = (routeName: string, color: string, size: number) => {
+    const getIcon = (routeName: string, isFocused: boolean, size: number) => {
+        const color = isFocused ? colors.primary : colors.textSecondary;
         switch (routeName) {
             case 'index':
-                return <BookOpen size={size} color={color} />;
+                return <BookOpen size={size} color={color} strokeWidth={isFocused ? 2.3 : 1.8} />;
             case 'team':
-                return <Users size={size} color={color} />;
+                return <Users size={size} color={color} strokeWidth={isFocused ? 2.3 : 1.8} />;
             case 'analytics':
-                return <BarChart3 size={size} color={color} />;
+                return <BarChart3 size={size} color={color} strokeWidth={isFocused ? 2.3 : 1.8} />;
             case 'settings':
-                return <Settings size={size} color={color} />;
+                return <Settings size={size} color={color} strokeWidth={isFocused ? 2.3 : 1.8} />;
             default:
-                return <BookOpen size={size} color={color} />;
+                return <BookOpen size={size} color={color} strokeWidth={isFocused ? 2.3 : 1.8} />;
         }
     };
 
     return (
-        <View style={[styles.container, { bottom: insets.bottom + 16 }]}>
-            <BlurView
-                intensity={Platform.OS === 'ios' ? 40 : 80}
-                style={[
-                    styles.blurContainer,
-                    {
-                        backgroundColor: isDark ? 'rgba(10, 10, 10, 0.7)' : 'rgba(255, 255, 255, 0.7)',
-                        borderColor: isDark ? 'rgba(44, 51, 51, 0.5)' : 'rgba(226, 232, 240, 0.8)',
-                    }
-                ]}
-                tint={isDark ? 'dark' : 'light'}
-            >
-                <View style={styles.dock}>
-                    {state.routes.map((route, index) => {
-                        const { options } = descriptors[route.key];
-                        const isFocused = state.index === index;
-
-                        if ((options as any).href === null) return null;
-
-                        const onPress = () => {
-                            const event = navigation.emit({
-                                type: 'tabPress',
-                                target: route.key,
-                                canPreventDefault: true,
-                            });
-
-                            if (!isFocused && !event.defaultPrevented) {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                navigation.navigate(route.name);
+        <View style={[styles.container, { bottom: Math.max(insets.bottom + 12, 20) }]}>
+            <View style={styles.dockShadow}>
+                <BlurView
+                    intensity={Platform.OS === 'ios' ? 45 : 90}
+                    style={[
+                        styles.blurContainer,
+                        {
+                            backgroundColor: isDark ? 'rgba(26, 26, 24, 0.82)' : 'rgba(255, 255, 255, 0.85)',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(234, 229, 222, 0.90)',
+                        }
+                    ]}
+                    tint={isDark ? 'dark' : 'light'}
+                >
+                    {/* Top Edge Refraction Highlight */}
+                    <View
+                        style={[
+                            styles.topSheen,
+                            {
+                                backgroundColor: isDark
+                                    ? 'rgba(255, 255, 255, 0.08)'
+                                    : 'rgba(255, 255, 255, 0.65)',
                             }
-                        };
+                        ]}
+                    />
 
-                        return (
-                            <TabButton
-                                key={route.key}
-                                isFocused={isFocused}
-                                onPress={onPress}
-                                icon={getIcon(route.name, isFocused ? colors.primary : colors.textSecondary, 24)}
-                                colors={colors}
-                            />
-                        );
-                    })}
-                </View>
-            </BlurView>
+                    <View style={styles.dock}>
+                        {state.routes.map((route: any, index: number) => {
+                            const { options } = descriptors[route.key];
+                            const isFocused = state.index === index;
+
+                            if ((options as any).href === null) return null;
+
+                            const onPress = () => {
+                                const event = navigation.emit({
+                                    type: 'tabPress',
+                                    target: route.key,
+                                    canPreventDefault: true,
+                                });
+
+                                if (!isFocused && !event.defaultPrevented) {
+                                    if (Platform.OS !== 'web') {
+                                        try {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        } catch (e) {
+                                            // ignore
+                                        }
+                                    }
+                                    navigation.navigate(route.name);
+                                }
+                            };
+
+                            return (
+                                <TabButton
+                                    key={route.key}
+                                    isFocused={isFocused}
+                                    onPress={onPress}
+                                    icon={getIcon(route.name, isFocused, 22)}
+                                    colors={colors}
+                                    isDark={isDark}
+                                />
+                            );
+                        })}
+                    </View>
+                </BlurView>
+            </View>
         </View>
     );
 }
 
-function TabButton({ isFocused, onPress, icon, colors }: any) {
+function TabButton({ isFocused, onPress, icon, colors, isDark }: any) {
     const scale = useSharedValue(1);
-    const opacity = useSharedValue(0.6);
+    const pillOpacity = useSharedValue(isFocused ? 1 : 0);
 
     useEffect(() => {
-        scale.value = withSpring(isFocused ? 1.2 : 1, {
-            damping: 15,
-            stiffness: 300,
+        scale.value = withSpring(isFocused ? 1.06 : 1, {
+            damping: 14,
+            stiffness: 280,
         });
-        opacity.value = withTiming(isFocused ? 1 : 0.6);
+        pillOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 180 });
     }, [isFocused]);
 
-    const animatedStyle = useAnimatedStyle(() => ({
+    const animatedContainerStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
-        opacity: opacity.value,
     }));
 
-    const activeIndicatorStyle = useAnimatedStyle(() => ({
-        opacity: withTiming(isFocused ? 1 : 0),
-        transform: [{ scale: withSpring(isFocused ? 1 : 0) }],
+    const animatedPillStyle = useAnimatedStyle(() => ({
+        opacity: pillOpacity.value,
+        transform: [{ scale: withSpring(isFocused ? 1 : 0.85, { damping: 15, stiffness: 300 }) }],
     }));
 
     return (
         <AnimatedTouchableOpacity
             onPress={onPress}
-            style={[styles.tabButton, animatedStyle]}
-            activeOpacity={0.7}
+            style={[styles.tabButton, animatedContainerStyle]}
+            activeOpacity={0.75}
         >
-            <View style={styles.iconContainer}>
-                {icon}
+            <View style={styles.tabContentWrapper}>
+                {/* Active Soft Glow Pill Behind Icon */}
+                <Animated.View
+                    style={[
+                        styles.activePill,
+                        {
+                            backgroundColor: isDark
+                                ? 'rgba(16, 185, 129, 0.16)'
+                                : 'rgba(16, 185, 129, 0.12)',
+                            borderColor: isDark
+                                ? 'rgba(16, 185, 129, 0.25)'
+                                : 'rgba(16, 185, 129, 0.20)',
+                        },
+                        animatedPillStyle,
+                    ]}
+                />
+
+                <View style={styles.iconContainer}>
+                    {icon}
+                </View>
+
+                {/* Micro Emerald Dot Indicator */}
                 <Animated.View
                     style={[
                         styles.activeIndicator,
-                        { backgroundColor: colors.primary },
-                        activeIndicatorStyle
+                        {
+                            backgroundColor: colors.primary,
+                            opacity: isFocused ? 1 : 0,
+                            transform: [{ scale: isFocused ? 1 : 0 }],
+                        }
                     ]}
                 />
             </View>
@@ -137,36 +190,70 @@ const styles = StyleSheet.create({
         width: DOCK_WIDTH,
         zIndex: 1000,
     },
+    dockShadow: {
+        borderRadius: 36,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.18,
+                shadowRadius: 20,
+            },
+            android: {
+                elevation: 10,
+            },
+            web: {
+                boxShadow: '0 12px 36px -4px rgba(0, 0, 0, 0.15), 0 4px 12px -2px rgba(0, 0, 0, 0.08)',
+            } as any,
+        }),
+    },
     blurContainer: {
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderRadius: 32,
+        paddingHorizontal: 8,
+        paddingVertical: 8,
+        borderRadius: 36,
         borderWidth: 1,
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        elevation: 10,
+    },
+    topSheen: {
+        position: 'absolute',
+        top: 0,
+        left: 20,
+        right: 20,
+        height: 1,
+        borderRadius: 1,
     },
     dock: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
     tabButton: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 8,
+        paddingVertical: 4,
+    },
+    tabContentWrapper: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 58,
+        height: 48,
+    },
+    activePill: {
+        position: 'absolute',
+        width: 54,
+        height: 42,
+        borderRadius: 22,
+        borderWidth: 1,
     },
     iconContainer: {
         alignItems: 'center',
         justifyContent: 'center',
+        zIndex: 2,
     },
     activeIndicator: {
         position: 'absolute',
-        bottom: -12,
+        bottom: 2,
         width: 4,
         height: 4,
         borderRadius: 2,
@@ -174,6 +261,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.8,
         shadowRadius: 4,
-        elevation: 5,
+        elevation: 3,
+        zIndex: 2,
     },
 });

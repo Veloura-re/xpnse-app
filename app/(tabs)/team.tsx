@@ -16,23 +16,26 @@ import {
     Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Users, Search, Plus, X, Trash2, ChevronDown, User, Bell, FileText, Settings } from 'lucide-react-native';
+import { Users, Search, Plus, X, Trash2, ChevronDown, User, Bell, FileText, Settings, Sun, Moon } from 'lucide-react-native';
 import { useBusiness } from '@/providers/business-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { UserRole } from '@/types';
 import { RoleBadge } from '@/components/role-badge';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 
 import { getFontFamily } from '@/config/font-config';
 import { useTheme } from '@/providers/theme-provider';
 import InviteTeamMemberForm from '@/src/components/team/InviteTeamMemberForm';
 import { router } from 'expo-router';
+import { BackgroundDecor } from '@/components/ui/background-decor';
+import * as Haptics from 'expo-haptics';
 
 export default function TeamManagementScreen() {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const { currentBusiness, getUserRole, inviteTeamMember, searchUserByEmail, updateTeamMemberRole, removeTeamMember, getTeamMembers } = useBusiness();
-    const { deviceFont, colors, theme, isDark } = useTheme();
+    const { deviceFont, colors, theme, isDark, setTheme } = useTheme();
     const userRole = getUserRole();
 
     // Search state
@@ -58,6 +61,13 @@ export default function TeamManagementScreen() {
 
 
 
+    // Leave / Remove confirmation modal state
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [targetMember, setTargetMember] = useState<{ id: string; name: string; isSelf: boolean } | null>(null);
+    const [confirmInput, setConfirmInput] = useState('');
+    const [isExecutingAction, setIsExecutingAction] = useState(false);
+    const [isInputFocused, setIsInputFocused] = useState(false);
+
     const handleChangeRole = async (memberId: string, newRole: UserRole) => {
         const { success, message } = await updateTeamMemberRole(memberId, newRole);
         if (!success) {
@@ -67,42 +77,62 @@ export default function TeamManagementScreen() {
         }
     };
 
-    const handleRemoveMember = (memberId: string, memberName: string) => {
-        const isSelf = user?.uid === memberId;
-        const title = isSelf ? 'Leave Team' : 'Remove Team Member';
-        const message = isSelf
-            ? 'Are you sure you want to leave this team?'
-            : `Are you sure you want to remove ${memberName} from the team?`;
-        const actionText = isSelf ? 'Leave' : 'Remove';
+    const handleOpenConfirmModal = (memberId: string, memberName: string) => {
+        const currentUserId = user?.uid || user?.id;
+        const isSelf = currentUserId === memberId;
+        if (Platform.OS !== 'web') {
+            try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            } catch (e) {}
+        }
+        setTargetMember({ id: memberId, name: memberName, isSelf });
+        setConfirmInput('');
+        setConfirmModalVisible(true);
+    };
 
+    const handleConfirmLeaveOrRemove = async () => {
+        if (!targetMember) return;
+        const expectedWord = targetMember.isSelf ? 'LEAVE' : 'REMOVE';
+        if (confirmInput.trim().toUpperCase() !== expectedWord) return;
 
-        Alert.alert(
-            title,
-            message,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: actionText,
-                    style: 'destructive',
-                    onPress: async () => {
-                        const result = await removeTeamMember(memberId);
-                        if (!result.success) {
-                            Alert.alert('Error', result.message || 'Failed to remove member');
-                        }
-                    },
-                },
-            ]
-        );
+        if (Platform.OS !== 'web') {
+            try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            } catch (e) {}
+        }
+
+        try {
+            setIsExecutingAction(true);
+            const result = await removeTeamMember(targetMember.id);
+            if (!result.success) {
+                Alert.alert('Error', result.message || 'Failed to complete action');
+            } else {
+                if (Platform.OS !== 'web') {
+                    try {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch (e) {}
+                }
+                setConfirmModalVisible(false);
+                setExpandedMemberId(null);
+                if (targetMember.isSelf) {
+                    router.replace('/(tabs)');
+                }
+            }
+        } catch (error: any) {
+            Alert.alert('Error', error?.message || 'Failed to complete action');
+        } finally {
+            setIsExecutingAction(false);
+        }
     };
 
     const renderMember = ({ item }: { item: typeof members[0] }) => {
         const isExpanded = expandedMemberId === item.id;
         const canEdit = userRole === 'owner' && item.role !== 'owner';
-        const isCurrentUser = user?.uid === item.userId;
+        const isCurrentUser = user?.uid === item.userId || user?.id === item.userId;
         const canLeave = isCurrentUser && item.role !== 'owner';
 
         return (
-            <View style={[styles.memberCard, { backgroundColor: colors.card, borderColor: colors.border }, isExpanded && [styles.memberCardExpanded, { borderColor: colors.primary }]]}>
+            <View style={[styles.memberCard, { backgroundColor: colors.cardGlass, borderColor: isExpanded ? colors.primary : colors.borderGlass }, isExpanded && styles.memberCardExpanded]}>
                 <TouchableOpacity
                     style={styles.memberHeader}
                     onPress={() => (canEdit || canLeave) && setExpandedMemberId(isExpanded ? null : item.id)}
@@ -130,7 +160,7 @@ export default function TeamManagementScreen() {
                 </TouchableOpacity>
 
                 {isExpanded && canEdit && (
-                    <View style={[styles.expandedContent, { backgroundColor: theme === 'dark' ? '#1a1a1a' : '#f8fafc', borderTopColor: colors.border }]}>
+                    <View style={[styles.expandedContent, { backgroundColor: colors.inputBackground, borderTopColor: colors.border }]}>
                         <Text style={[styles.expandedTitle, { color: colors.textSecondary }]}>Change Role</Text>
                         <View style={styles.roleOptions}>
                             {(['partner', 'viewer'] as UserRole[]).map((role) => (
@@ -156,7 +186,8 @@ export default function TeamManagementScreen() {
 
                         <TouchableOpacity
                             style={styles.removeButton}
-                            onPress={() => handleRemoveMember(item.userId, item.user.name || item.user.email)}
+                            onPress={() => handleOpenConfirmModal(item.userId, item.user.name || item.user.displayName || item.user.email)}
+                            activeOpacity={0.7}
                         >
                             <Trash2 size={16} color="#ef4444" />
                             <Text style={styles.removeButtonText}>Remove from Team</Text>
@@ -167,7 +198,8 @@ export default function TeamManagementScreen() {
                     <View style={styles.expandedContent}>
                         <TouchableOpacity
                             style={styles.removeButton}
-                            onPress={() => handleRemoveMember(item.userId, item.user.name || item.user.email)}
+                            onPress={() => handleOpenConfirmModal(item.userId, item.user.name || item.user.displayName || item.user.email)}
+                            activeOpacity={0.7}
                         >
                             <Trash2 size={16} color="#ef4444" />
                             <Text style={styles.removeButtonText}>Leave Team</Text>
@@ -181,9 +213,6 @@ export default function TeamManagementScreen() {
     if (!currentBusiness) {
         return (
             <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-                {/* Decorative Circles */}
-                <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-                <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
                 <View style={styles.emptyContainer}>
                     <Users size={64} color={colors.textSecondary} />
                     <Text style={[styles.emptyTitle, { color: colors.text }]}>No Business Selected</Text>
@@ -197,18 +226,25 @@ export default function TeamManagementScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-            {/* Decorative Circles */}
-            <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-            <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
+            <BackgroundDecor />
             {/* Header */}
             <View style={styles.headerContainer}>
                 <View style={styles.headerTopRow}>
-                    <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>spndy</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {/* Small Theme Toggle */}
+                        <TouchableOpacity
+                            style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
+                            onPress={() => setTheme(isDark ? 'light' : 'dark')}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            {isDark ? <Sun size={17} color="#F59E0B" /> : <Moon size={17} color={colors.textSecondary} />}
+                        </TouchableOpacity>
+
                         {(userRole === 'owner' || userRole === 'partner') && (
                             <TouchableOpacity
-                                style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
                                 onPress={() => router.push('/business-settings')}
                                 activeOpacity={0.7}
                             >
@@ -216,14 +252,14 @@ export default function TeamManagementScreen() {
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity
-                            style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
                             onPress={() => router.push('/notes')}
                             activeOpacity={0.7}
                         >
                             <FileText size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.notificationButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
                             onPress={() => router.push('/notifications')}
                             activeOpacity={0.7}
                         >
@@ -231,7 +267,7 @@ export default function TeamManagementScreen() {
                         </TouchableOpacity>
                     </View>
                 </View>
-                <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Team</Text>
+                <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Team</Text>
                 <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                     {currentBusiness.name} · {members.length} {members.length === 1 ? 'member' : 'members'}
                 </Text>
@@ -239,7 +275,7 @@ export default function TeamManagementScreen() {
 
             <View style={{ flex: 1 }}>
                 {/* Search Bar */}
-                <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.searchContainer, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}>
                     <Search size={20} color={colors.textSecondary} />
                     <TextInput
                         style={[styles.searchInput, { color: colors.text }]}
@@ -299,7 +335,8 @@ export default function TeamManagementScreen() {
                 onRequestClose={() => setShowInviteModal(false)}
                 statusBarTranslucent={true}
             >
-                <View style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.4)' }]}>
+                <View style={styles.modalOverlay}>
+                    <GlassBackdrop isDark={isDark} onPress={() => setShowInviteModal(false)} />
                     <KeyboardAvoidingView
                         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
                         keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
@@ -312,16 +349,30 @@ export default function TeamManagementScreen() {
                                         style={[
                                             styles.inviteModalContent,
                                             {
-                                                backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                                                borderColor: isDark ? '#2C3333' : '#e2e8f0',
+                                                backgroundColor: colors.surfaceGlass,
+                                                borderColor: colors.borderGlass,
                                                 borderWidth: 1,
-                                                padding: 16,
+                                                borderRadius: 28,
+                                                padding: 20,
+                                                overflow: 'hidden',
                                             }
                                         ]}
                                     >
+                                        {/* Top Sheen */}
+                                        <View
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 24,
+                                                right: 24,
+                                                height: 1,
+                                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                                                zIndex: 10,
+                                            }}
+                                        />
                                         <View style={styles.modalHeader}>
                                             <View>
-                                                <Text style={[styles.modalTitle, { color: colors.text, fontFamily: getFontFamily(deviceFont) }]}>
+                                                <Text style={[styles.modalTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                                     Invite Member
                                                 </Text>
                                                 <View style={[styles.headerUnderline, { backgroundColor: colors.primary }]} />
@@ -350,6 +401,130 @@ export default function TeamManagementScreen() {
                     </KeyboardAvoidingView>
                 </View>
             </Modal>
+
+            {/* Typed Leave / Remove Confirmation Modal */}
+            <Modal
+                visible={confirmModalVisible}
+                transparent
+                animationType={Platform.OS === 'web' ? 'none' : 'fade'}
+                onRequestClose={() => setConfirmModalVisible(false)}
+            >
+                <View style={styles.confirmBackdrop}>
+                    <GlassBackdrop isDark={isDark} onPress={() => setConfirmModalVisible(false)} />
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <TouchableWithoutFeedback>
+                            <View
+                                style={[
+                                    styles.confirmCard,
+                                    {
+                                        backgroundColor: isDark ? '#141416' : '#FFFFFF',
+                                        borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                                    },
+                                ]}
+                            >
+                                <View style={styles.confirmIconCircle}>
+                                    <Trash2 size={24} color="#EF4444" />
+                                </View>
+
+                                <Text style={[styles.confirmTitle, { color: colors.text }]}>
+                                    {targetMember?.isSelf ? 'Leave Team' : 'Remove Team Member'}
+                                </Text>
+
+                                <Text style={[styles.confirmSubtitle, { color: colors.textSecondary }]}>
+                                    {targetMember?.isSelf
+                                        ? `Are you sure you want to leave ${currentBusiness.name}? You will immediately lose access to all its books, transactions, and settings.`
+                                        : `Are you sure you want to remove ${targetMember?.name} from ${currentBusiness.name}? They will lose access to all ledgers.`}
+                                </Text>
+
+                                <View style={styles.confirmInputSection}>
+                                    <Text style={[styles.confirmInstructionText, { color: colors.textSecondary }]}>
+                                        To confirm, please type{' '}
+                                        <Text style={{ color: '#EF4444', fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700' }}>
+                                            "{targetMember?.isSelf ? 'LEAVE' : 'REMOVE'}"
+                                        </Text>{' '}
+                                        below:
+                                    </Text>
+                                    <TextInput
+                                        style={[
+                                            styles.confirmTextInput,
+                                            {
+                                                backgroundColor: isDark
+                                                    ? isInputFocused
+                                                        ? 'rgba(239, 68, 68, 0.08)'
+                                                        : '#1E1E22'
+                                                    : isInputFocused
+                                                    ? '#FEF2F2'
+                                                    : '#F4F5F7',
+                                                borderColor: isInputFocused
+                                                    ? '#EF4444'
+                                                    : isDark
+                                                    ? 'rgba(255, 255, 255, 0.08)'
+                                                    : 'rgba(0, 0, 0, 0.08)',
+                                                color: colors.text,
+                                            },
+                                        ]}
+                                        placeholder={`Type ${targetMember?.isSelf ? 'LEAVE' : 'REMOVE'}`}
+                                        placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                                        value={confirmInput}
+                                        onChangeText={setConfirmInput}
+                                        onFocus={() => setIsInputFocused(true)}
+                                        onBlur={() => setIsInputFocused(false)}
+                                        autoCapitalize="characters"
+                                        autoCorrect={false}
+                                    />
+                                </View>
+
+                                <View style={styles.confirmBtnRow}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.confirmCancelBtn,
+                                            {
+                                                backgroundColor: isDark ? '#1E1E22' : '#F4F5F7',
+                                                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+                                            },
+                                        ]}
+                                        onPress={() => setConfirmModalVisible(false)}
+                                        disabled={isExecutingAction}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.confirmCancelText, { color: colors.text }]}>Cancel</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.confirmActionBtn,
+                                            {
+                                                opacity:
+                                                    confirmInput.trim().toUpperCase() ===
+                                                        (targetMember?.isSelf ? 'LEAVE' : 'REMOVE') && !isExecutingAction
+                                                        ? 1
+                                                        : 0.45,
+                                            },
+                                        ]}
+                                        onPress={handleConfirmLeaveOrRemove}
+                                        disabled={
+                                            confirmInput.trim().toUpperCase() !==
+                                                (targetMember?.isSelf ? 'LEAVE' : 'REMOVE') || isExecutingAction
+                                        }
+                                        activeOpacity={0.85}
+                                    >
+                                        {isExecutingAction ? (
+                                            <ActivityIndicator size="small" color="#FFFFFF" />
+                                        ) : (
+                                            <Text style={styles.confirmActionText}>
+                                                {targetMember?.isSelf ? 'Leave Team' : 'Remove Member'}
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -358,6 +533,102 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#ffffff',
+    },
+    confirmBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    confirmCard: {
+        width: '100%',
+        maxWidth: 400,
+        borderRadius: 24,
+        borderWidth: 1.5,
+        padding: 24,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.35,
+        shadowRadius: 20,
+        elevation: 8,
+    },
+    confirmIconCircle: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
+    },
+    confirmTitle: {
+        fontSize: 20,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    confirmSubtitle: {
+        fontSize: 13,
+        textAlign: 'center',
+        lineHeight: 18,
+        marginBottom: 18,
+        maxWidth: 340,
+    },
+    confirmInputSection: {
+        width: '100%',
+        marginBottom: 20,
+    },
+    confirmInstructionText: {
+        fontSize: 13,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    confirmTextInput: {
+        width: '100%',
+        height: 48,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        paddingHorizontal: 14,
+        fontSize: 15,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontWeight: '700',
+        textAlign: 'center',
+        letterSpacing: 1,
+    },
+    confirmBtnRow: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+    },
+    confirmCancelBtn: {
+        flex: 1,
+        height: 48,
+        borderRadius: 14,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    confirmCancelText: {
+        fontSize: 14,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontWeight: '700',
+    },
+    confirmActionBtn: {
+        flex: 1.2,
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: '#EF4444',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    confirmActionText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontWeight: '700',
     },
     circle1: {
         position: 'absolute',
@@ -410,8 +681,8 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     headerTitle: {
-        fontFamily: 'AbrilFatface_400Regular',
-        fontSize: 36,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontSize: 32,
         color: '#0f172a',
         marginBottom: 8,
     },

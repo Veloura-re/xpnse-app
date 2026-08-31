@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/providers/theme-provider';
 import { getFontFamily } from '@/config/font-config';
 import { BUSINESS_ICONS, LOGO_OPTIONS, LogoOption } from '@/constants/logos';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 
 interface LogoPickerModalProps {
@@ -97,18 +98,7 @@ export const LogoPickerModal = ({
             statusBarTranslucent
         >
             <View style={styles.overlay}>
-                {/* Backdrop */}
-                <TouchableOpacity
-                    style={styles.backdrop}
-                    activeOpacity={1}
-                    onPress={onClose}
-                >
-                    <Animated.View
-                        entering={FadeIn}
-                        exiting={FadeOut}
-                        style={[styles.backdropFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)' }]}
-                    />
-                </TouchableOpacity>
+                <GlassBackdrop isDark={isDark} onPress={onClose} />
 
                 {/* Modal Content */}
                 <Animated.View
@@ -117,15 +107,31 @@ export const LogoPickerModal = ({
                     style={[
                         styles.modalContainer,
                         {
-                            backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                            maxHeight: SCREEN_HEIGHT * 0.85
+                            backgroundColor: colors.surfaceGlass,
+                            borderColor: colors.borderGlass,
+                            borderWidth: 1,
+                            borderBottomWidth: 0,
+                            maxHeight: SCREEN_HEIGHT * 0.85,
+                            overflow: 'hidden',
                         }
                     ]}
                 >
+                    {/* Top Sheen */}
+                    <View
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 24,
+                            right: 24,
+                            height: 1,
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                            zIndex: 10,
+                        }}
+                    />
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.headerTop}>
-                            <View style={styles.dragIndicator} />
+                            <View style={[styles.dragIndicator, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#cbd5e1' }]} />
                         </View>
 
                         <View style={styles.headerContent}>

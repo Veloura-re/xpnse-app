@@ -17,12 +17,29 @@ import {
     Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { X, Trash2, CreditCard, Tag, Copy, ArrowRight, Send, Check } from 'lucide-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import {
+    X,
+    Trash2,
+    CreditCard,
+    Tag,
+    Copy,
+    Send,
+    Check,
+    Globe,
+    ChevronRight,
+    ChevronDown,
+    SlidersHorizontal,
+    BookOpen,
+    AlertTriangle,
+    ArrowRightLeft,
+} from 'lucide-react-native';
 import { Book } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
-import { getFontFamily } from '@/config/font-config';
+import { CurrencyPickerModal } from '@/components/currency/currency-picker-modal';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
+import * as Haptics from 'expo-haptics';
 
 interface BookEditModalProps {
     visible: boolean;
@@ -32,38 +49,59 @@ interface BookEditModalProps {
     onDelete: (bookId: string) => void;
 }
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export const BookEditModal = React.memo(function BookEditModal({ visible, book, onClose, onSave, onDelete }: BookEditModalProps) {
+export const BookEditModal = React.memo(function BookEditModal({
+    visible,
+    book,
+    onClose,
+    onSave,
+    onDelete,
+}: BookEditModalProps) {
     const { businesses, currentBusiness, copyBook, moveBook } = useBusiness();
     const { deviceFont, colors, isDark } = useTheme();
+
     const [bookName, setBookName] = useState('');
     const [showPaymentMode, setShowPaymentMode] = useState(true);
     const [showCategory, setShowCategory] = useState(true);
+    const [bookCurrency, setBookCurrency] = useState(currentBusiness?.currency || 'USD');
+    const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
+
+    // Sub-modal states
     const [deleteConfirm, setDeleteConfirm] = useState('');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showCopyModal, setShowCopyModal] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
+    const [showManagement, setShowManagement] = useState(false);
+
+    // Loading states
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
     const [isMoving, setIsMoving] = useState(false);
     const [selectedTargetBusinessId, setSelectedTargetBusinessId] = useState<string | null>(null);
 
+    // Focus states
+    const [isNameFocused, setIsNameFocused] = useState(false);
+    const [isDeleteInputFocused, setIsDeleteInputFocused] = useState(false);
+
     useEffect(() => {
         if (visible) {
             setSelectedTargetBusinessId(null);
+            setShowManagement(false);
             if (book) {
                 setBookName(book.name);
+                setBookCurrency(book.currency || book.settings?.currency || currentBusiness?.currency || 'USD');
                 setShowPaymentMode(book.settings?.showPaymentMode ?? true);
                 setShowCategory(book.settings?.showCategory ?? true);
             } else {
                 setBookName('');
+                setBookCurrency(currentBusiness?.currency || 'USD');
                 setShowPaymentMode(true);
                 setShowCategory(true);
             }
         }
-    }, [visible, book]);
+    }, [visible, book, currentBusiness]);
 
     const handleClose = () => {
         Keyboard.dismiss();
@@ -72,12 +110,13 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
 
     const handleSave = async () => {
         if (!bookName.trim()) {
-            Alert.alert('Error', 'Please enter a book name');
+            Alert.alert('Required Field', 'Please enter a name for this book.');
             return;
         }
 
         const settings = {
             ...(book?.settings || {}),
+            currency: bookCurrency,
             showPaymentMode,
             showCategory,
             showAttachments: book?.settings?.showAttachments ?? false,
@@ -86,17 +125,23 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
         try {
             setIsSaving(true);
             Keyboard.dismiss();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 80));
 
             if (book) {
-                await onSave(book.id, { name: bookName.trim(), settings });
+                await onSave(book.id, { name: bookName.trim(), currency: bookCurrency, settings });
             } else {
-                await onSave(null, { name: bookName.trim(), settings });
+                await onSave(null, { name: bookName.trim(), currency: bookCurrency, settings });
+            }
+
+            if (Platform.OS !== 'web') {
+                try {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                } catch (e) {}
             }
             handleClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save book:', error);
-            Alert.alert('Error', 'Failed to save book');
+            Alert.alert('Error Saving Book', error?.message || 'Failed to save book settings.');
         } finally {
             setIsSaving(false);
         }
@@ -113,15 +158,20 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
             setIsMoving(true);
             const result = await moveBook(book.id, selectedTargetBusinessId);
             if (result.success) {
+                if (Platform.OS !== 'web') {
+                    try {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch (e) {}
+                }
                 Alert.alert('Success', result.message);
                 setShowMoveModal(false);
                 onClose();
             } else {
                 Alert.alert('Error', result.message);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to move book:', error);
-            Alert.alert('Error', 'Failed to move book');
+            Alert.alert('Error Moving Book', error?.message || 'Failed to move book.');
         } finally {
             setIsMoving(false);
         }
@@ -133,31 +183,35 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
             setIsCopying(true);
             const result = await copyBook(book.id, selectedTargetBusinessId);
             if (result.success) {
+                if (Platform.OS !== 'web') {
+                    try {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch (e) {}
+                }
                 Alert.alert('Success', result.message);
                 setShowCopyModal(false);
                 onClose();
             } else {
                 Alert.alert('Error', result.message);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to copy book:', error);
-            Alert.alert('Error', 'Failed to copy book');
+            Alert.alert('Error Copying Book', error?.message || 'Failed to copy book.');
         } finally {
             setIsCopying(false);
         }
     };
 
-    const availableBusinesses = businesses.filter(b => b.id !== currentBusiness?.id);
+    const availableBusinesses = businesses.filter((b) => b.id !== currentBusiness?.id);
     const bookNameForConfirm = book?.name || '';
     const canConfirmDelete = deleteConfirm.trim() === bookNameForConfirm.trim();
 
-    // Theme Helpers
-    const modalBackgroundColor = isDark ? 'rgba(10, 10, 10, 0.95)' : 'rgba(255, 255, 255, 0.95)';
-    const textColor = isDark ? '#FFFFFF' : '#0F172A';
-    const subTextColor = isDark ? '#A6A6A6' : '#64748B';
-    const borderColor = isDark ? '#2C3333' : '#E2E8F0';
-    const inputBg = isDark ? '#111111' : '#FFFFFF';
-    const cardBg = isDark ? '#1B2020' : '#F8FAFC';
+    // Theme Color Tokens
+    const modalBg = isDark ? '#141416' : '#FFFFFF';
+    const cardBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
+    const inputBg = isDark ? '#202024' : '#F5F3EF';
+    const textColor = colors.text;
+    const subTextColor = colors.textSecondary;
 
     return (
         <Modal
@@ -167,12 +221,10 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
             onRequestClose={handleClose}
             statusBarTranslucent={true}
         >
-            <View
-                style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]}
-            >
+            <View style={styles.modalOverlay}>
+                <GlassBackdrop isDark={isDark} onPress={handleClose} />
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.keyboardView}
                     pointerEvents="box-none"
                 >
@@ -181,228 +233,612 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                     </TouchableWithoutFeedback>
 
                     <Animated.View
-                        entering={FadeInDown.duration(50)}
+                        entering={FadeInDown.duration(80)}
                         style={[
                             styles.popupContainer,
                             {
-                                backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                                borderColor: isDark ? '#2C3333' : '#e2e8f0',
-                                borderWidth: 1,
-                            }
+                                backgroundColor: modalBg,
+                                borderColor: cardBorder,
+                            },
                         ]}
                     >
-                        {/* Header */}
-                        <View style={{ alignItems: 'center', padding: 20, paddingBottom: 12 }}>
-                            <Text style={[styles.popupTitle, { fontFamily: 'AbrilFatface_400Regular', color: textColor, textAlign: 'center' }]}>
-                                {book ? 'Edit Book' : 'Create Book'}
-                            </Text>
-                            <Text style={[styles.popupSubtitle, { color: subTextColor, textAlign: 'center' }]}>
-                                {book ? 'Update your book settings' : 'Add a new ledger'}
-                            </Text>
+                        {/* Top Sheen */}
+                        <View
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 24,
+                                right: 24,
+                                height: 1,
+                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.9)',
+                                zIndex: 10,
+                            }}
+                        />
+
+                        {/* Modal Header */}
+                        <View style={styles.modalHeader}>
+                            <View style={styles.headerLeft}>
+                                <View
+                                    style={[
+                                        styles.headerIconBox,
+                                        {
+                                            backgroundColor: isDark
+                                                ? 'rgba(16, 185, 129, 0.18)'
+                                                : 'rgba(16, 185, 129, 0.12)',
+                                        },
+                                    ]}
+                                >
+                                    <BookOpen size={20} color={colors.primary} />
+                                </View>
+                                <View>
+                                    <Text
+                                        style={[
+                                            styles.headerTitle,
+                                            { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                        ]}
+                                    >
+                                        {book ? 'Edit Book' : 'Create Book'}
+                                    </Text>
+                                    <Text
+                                        style={[
+                                            styles.headerSubtitle,
+                                            { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                        ]}
+                                    >
+                                        {book ? 'Customize ledger preferences & rules' : 'Set up a new ledger for transactions'}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={handleClose}
+                                style={[
+                                    styles.closeButton,
+                                    { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' },
+                                ]}
+                                activeOpacity={0.7}
+                            >
+                                <X size={18} color={textColor} />
+                            </TouchableOpacity>
                         </View>
 
                         <ScrollView
                             keyboardShouldPersistTaps="handled"
                             showsVerticalScrollIndicator={false}
-                            contentContainerStyle={styles.popupContent}
+                            contentContainerStyle={styles.popupScrollContent}
                         >
-                            {/* Book Name Input */}
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.inputLabel, { color: textColor }]}>Book Name</Text>
-                                <TextInput
+                            {/* Hero Book Profile Section */}
+                            <View style={styles.section}>
+                                <Text style={[styles.sectionLabel, { color: subTextColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                    BOOK NAME
+                                </Text>
+                                <View
                                     style={[
-                                        styles.textInput,
+                                        styles.inputWrapper,
+                                        {
+                                            backgroundColor: isNameFocused
+                                                ? isDark ? 'rgba(16, 185, 129, 0.08)' : '#F0FDF4'
+                                                : inputBg,
+                                            borderColor: isNameFocused ? colors.primary : cardBorder,
+                                        },
+                                    ]}
+                                >
+                                    <BookOpen
+                                        size={18}
+                                        color={isNameFocused ? colors.primary : subTextColor}
+                                        style={{ marginRight: 10 }}
+                                    />
+                                    <TextInput
+                                        style={[
+                                            styles.textInputField,
+                                            {
+                                                color: textColor,
+                                                fontFamily: 'SpaceGrotesk_700Bold',
+                                            },
+                                        ]}
+                                        value={bookName}
+                                        onChangeText={setBookName}
+                                        onFocus={() => setIsNameFocused(true)}
+                                        onBlur={() => setIsNameFocused(false)}
+                                        placeholder="e.g. Personal Expenses, Project Alpha"
+                                        placeholderTextColor={subTextColor}
+                                        autoFocus={!book}
+                                        returnKeyType="done"
+                                        onSubmitEditing={handleSave}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Book Currency Card */}
+                            <View style={styles.section}>
+                                <Text style={[styles.sectionLabel, { color: subTextColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                    PRIMARY CURRENCY
+                                </Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.currencyCard,
                                         {
                                             backgroundColor: inputBg,
-                                            borderColor: borderColor,
-                                            color: textColor
-                                        }
+                                            borderColor: cardBorder,
+                                        },
                                     ]}
-                                    value={bookName}
-                                    onChangeText={setBookName}
-                                    placeholder="e.g., Personal Finances"
-                                    placeholderTextColor={subTextColor}
-                                    autoFocus={!book}
-                                    returnKeyType="done"
-                                    onSubmitEditing={handleSave}
-                                />
-                            </View>
-
-                            {/* Settings */}
-                            <Text style={[styles.sectionTitle, { color: subTextColor }]}>DISPLAY OPTIONS</Text>
-                            <View style={[styles.settingsContainer, { backgroundColor: cardBg, borderColor: borderColor }]}>
-                                <TouchableOpacity
-                                    style={styles.settingRow}
-                                    onPress={() => setShowPaymentMode(!showPaymentMode)}
-                                    activeOpacity={0.7}
+                                    onPress={() => setCurrencyPickerVisible(true)}
+                                    activeOpacity={0.75}
                                 >
-                                    <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }]}>
-                                        <CreditCard size={20} color={isDark ? '#10b981' : colors.primary} />
-                                    </View>
-                                    <View style={styles.settingInfo}>
-                                        <Text style={[styles.settingLabel, { color: textColor }]} numberOfLines={1}>Payment Mode</Text>
-                                        <Text style={[styles.settingDescription, { color: subTextColor }]} numberOfLines={1}>Show payment icons</Text>
-                                    </View>
-                                    <Switch
-                                        value={showPaymentMode}
-                                        onValueChange={setShowPaymentMode}
-                                        trackColor={{ false: isDark ? '#333' : '#e2e8f0', true: isDark ? '#21C98D' : '#3B82F6' }}
-                                        thumbColor={"#FFFFFF"}
-                                        ios_backgroundColor={isDark ? '#333' : '#e2e8f0'}
-                                    />
-                                </TouchableOpacity>
-
-                                <View style={[styles.divider, { backgroundColor: borderColor }]} />
-
-                                <TouchableOpacity
-                                    style={styles.settingRow}
-                                    onPress={() => setShowCategory(!showCategory)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }]}>
-                                        <Tag size={20} color={isDark ? '#10b981' : colors.primary} />
-                                    </View>
-                                    <View style={styles.settingInfo}>
-                                        <Text style={[styles.settingLabel, { color: textColor }]} numberOfLines={1}>Category</Text>
-                                        <Text style={[styles.settingDescription, { color: subTextColor }]} numberOfLines={1}>Show category tags</Text>
-                                    </View>
-                                    <Switch
-                                        value={showCategory}
-                                        onValueChange={setShowCategory}
-                                        trackColor={{ false: isDark ? '#333' : '#e2e8f0', true: isDark ? '#21C98D' : '#3B82F6' }}
-                                        thumbColor={"#FFFFFF"}
-                                        ios_backgroundColor={isDark ? '#333' : '#e2e8f0'}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Action Buttons */}
-                            <View style={styles.actionButtons}>
-                                <TouchableOpacity
-                                    style={styles.saveButtonWrapper}
-                                    onPress={handleSave}
-                                    disabled={!bookName.trim() || isSaving}
-                                    activeOpacity={0.9}
-                                >
-                                    <LinearGradient
-                                        colors={['#10b981', '#059669']}
-                                        style={[styles.saveButton, (!bookName.trim() || isSaving) && styles.disabledButton]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                    >
-                                        {isSaving ? (
-                                            <ActivityIndicator color="#fff" size="small" />
-                                        ) : (
-                                            <>
-                                                <Text style={styles.saveButtonText}>
-                                                    {book ? 'Save Changes' : 'Create Book'}
-                                                </Text>
-                                                {!book && <ArrowRight size={20} color="#fff" />}
-                                            </>
-                                        )}
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </View>
-
-                            {book && (
-                                <View style={{ marginTop: 8 }}>
-                                    <Text style={[styles.sectionTitle, { color: subTextColor }]}>MANAGEMENT</Text>
-                                    <View style={[styles.settingsContainer, { backgroundColor: cardBg, borderColor: borderColor }]}>
-                                        {availableBusinesses.length > 0 && (
-                                            <>
-                                                <TouchableOpacity
-                                                    style={styles.settingRow}
-                                                    onPress={() => setShowCopyModal(true)}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }]}>
-                                                        <Copy size={20} color={isDark ? '#10b981' : colors.primary} />
-                                                    </View>
-                                                    <View style={styles.settingInfo}>
-                                                        <Text style={[styles.settingLabel, { color: textColor }]}>Copy Book</Text>
-                                                        <Text style={[styles.settingDescription, { color: subTextColor }]}>Duplicate to another business</Text>
-                                                    </View>
-                                                    <ArrowRight size={20} color={subTextColor} />
-                                                </TouchableOpacity>
-
-                                                <View style={[styles.divider, { backgroundColor: borderColor }]} />
-
-                                                <TouchableOpacity
-                                                    style={styles.settingRow}
-                                                    onPress={() => setShowMoveModal(true)}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF' }]}>
-                                                        <Send size={20} color="#0EA5E9" />
-                                                    </View>
-                                                    <View style={styles.settingInfo}>
-                                                        <Text style={[styles.settingLabel, { color: textColor }]}>Move Book</Text>
-                                                        <Text style={[styles.settingDescription, { color: subTextColor }]}>Transfer to another business</Text>
-                                                    </View>
-                                                    <ArrowRight size={20} color={subTextColor} />
-                                                </TouchableOpacity>
-
-                                                <View style={[styles.divider, { backgroundColor: borderColor }]} />
-                                            </>
-                                        )}
-
-                                        <TouchableOpacity
-                                            style={styles.settingRow}
-                                            onPress={handleDelete}
-                                            activeOpacity={0.7}
+                                    <View style={styles.currencyCardLeft}>
+                                        <View
+                                            style={[
+                                                styles.currencyIconBox,
+                                                {
+                                                    backgroundColor: isDark
+                                                        ? 'rgba(16, 185, 129, 0.18)'
+                                                        : 'rgba(16, 185, 129, 0.12)',
+                                                },
+                                            ]}
                                         >
-                                            <View style={[styles.iconBox, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2' }]}>
-                                                <Trash2 size={20} color="#EF4444" />
-                                            </View>
-                                            <View style={styles.settingInfo}>
-                                                <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Delete Book</Text>
-                                                <Text style={[styles.settingDescription, { color: subTextColor }]}>This action cannot be undone</Text>
-                                            </View>
-                                            <ArrowRight size={20} color="#EF4444" style={{ opacity: 0.5 }} />
-                                        </TouchableOpacity>
+                                            <Globe size={18} color={colors.primary} />
+                                        </View>
+                                        <View>
+                                            <Text
+                                                style={[
+                                                    styles.currencyCodeText,
+                                                    { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                                ]}
+                                            >
+                                                {bookCurrency}
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.currencySubText,
+                                                    { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                ]}
+                                            >
+                                                Ledger default denomination
+                                            </Text>
+                                        </View>
                                     </View>
+
+                                    <View
+                                        style={[
+                                            styles.currencyChangeBadge,
+                                            {
+                                                backgroundColor: isDark
+                                                    ? 'rgba(16, 185, 129, 0.12)'
+                                                    : '#ECFDF5',
+                                                borderColor: colors.primary,
+                                            },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.currencyChangeText,
+                                                { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' },
+                                            ]}
+                                        >
+                                            Change
+                                        </Text>
+                                        <ChevronRight size={14} color={colors.primary} />
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Display & Tracking Preferences */}
+                            <View style={styles.section}>
+                                <Text style={[styles.sectionLabel, { color: subTextColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                    ENTRY FIELDS & TRACKING
+                                </Text>
+
+                                <View style={[styles.preferencesCard, { backgroundColor: inputBg, borderColor: cardBorder }]}>
+                                    {/* Payment Mode Setting */}
+                                    <TouchableOpacity
+                                        style={styles.preferenceRow}
+                                        onPress={() => setShowPaymentMode(!showPaymentMode)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.preferenceIconBox,
+                                                {
+                                                    backgroundColor: isDark
+                                                        ? 'rgba(16, 185, 129, 0.18)'
+                                                        : 'rgba(16, 185, 129, 0.12)',
+                                                },
+                                            ]}
+                                        >
+                                            <CreditCard size={18} color={colors.primary} />
+                                        </View>
+                                        <View style={styles.preferenceTextCol}>
+                                            <Text
+                                                style={[
+                                                    styles.preferenceTitle,
+                                                    { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                                ]}
+                                            >
+                                                Payment Method
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.preferenceSubtitle,
+                                                    { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                ]}
+                                            >
+                                                Track Cash, Card, Bank, or UPI methods
+                                            </Text>
+                                        </View>
+                                        <Switch
+                                            value={showPaymentMode}
+                                            onValueChange={setShowPaymentMode}
+                                            trackColor={{ false: '#3e3e3e', true: colors.primary }}
+                                            thumbColor="#FFFFFF"
+                                        />
+                                    </TouchableOpacity>
+
+                                    <View style={[styles.preferenceDivider, { backgroundColor: cardBorder }]} />
+
+                                    {/* Category Setting */}
+                                    <TouchableOpacity
+                                        style={styles.preferenceRow}
+                                        onPress={() => setShowCategory(!showCategory)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.preferenceIconBox,
+                                                {
+                                                    backgroundColor: isDark
+                                                        ? 'rgba(16, 185, 129, 0.18)'
+                                                        : 'rgba(16, 185, 129, 0.12)',
+                                                },
+                                            ]}
+                                        >
+                                            <Tag size={18} color={colors.primary} />
+                                        </View>
+                                        <View style={styles.preferenceTextCol}>
+                                            <Text
+                                                style={[
+                                                    styles.preferenceTitle,
+                                                    { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                                ]}
+                                            >
+                                                Category Tagging
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.preferenceSubtitle,
+                                                    { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                ]}
+                                            >
+                                                Group expenses by Food, Rent, Salary, etc.
+                                            </Text>
+                                        </View>
+                                        <Switch
+                                            value={showCategory}
+                                            onValueChange={setShowCategory}
+                                            trackColor={{ false: '#3e3e3e', true: colors.primary }}
+                                            thumbColor="#FFFFFF"
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {/* Primary Save Button */}
+                            <TouchableOpacity
+                                style={[
+                                    styles.primarySaveBtn,
+                                    {
+                                        backgroundColor: colors.primary,
+                                        opacity: !bookName.trim() || isSaving ? 0.6 : 1,
+                                    },
+                                ]}
+                                onPress={handleSave}
+                                disabled={!bookName.trim() || isSaving}
+                                activeOpacity={0.85}
+                            >
+                                {isSaving ? (
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                    <>
+                                        <Check size={18} color="#FFFFFF" style={{ marginRight: 6 }} strokeWidth={2.5} />
+                                        <Text
+                                            style={[
+                                                styles.primarySaveBtnText,
+                                                { fontFamily: 'SpaceGrotesk_700Bold' },
+                                            ]}
+                                        >
+                                            {book ? 'Save Book Changes' : 'Create Book'}
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+
+                            {/* Book Management & Operations Section */}
+                            {book && (
+                                <View style={styles.managementSection}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.managementToggleCard,
+                                            {
+                                                backgroundColor: inputBg,
+                                                borderColor: showManagement ? colors.primary : cardBorder,
+                                            },
+                                        ]}
+                                        onPress={() => {
+                                            if (Platform.OS !== 'web') {
+                                                try {
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                } catch (e) {}
+                                            }
+                                            setShowManagement(!showManagement);
+                                        }}
+                                        activeOpacity={0.75}
+                                    >
+                                        <View style={styles.managementToggleLeft}>
+                                            <View
+                                                style={[
+                                                    styles.managementToggleIcon,
+                                                    {
+                                                        backgroundColor: isDark
+                                                            ? 'rgba(16, 185, 129, 0.18)'
+                                                            : 'rgba(16, 185, 129, 0.12)',
+                                                    },
+                                                ]}
+                                            >
+                                                <SlidersHorizontal size={18} color={colors.primary} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text
+                                                    style={[
+                                                        styles.managementToggleTitle,
+                                                        { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                                    ]}
+                                                >
+                                                    Book Management & Operations
+                                                </Text>
+                                                <Text
+                                                    style={[
+                                                        styles.managementToggleSubtitle,
+                                                        { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                    ]}
+                                                >
+                                                    {showManagement ? 'Tap to hide operations' : 'Duplicate, transfer, or delete this book'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <ChevronDown
+                                            size={18}
+                                            color={showManagement ? colors.primary : subTextColor}
+                                            style={{ transform: [{ rotate: showManagement ? '180deg' : '0deg' }] }}
+                                        />
+                                    </TouchableOpacity>
+
+                                    {showManagement && (
+                                        <Animated.View
+                                            entering={FadeInDown.duration(160)}
+                                            style={styles.managementOptionsList}
+                                        >
+                                            {/* Copy Book Option */}
+                                            {availableBusinesses.length > 0 && (
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.managementOptionRow,
+                                                        {
+                                                            backgroundColor: inputBg,
+                                                            borderColor: cardBorder,
+                                                        },
+                                                    ]}
+                                                    onPress={() => setShowCopyModal(true)}
+                                                    activeOpacity={0.75}
+                                                >
+                                                    <View
+                                                        style={[
+                                                            styles.managementOptionIconBox,
+                                                            {
+                                                                backgroundColor: isDark
+                                                                    ? 'rgba(16, 185, 129, 0.18)'
+                                                                    : 'rgba(16, 185, 129, 0.12)',
+                                                            },
+                                                        ]}
+                                                    >
+                                                        <Copy size={18} color={colors.primary} />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text
+                                                            style={[
+                                                                styles.managementOptionTitle,
+                                                                { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                                            ]}
+                                                        >
+                                                            Duplicate Book
+                                                        </Text>
+                                                        <Text
+                                                            style={[
+                                                                styles.managementOptionSubtitle,
+                                                                { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                            ]}
+                                                        >
+                                                            Copy ledger & all records to another business
+                                                        </Text>
+                                                    </View>
+                                                    <ChevronRight size={16} color={subTextColor} />
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {/* Move Book Option */}
+                                            {availableBusinesses.length > 0 && (
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.managementOptionRow,
+                                                        {
+                                                            backgroundColor: inputBg,
+                                                            borderColor: cardBorder,
+                                                        },
+                                                    ]}
+                                                    onPress={() => setShowMoveModal(true)}
+                                                    activeOpacity={0.75}
+                                                >
+                                                    <View
+                                                        style={[
+                                                            styles.managementOptionIconBox,
+                                                            {
+                                                                backgroundColor: isDark
+                                                                    ? 'rgba(14, 165, 233, 0.18)'
+                                                                    : 'rgba(14, 165, 233, 0.12)',
+                                                            },
+                                                        ]}
+                                                    >
+                                                        <ArrowRightLeft size={18} color="#0EA5E9" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text
+                                                            style={[
+                                                                styles.managementOptionTitle,
+                                                                { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                                            ]}
+                                                        >
+                                                            Transfer Book
+                                                        </Text>
+                                                        <Text
+                                                            style={[
+                                                                styles.managementOptionSubtitle,
+                                                                { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                            ]}
+                                                        >
+                                                            Move ledger permanently to another business
+                                                        </Text>
+                                                    </View>
+                                                    <ChevronRight size={16} color={subTextColor} />
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {/* Delete Book Danger Card */}
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.managementOptionRow,
+                                                    {
+                                                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2',
+                                                        borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FECACA',
+                                                    },
+                                                ]}
+                                                onPress={handleDelete}
+                                                activeOpacity={0.75}
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.managementOptionIconBox,
+                                                        {
+                                                            backgroundColor: isDark
+                                                                ? 'rgba(239, 68, 68, 0.2)'
+                                                                : 'rgba(239, 68, 68, 0.15)',
+                                                        },
+                                                    ]}
+                                                >
+                                                    <Trash2 size={18} color="#EF4444" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text
+                                                        style={[
+                                                            styles.managementOptionTitle,
+                                                            { color: '#EF4444', fontFamily: 'SpaceGrotesk_700Bold' },
+                                                        ]}
+                                                    >
+                                                        Delete Ledger
+                                                    </Text>
+                                                    <Text
+                                                        style={[
+                                                            styles.managementOptionSubtitle,
+                                                            { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                        ]}
+                                                    >
+                                                        Permanently erase this book and all entries
+                                                    </Text>
+                                                </View>
+                                                <ChevronRight size={16} color="#EF4444" />
+                                            </TouchableOpacity>
+                                        </Animated.View>
+                                    )}
                                 </View>
                             )}
                         </ScrollView>
                     </Animated.View>
                 </KeyboardAvoidingView>
 
-                {/* Sub Modals - Embed them here directly to avoid fragment issues if any, or keep outside key view but inside Modal? No, these are independent Modals. */}
-                {/* Delete Modal */}
+                {/* Sub Modal: Delete Confirmation */}
                 <Modal
                     visible={showDeleteModal}
                     transparent
                     animationType="fade"
                     onRequestClose={() => setShowDeleteModal(false)}
                 >
-                    <View style={styles.modalOverlay}>
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]} />
-                        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.confirmWrapper}>
-                            <View style={[styles.confirmContent, { backgroundColor: isDark ? '#0A0A0A' : '#ffffff', borderColor: borderColor, borderWidth: 1 }]}>
-                                <View style={[styles.deleteIconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                                    <Trash2 size={32} color="#EF4444" />
+                    <View style={styles.subModalOverlay}>
+                        <GlassBackdrop isDark={isDark} onPress={() => setShowDeleteModal(false)} />
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                            style={styles.subModalCenter}
+                        >
+                            <View
+                                style={[
+                                    styles.subModalCard,
+                                    {
+                                        backgroundColor: modalBg,
+                                        borderColor: cardBorder,
+                                    },
+                                ]}
+                            >
+                                <View style={[styles.subModalIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                                    <AlertTriangle size={30} color="#EF4444" />
                                 </View>
-                                <Text style={[styles.confirmTitle, { color: textColor }]}>Delete "{bookNameForConfirm}"?</Text>
-                                <Text style={[styles.confirmMessage, { color: subTextColor }]}>
-                                    This action cannot be undone. All entries will be lost using the Delete feature.
+                                <Text style={[styles.subModalTitle, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                    Delete "{bookNameForConfirm}"?
                                 </Text>
-                                <TextInput
-                                    style={[styles.confirmInput, { backgroundColor: inputBg, borderColor: borderColor, color: textColor }]}
-                                    value={deleteConfirm}
-                                    onChangeText={setDeleteConfirm}
-                                    placeholder={`Type "${bookNameForConfirm}" to confirm`}
-                                    placeholderTextColor={subTextColor}
-                                    autoCapitalize="none"
-                                />
-                                <View style={styles.confirmButtons}>
+                                <Text style={[styles.subModalSubtitle, { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                    This action is irreversible. All recorded transactions inside this book will be permanently deleted.
+                                </Text>
+
+                                <View
+                                    style={[
+                                        styles.deleteConfirmInputBox,
+                                        {
+                                            backgroundColor: isDeleteInputFocused
+                                                ? isDark ? 'rgba(239, 68, 68, 0.08)' : '#FEF2F2'
+                                                : inputBg,
+                                            borderColor: isDeleteInputFocused ? '#EF4444' : cardBorder,
+                                        },
+                                    ]}
+                                >
+                                    <TextInput
+                                        style={[
+                                            styles.deleteConfirmInput,
+                                            { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                        ]}
+                                        value={deleteConfirm}
+                                        onChangeText={setDeleteConfirm}
+                                        onFocus={() => setIsDeleteInputFocused(true)}
+                                        onBlur={() => setIsDeleteInputFocused(false)}
+                                        placeholder={`Type "${bookNameForConfirm}"`}
+                                        placeholderTextColor={subTextColor}
+                                        autoCapitalize="none"
+                                    />
+                                </View>
+
+                                <View style={styles.subModalButtonRow}>
                                     <TouchableOpacity
-                                        style={[styles.confirmCancelButton, { backgroundColor: cardBg }]}
+                                        style={[styles.subModalCancelBtn, { backgroundColor: inputBg, borderColor: cardBorder }]}
                                         onPress={() => setShowDeleteModal(false)}
+                                        activeOpacity={0.7}
                                     >
-                                        <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
+                                        <Text style={[styles.subModalCancelBtnText, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                            Cancel
+                                        </Text>
                                     </TouchableOpacity>
+
                                     <TouchableOpacity
-                                        style={styles.confirmDeleteWrapper}
+                                        style={[
+                                            styles.subModalDeleteBtn,
+                                            {
+                                                backgroundColor: '#EF4444',
+                                                opacity: !canConfirmDelete || isDeleting ? 0.6 : 1,
+                                            },
+                                        ]}
                                         disabled={!canConfirmDelete || isDeleting}
                                         onPress={async () => {
                                             if (book) {
@@ -418,13 +854,15 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                                                 }
                                             }
                                         }}
+                                        activeOpacity={0.85}
                                     >
-                                        <LinearGradient
-                                            colors={['#EF4444', '#DC2626']}
-                                            style={[styles.confirmDeleteButton, (!canConfirmDelete || isDeleting) && styles.disabledButton]}
-                                        >
-                                            {isDeleting ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.confirmDeleteText}>Delete Book</Text>}
-                                        </LinearGradient>
+                                        {isDeleting ? (
+                                            <ActivityIndicator color="#fff" size="small" />
+                                        ) : (
+                                            <Text style={[styles.subModalDeleteBtnText, { fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                                Delete Book
+                                            </Text>
+                                        )}
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -432,137 +870,221 @@ export const BookEditModal = React.memo(function BookEditModal({ visible, book, 
                     </View>
                 </Modal>
 
-                {/* Copy Modal */}
+                {/* Sub Modal: Copy Book */}
                 <Modal
                     visible={showCopyModal}
                     transparent
                     animationType="fade"
                     onRequestClose={() => setShowCopyModal(false)}
                 >
-                    <View style={styles.modalOverlay}>
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]} />
-                        <View style={[styles.confirmContent, { backgroundColor: isDark ? '#0A0A0A' : '#ffffff', borderColor: borderColor, borderWidth: 1, padding: 0, overflow: 'hidden' }]}>
-                            <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
-                                <View style={[styles.headerIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4', marginBottom: 20 }]}>
-                                    <Copy size={32} color={isDark ? '#10b981' : colors.primary} />
+                    <View style={styles.subModalOverlay}>
+                        <GlassBackdrop isDark={isDark} onPress={() => setShowCopyModal(false)} />
+                        <View style={styles.subModalCenter}>
+                            <View
+                                style={[
+                                    styles.subModalCard,
+                                    {
+                                        backgroundColor: modalBg,
+                                        borderColor: cardBorder,
+                                    },
+                                ]}
+                            >
+                                <View style={[styles.subModalIconBox, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : 'rgba(16, 185, 129, 0.12)' }]}>
+                                    <Copy size={28} color={colors.primary} />
                                 </View>
-                                <Text style={[styles.confirmTitle, { color: textColor, marginBottom: 8 }]}>Copy to Business</Text>
-                                <Text style={[styles.confirmMessage, { color: subTextColor, marginBottom: 12 }]}>All entries will be duplicated to the chosen business.</Text>
-                            </View>
+                                <Text style={[styles.subModalTitle, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                    Duplicate to Business
+                                </Text>
+                                <Text style={[styles.subModalSubtitle, { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                    Choose the destination business where this ledger will be duplicated.
+                                </Text>
 
-                            <ScrollView style={[styles.businessList, { paddingHorizontal: 20 }]} showsVerticalScrollIndicator={false}>
-                                {availableBusinesses.map((business, index) => {
-                                    const isSelected = selectedTargetBusinessId === business.id;
-                                    return (
-                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 10).duration(100)}>
+                                <ScrollView style={styles.businessListScroll} showsVerticalScrollIndicator={false}>
+                                    {availableBusinesses.map((business) => {
+                                        const isSelected = selectedTargetBusinessId === business.id;
+                                        return (
                                             <TouchableOpacity
+                                                key={business.id}
                                                 style={[
-                                                    styles.businessItem, 
-                                                    { backgroundColor: cardBg, borderColor: isSelected ? colors.primary : borderColor },
-                                                    isSelected && { borderWidth: 1.5 }
+                                                    styles.businessChoiceItem,
+                                                    {
+                                                        backgroundColor: inputBg,
+                                                        borderColor: isSelected ? colors.primary : cardBorder,
+                                                        borderWidth: isSelected ? 1.5 : 1,
+                                                    },
                                                 ]}
                                                 onPress={() => setSelectedTargetBusinessId(business.id)}
                                                 disabled={isCopying}
+                                                activeOpacity={0.75}
                                             >
-                                                <View style={[styles.businessItemIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.primary }]}>
-                                                    <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
+                                                <View style={[styles.businessChoiceAvatar, { backgroundColor: colors.primary }]}>
+                                                    <Text style={[styles.businessChoiceAvatarText, { fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                                        {business.name.charAt(0).toUpperCase()}
+                                                    </Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
-                                                    <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
+                                                    <Text style={[styles.businessChoiceName, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                                        {business.name}
+                                                    </Text>
+                                                    <Text style={[styles.businessChoiceMeta, { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                                        {business.members?.length || 1} Members
+                                                    </Text>
                                                 </View>
-                                                {isSelected && <Check size={18} color={colors.primary} />}
+                                                {isSelected && <Check size={18} color={colors.primary} strokeWidth={2.5} />}
                                             </TouchableOpacity>
-                                        </Animated.View>
-                                    );
-                                })}
-                            </ScrollView>
+                                        );
+                                    })}
+                                </ScrollView>
 
-                            <View style={{ padding: 20, width: '100%', gap: 12 }}>
-                                <TouchableOpacity 
-                                    style={[
-                                        styles.confirmSaveButton, 
-                                        { backgroundColor: colors.primary },
-                                        (!selectedTargetBusinessId || isCopying) && styles.disabledButton
-                                    ]} 
-                                    onPress={handleCopyBook}
-                                    disabled={!selectedTargetBusinessId || isCopying}
-                                >
-                                    {isCopying ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.confirmSaveButtonText}>Confirm Copy</Text>}
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: isDark ? '#1A1A1A' : '#F1F5F9', borderRadius: 16 }]} onPress={() => setShowCopyModal(false)}>
-                                    <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
-                                </TouchableOpacity>
+                                <View style={styles.subModalButtonRow}>
+                                    <TouchableOpacity
+                                        style={[styles.subModalCancelBtn, { backgroundColor: inputBg, borderColor: cardBorder }]}
+                                        onPress={() => setShowCopyModal(false)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.subModalCancelBtnText, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                            Cancel
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.subModalPrimaryBtn,
+                                            {
+                                                backgroundColor: colors.primary,
+                                                opacity: !selectedTargetBusinessId || isCopying ? 0.6 : 1,
+                                            },
+                                        ]}
+                                        onPress={handleCopyBook}
+                                        disabled={!selectedTargetBusinessId || isCopying}
+                                        activeOpacity={0.85}
+                                    >
+                                        {isCopying ? (
+                                            <ActivityIndicator size="small" color="#fff" />
+                                        ) : (
+                                            <Text style={[styles.subModalPrimaryBtnText, { fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                                Confirm Duplicate
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
                     </View>
                 </Modal>
 
-                {/* Move Modal */}
+                {/* Sub Modal: Move Book */}
                 <Modal
                     visible={showMoveModal}
                     transparent
                     animationType="fade"
                     onRequestClose={() => setShowMoveModal(false)}
                 >
-                    <View style={styles.modalOverlay}>
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]} />
-                        <View style={[styles.confirmContent, { backgroundColor: isDark ? '#0A0A0A' : '#ffffff', borderColor: borderColor, borderWidth: 1, padding: 0, overflow: 'hidden' }]}>
-                            <View style={{ padding: 24, paddingBottom: 16, alignItems: 'center', width: '100%' }}>
-                                <View style={[styles.headerIconContainer, { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF', marginBottom: 20 }]}>
-                                    <Send size={32} color="#0EA5E9" />
+                    <View style={styles.subModalOverlay}>
+                        <GlassBackdrop isDark={isDark} onPress={() => setShowMoveModal(false)} />
+                        <View style={styles.subModalCenter}>
+                            <View
+                                style={[
+                                    styles.subModalCard,
+                                    {
+                                        backgroundColor: modalBg,
+                                        borderColor: cardBorder,
+                                    },
+                                ]}
+                            >
+                                <View style={[styles.subModalIconBox, { backgroundColor: 'rgba(14, 165, 233, 0.15)' }]}>
+                                    <Send size={28} color="#0EA5E9" />
                                 </View>
-                                <Text style={[styles.confirmTitle, { color: textColor, marginBottom: 8 }]}>Move to Business</Text>
-                                <Text style={[styles.confirmMessage, { color: subTextColor, marginBottom: 12 }]}>The book and entries will be moved permanently.</Text>
-                            </View>
+                                <Text style={[styles.subModalTitle, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                    Transfer to Business
+                                </Text>
+                                <Text style={[styles.subModalSubtitle, { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                    This book and all its records will be permanently transferred.
+                                </Text>
 
-                            <ScrollView style={[styles.businessList, { paddingHorizontal: 20 }]} showsVerticalScrollIndicator={false}>
-                                {availableBusinesses.map((business, index) => {
-                                    const isSelected = selectedTargetBusinessId === business.id;
-                                    return (
-                                        <Animated.View key={business.id} entering={FadeInUp.delay(index * 10).duration(100)}>
+                                <ScrollView style={styles.businessListScroll} showsVerticalScrollIndicator={false}>
+                                    {availableBusinesses.map((business) => {
+                                        const isSelected = selectedTargetBusinessId === business.id;
+                                        return (
                                             <TouchableOpacity
+                                                key={business.id}
                                                 style={[
-                                                    styles.businessItem, 
-                                                    { backgroundColor: cardBg, borderColor: isSelected ? '#0EA5E9' : borderColor },
-                                                    isSelected && { borderWidth: 1.5 }
+                                                    styles.businessChoiceItem,
+                                                    {
+                                                        backgroundColor: inputBg,
+                                                        borderColor: isSelected ? '#0EA5E9' : cardBorder,
+                                                        borderWidth: isSelected ? 1.5 : 1,
+                                                    },
                                                 ]}
                                                 onPress={() => setSelectedTargetBusinessId(business.id)}
                                                 disabled={isMoving}
+                                                activeOpacity={0.75}
                                             >
-                                                <View style={[styles.businessItemIcon, { backgroundColor: '#0EA5E9' }]}>
-                                                    <Text style={styles.businessItemInitial}>{business.name.charAt(0).toUpperCase()}</Text>
+                                                <View style={[styles.businessChoiceAvatar, { backgroundColor: '#0EA5E9' }]}>
+                                                    <Text style={[styles.businessChoiceAvatarText, { fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                                        {business.name.charAt(0).toUpperCase()}
+                                                    </Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={[styles.businessItemName, { color: textColor }]}>{business.name}</Text>
-                                                    <Text style={{ color: subTextColor, fontSize: 12 }}>{business.members?.length || 0} Members</Text>
+                                                    <Text style={[styles.businessChoiceName, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                                        {business.name}
+                                                    </Text>
+                                                    <Text style={[styles.businessChoiceMeta, { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                                        {business.members?.length || 1} Members
+                                                    </Text>
                                                 </View>
-                                                {isSelected && <Check size={18} color="#0EA5E9" />}
+                                                {isSelected && <Check size={18} color="#0EA5E9" strokeWidth={2.5} />}
                                             </TouchableOpacity>
-                                        </Animated.View>
-                                    );
-                                })}
-                            </ScrollView>
+                                        );
+                                    })}
+                                </ScrollView>
 
-                            <View style={{ padding: 20, width: '100%', gap: 12 }}>
-                                <TouchableOpacity 
-                                    style={[
-                                        styles.confirmSaveButton, 
-                                        { backgroundColor: '#0EA5E9' },
-                                        (!selectedTargetBusinessId || isMoving) && styles.disabledButton
-                                    ]} 
-                                    onPress={handleMoveBook}
-                                    disabled={!selectedTargetBusinessId || isMoving}
-                                >
-                                    {isMoving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.confirmSaveButtonText}>Confirm Move</Text>}
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.confirmCancelButton, { backgroundColor: isDark ? '#1A1A1A' : '#F1F5F9', borderRadius: 16 }]} onPress={() => setShowMoveModal(false)}>
-                                    <Text style={[styles.cancelButtonText, { color: subTextColor }]}>Cancel</Text>
-                                </TouchableOpacity>
+                                <View style={styles.subModalButtonRow}>
+                                    <TouchableOpacity
+                                        style={[styles.subModalCancelBtn, { backgroundColor: inputBg, borderColor: cardBorder }]}
+                                        onPress={() => setShowMoveModal(false)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.subModalCancelBtnText, { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                            Cancel
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.subModalPrimaryBtn,
+                                            {
+                                                backgroundColor: '#0EA5E9',
+                                                opacity: !selectedTargetBusinessId || isMoving ? 0.6 : 1,
+                                            },
+                                        ]}
+                                        onPress={handleMoveBook}
+                                        disabled={!selectedTargetBusinessId || isMoving}
+                                        activeOpacity={0.85}
+                                    >
+                                        {isMoving ? (
+                                            <ActivityIndicator size="small" color="#fff" />
+                                        ) : (
+                                            <Text style={[styles.subModalPrimaryBtnText, { fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                                Confirm Transfer
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
                     </View>
                 </Modal>
+
+                {/* Book Currency Picker Modal */}
+                <CurrencyPickerModal
+                    visible={currencyPickerVisible}
+                    onClose={() => setCurrencyPickerVisible(false)}
+                    selectedCurrency={bookCurrency}
+                    onSelect={(code) => setBookCurrency(code)}
+                    title="Select Book Currency"
+                    subtitle="Set primary currency for this ledger"
+                />
             </View>
         </Modal>
     );
@@ -578,274 +1100,352 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 20,
+        padding: 16,
     },
     popupContainer: {
-        borderRadius: 24,
-        width: '85%',
-        maxWidth: 340,
+        borderRadius: 28,
+        width: SCREEN_WIDTH > 500 ? 440 : '92%',
+        maxWidth: 440,
+        maxHeight: SCREEN_HEIGHT * 0.88,
+        borderWidth: 1,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 20 },
-        shadowOpacity: 0.25,
-        shadowRadius: 40,
+        shadowOpacity: 0.35,
+        shadowRadius: 35,
         elevation: 20,
         overflow: 'hidden',
     },
-    popupTitle: {
-        fontSize: 26,
-        marginBottom: 8,
-    },
-    popupSubtitle: {
-        fontSize: 14,
-        paddingHorizontal: 20,
-        lineHeight: 20,
-    },
-    popupContent: {
-        padding: 20,
-        paddingTop: 0,
-    },
-    inputGroup: {
-        marginBottom: 24,
-    },
-    inputLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        marginBottom: 8,
-        marginLeft: 4,
-        letterSpacing: 0.5,
-        textTransform: 'uppercase',
-    },
-    textInput: {
-        borderWidth: 1,
-        borderRadius: 18,
-        padding: 16,
-        fontSize: 17,
-        fontWeight: '500',
-    },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 1,
-        marginBottom: 8,
-        marginLeft: 4,
-        textTransform: 'uppercase',
-    },
-    settingsContainer: {
-        borderRadius: 20,
-        borderWidth: 1,
-        overflow: 'hidden',
-        marginBottom: 28,
-    },
-    settingRow: {
+    modalHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        paddingHorizontal: 16,
+        justifyContent: 'space-between',
+        paddingHorizontal: 22,
+        paddingTop: 22,
+        paddingBottom: 16,
     },
-    iconBox: {
-        width: 44,
-        height: 44,
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        marginRight: 10,
+    },
+    headerIconBox: {
+        width: 42,
+        height: 42,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 16,
+        marginRight: 12,
     },
-    settingInfo: {
+    headerTitle: {
+        fontSize: 18,
+    },
+    headerSubtitle: {
+        fontSize: 12,
+        marginTop: 2,
+    },
+    closeButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    popupScrollContent: {
+        paddingHorizontal: 22,
+        paddingBottom: 24,
+        gap: 16,
+    },
+    section: {
+        gap: 8,
+    },
+    sectionLabel: {
+        fontSize: 10,
+        letterSpacing: 0.8,
+    },
+    inputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 16,
+        borderWidth: 1.5,
+        paddingHorizontal: 16,
+        height: 52,
+    },
+    textInputField: {
+        flex: 1,
+        fontSize: 16,
+        padding: 0,
+    },
+    currencyCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    currencyCardLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    currencyIconBox: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    currencyCodeText: {
+        fontSize: 16,
+    },
+    currencySubText: {
+        fontSize: 11,
+        marginTop: 2,
+    },
+    currencyChangeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        borderWidth: 1,
+    },
+    currencyChangeText: {
+        fontSize: 12,
+    },
+    preferencesCard: {
+        borderRadius: 18,
+        borderWidth: 1,
+        overflow: 'hidden',
+    },
+    preferenceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+    },
+    preferenceIconBox: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    preferenceTextCol: {
         flex: 1,
         marginRight: 12,
     },
-    settingLabel: {
-        fontSize: 16,
-        fontWeight: '600',
+    preferenceTitle: {
+        fontSize: 14,
         marginBottom: 2,
     },
-    settingDescription: {
-        fontSize: 13,
+    preferenceSubtitle: {
+        fontSize: 12,
     },
-    divider: {
+    preferenceDivider: {
         height: 1,
-        marginLeft: 76,
+        marginLeft: 66,
     },
-    actionButtons: {
-        flexDirection: 'row',
-        marginBottom: 24,
-    },
-    saveButtonWrapper: {
-        flex: 1,
-        borderRadius: 18,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-        elevation: 6,
-    },
-    saveButton: {
-        flexDirection: 'row',
-        paddingVertical: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-    },
-    saveButtonText: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#fff',
-    },
-    disabledButton: {
-        opacity: 0.6,
-    },
-    secondaryActions: {
-        flexDirection: 'row',
-        gap: 10,
-        alignItems: 'center',
-    },
-    secondaryButton: {
+    primarySaveBtn: {
+        height: 52,
+        borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 48,
-        height: 48,
+        marginTop: 4,
+    },
+    primarySaveBtnText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+    },
+    managementSection: {
+        marginTop: 4,
+    },
+    managementToggleCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
         borderRadius: 16,
         borderWidth: 1,
+    },
+    managementToggleLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+        marginRight: 10,
+    },
+    managementToggleIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    managementToggleTitle: {
+        fontSize: 14,
+        marginBottom: 2,
+    },
+    managementToggleSubtitle: {
+        fontSize: 12,
+    },
+    managementOptionsList: {
+        marginTop: 10,
         gap: 8,
     },
-    secondaryButtonText: {
-        fontSize: 13,
-        fontWeight: '600',
+    managementOptionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 16,
+        borderWidth: 1,
+        gap: 12,
     },
-    // Leaving Sub Modal Styles as they are mostly fine, just ensuring keys don't break
-    confirmWrapper: {
+    managementOptionIconBox: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    managementOptionTitle: {
+        fontSize: 14,
+        marginBottom: 2,
+    },
+    managementOptionSubtitle: {
+        fontSize: 12,
+    },
+    // Sub-Modals
+    subModalOverlay: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    subModalCenter: {
         width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: 20,
     },
-    confirmContent: {
-        borderRadius: 28,
-        padding: 28,
+    subModalCard: {
+        borderRadius: 26,
+        padding: 24,
         width: '100%',
         maxWidth: 380,
         alignItems: 'center',
+        borderWidth: 1,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 20 },
-        shadowOpacity: 0.3,
-        shadowRadius: 40,
+        shadowOpacity: 0.35,
+        shadowRadius: 35,
         elevation: 20,
     },
-    deleteIconContainer: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-    },
-    headerIconContainer: {
+    subModalIconBox: {
         width: 60,
         height: 60,
-        borderRadius: 30,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 16,
     },
-    confirmTitle: {
-        fontSize: 22,
-        fontWeight: '700',
-        marginBottom: 12,
+    subModalTitle: {
+        fontSize: 18,
+        marginBottom: 8,
         textAlign: 'center',
     },
-    confirmMessage: {
-        fontSize: 15,
+    subModalSubtitle: {
+        fontSize: 13,
         textAlign: 'center',
-        marginBottom: 24,
-        lineHeight: 22,
+        marginBottom: 18,
+        lineHeight: 18,
     },
-    confirmInput: {
+    deleteConfirmInputBox: {
         width: '100%',
-        borderWidth: 1,
+        borderWidth: 1.5,
         borderRadius: 14,
-        padding: 16,
-        fontSize: 16,
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    confirmButtons: {
-        flexDirection: 'row',
-        gap: 12,
-        width: '100%',
-    },
-    confirmCancelButton: {
-        flex: 1,
-        paddingVertical: 16,
-        borderRadius: 14,
-        alignItems: 'center',
-    },
-    cancelButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    confirmDeleteWrapper: {
-        flex: 1,
-        borderRadius: 14,
-        overflow: 'hidden',
-    },
-    confirmDeleteButton: {
-        paddingVertical: 16,
-        alignItems: 'center',
-    },
-    confirmDeleteText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#fff',
-    },
-    businessList: {
-        maxHeight: 280,
-        width: '100%',
+        paddingHorizontal: 16,
+        height: 48,
+        justifyContent: 'center',
         marginBottom: 20,
     },
-    businessItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 10,
-        borderWidth: 1,
+    deleteConfirmInput: {
+        fontSize: 14,
+        textAlign: 'center',
+        padding: 0,
     },
-    businessItemIcon: {
-        width: 44,
-        height: 44,
+    subModalButtonRow: {
+        flexDirection: 'row',
+        gap: 10,
+        width: '100%',
+    },
+    subModalCancelBtn: {
+        flex: 1,
+        height: 48,
+        borderRadius: 14,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    subModalCancelBtnText: {
+        fontSize: 14,
+    },
+    subModalDeleteBtn: {
+        flex: 1.2,
+        height: 48,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 14,
     },
-    businessItemInitial: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#fff',
+    subModalDeleteBtnText: {
+        fontSize: 14,
+        color: '#FFFFFF',
     },
-    businessItemName: {
-        flex: 1,
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    confirmSaveButton: {
-        width: '100%',
-        paddingVertical: 18,
-        borderRadius: 16,
+    subModalPrimaryBtn: {
+        flex: 1.4,
+        height: 48,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
     },
-    confirmSaveButtonText: {
+    subModalPrimaryBtnText: {
+        fontSize: 14,
+        color: '#FFFFFF',
+    },
+    businessListScroll: {
+        maxHeight: 240,
+        width: '100%',
+        marginBottom: 18,
+    },
+    businessChoiceItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 14,
+        marginBottom: 8,
+        gap: 12,
+    },
+    businessChoiceAvatar: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    businessChoiceAvatarText: {
+        color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '700',
-        color: '#fff',
+    },
+    businessChoiceName: {
+        fontSize: 14,
+        marginBottom: 2,
+    },
+    businessChoiceMeta: {
+        fontSize: 12,
     },
 });

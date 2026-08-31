@@ -23,77 +23,78 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
+import { useTheme } from '@/providers/theme-provider';
 
 interface BusinessMenuModalProps {
     visible: boolean;
     onClose: () => void;
     userRole: string | null;
-    onCreateBook: () => void;
+    currentSort: string;
+    onSortChange: (sort: any) => void;
+    onFilterPress: () => void;
+    onCreateBookPress: () => void;
 }
 
 export const BusinessMenuModal = ({
     visible,
     onClose,
     userRole,
-    onCreateBook,
+    currentSort,
+    onSortChange,
+    onFilterPress,
+    onCreateBookPress,
 }: BusinessMenuModalProps) => {
     const insets = useSafeAreaInsets();
+    const { colors, isDark } = useTheme();
+    const isOwner = userRole === 'owner';
 
-    if (!visible) return null;
-
-    const handleNavigation = (path: any) => {
+    const handleNavigation = (path: string) => {
         onClose();
-        router.push(path);
+        setTimeout(() => {
+            router.push(path as any);
+        }, 100);
     };
 
     const menuGroups = [
         {
-            title: 'Business',
-            icon: <Briefcase size={16} color="#64748b" />,
+            title: 'Book Actions',
+            icon: <BookOpen size={16} color={colors.primary} />,
             items: [
                 {
-                    label: 'Switch Business',
-                    icon: <ArrowUpDown size={20} color="#10b981" />,
-                    iconBg: '#f0fdf4',
-                    onPress: () => handleNavigation('/business-switcher'),
+                    label: 'Create New Book',
+                    icon: <Plus size={20} color={colors.primary} />,
+                    iconBg: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                    onPress: () => {
+                        onClose();
+                        onCreateBookPress();
+                    },
                 },
                 {
-                    label: 'Business Settings',
-                    icon: <SlidersHorizontal size={20} color="#059669" />,
-                    iconBg: '#f0fdf4',
-                    onPress: () => handleNavigation('/settings'),
+                    label: 'Filter & Sort Books',
+                    icon: <SlidersHorizontal size={20} color="#3b82f6" />,
+                    iconBg: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+                    onPress: () => {
+                        onClose();
+                        onFilterPress();
+                    },
                 },
             ],
         },
         {
-            title: 'Books',
-            icon: <BookOpen size={16} color="#64748b" />,
-            items: [
-                (userRole === 'owner' || userRole === 'partner') ? {
-                    label: 'Create New Book',
-                    icon: <Plus size={20} color="#10b981" />,
-                    iconBg: '#ecfdf5',
-                    onPress: () => {
-                        onClose();
-                        onCreateBook();
-                    },
-                } : null,
-            ].filter(Boolean),
-        },
-        {
-            title: 'Quick Access',
-            icon: <Zap size={16} color="#64748b" />,
+            title: 'Management',
+            icon: <Briefcase size={16} color="#8b5cf6" />,
             items: [
                 {
-                    label: 'Analytics',
-                    icon: <Calendar size={20} color="#f59e0b" />,
-                    iconBg: '#fffbeb',
-                    onPress: () => handleNavigation('/activity'),
+                    label: 'Recurring Transactions',
+                    icon: <Calendar size={20} color="#8b5cf6" />,
+                    iconBg: isDark ? 'rgba(139, 92, 246, 0.15)' : '#f5f3ff',
+                    onPress: () => handleNavigation('/recurring'),
                 },
                 {
                     label: 'Team Members',
                     icon: <Users size={20} color="#ec4899" />,
-                    iconBg: '#fdf2f8',
+                    iconBg: isDark ? 'rgba(236, 72, 153, 0.15)' : '#fdf2f8',
                     onPress: () => handleNavigation('/team'),
                 },
             ],
@@ -108,19 +109,48 @@ export const BusinessMenuModal = ({
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
-                <TouchableWithoutFeedback onPress={onClose}>
-                    <View style={styles.backdrop} />
-                </TouchableWithoutFeedback>
+                <GlassBackdrop isDark={isDark} onPress={onClose} />
 
-                <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
+                <View
+                    style={[
+                        styles.sheet,
+                        {
+                            backgroundColor: colors.surfaceGlass,
+                            borderColor: colors.borderGlass,
+                            paddingBottom: insets.bottom + 20,
+                        },
+                    ]}
+                >
+                    {/* Top Sheen */}
+                    <View
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 24,
+                            right: 24,
+                            height: 1,
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                            zIndex: 10,
+                        }}
+                    />
+
                     <View style={styles.handleContainer}>
-                        <View style={styles.handle} />
+                        <View style={[styles.handle, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#cbd5e1' }]} />
                     </View>
 
                     <View style={styles.header}>
-                        <Text style={styles.title}>Menu</Text>
-                        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                            <X size={20} color="#64748b" />
+                        <Text style={[styles.title, { color: colors.text }]}>Menu</Text>
+                        <TouchableOpacity
+                            style={[
+                                styles.closeButton,
+                                {
+                                    backgroundColor: colors.surfaceGlass,
+                                    borderColor: colors.borderGlass,
+                                },
+                            ]}
+                            onPress={onClose}
+                        >
+                            <X size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
 
@@ -130,22 +160,44 @@ export const BusinessMenuModal = ({
                                 <View key={group.title} style={styles.group}>
                                     <View style={styles.groupHeader}>
                                         {group.icon}
-                                        <Text style={styles.groupTitle}>{group.title}</Text>
+                                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>{group.title}</Text>
                                     </View>
-                                    <View style={styles.card}>
+                                    <View
+                                        style={[
+                                            styles.card,
+                                            {
+                                                backgroundColor: colors.cardGlass,
+                                                borderColor: colors.borderGlass,
+                                            },
+                                        ]}
+                                    >
                                         {group.items.map((item: any, i) => (
                                             <React.Fragment key={item.label}>
-                                                {i > 0 && <View style={styles.divider} />}
+                                                {i > 0 && (
+                                                    <View
+                                                        style={[
+                                                            styles.divider,
+                                                            { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9' },
+                                                        ]}
+                                                    />
+                                                )}
                                                 <TouchableOpacity
                                                     style={styles.item}
                                                     onPress={item.onPress}
                                                     activeOpacity={0.7}
                                                 >
-                                                    <View style={[styles.iconContainer, { backgroundColor: item.iconBg }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.iconContainer,
+                                                            { backgroundColor: item.iconBg },
+                                                        ]}
+                                                    >
                                                         {item.icon}
                                                     </View>
-                                                    <Text style={styles.itemLabel}>{item.label}</Text>
-                                                    <ChevronRight size={16} color="#cbd5e1" />
+                                                    <Text style={[styles.itemLabel, { color: colors.text }]}>
+                                                        {item.label}
+                                                    </Text>
+                                                    <ChevronRight size={18} color={colors.textSecondary} />
                                                 </TouchableOpacity>
                                             </React.Fragment>
                                         ))}
@@ -163,21 +215,29 @@ export const BusinessMenuModal = ({
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
         justifyContent: 'flex-end',
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,
     },
     sheet: {
-        backgroundColor: '#f8fafc',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        borderWidth: 1,
+        borderBottomWidth: 0,
         maxHeight: '85%',
+        overflow: 'hidden',
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12 },
-            android: { elevation: 8 },
-            web: { boxShadow: '0px -4px 24px rgba(0, 0, 0, 0.1)' },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -8 },
+                shadowOpacity: 0.25,
+                shadowRadius: 20,
+            },
+            android: {
+                elevation: 24,
+            },
+            web: { boxShadow: '0px -4px 24px rgba(0, 0, 0, 0.15)' },
         }),
     },
     handleContainer: {
@@ -187,7 +247,6 @@ const styles = StyleSheet.create({
     handle: {
         width: 40,
         height: 4,
-        backgroundColor: '#cbd5e1',
         borderRadius: 2,
     },
     header: {
@@ -198,17 +257,14 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
     title: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#0f172a',
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontSize: 22,
         letterSpacing: -0.5,
     },
     closeButton: {
         padding: 8,
-        backgroundColor: '#fff',
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#e2e8f0',
     },
     content: {
         paddingHorizontal: 24,
@@ -224,18 +280,15 @@ const styles = StyleSheet.create({
         paddingLeft: 4,
     },
     groupTitle: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#64748b',
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontSize: 12,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
     card: {
-        backgroundColor: '#fff',
         borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: '#e2e8f0',
     },
     item: {
         flexDirection: 'row',
@@ -251,14 +304,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     itemLabel: {
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         flex: 1,
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1e293b',
+        fontSize: 15,
     },
     divider: {
         height: 1,
-        backgroundColor: '#f1f5f9',
         marginLeft: 72,
     },
 });

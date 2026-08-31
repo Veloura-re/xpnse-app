@@ -18,13 +18,30 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, TrendingUp, TrendingDown, Calendar, CreditCard, Tag, AlignLeft, Send } from 'lucide-react-native';
+import {
+  X,
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  CreditCard,
+  Tag,
+  AlignLeft,
+  Send,
+  Globe,
+  ChevronDown,
+  Paperclip,
+  Camera,
+  Trash2,
+} from 'lucide-react-native';
 import { getCurrencySymbol } from '@/utils/currency-utils';
 import { Book, BookEntry } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
 import { pickImage, takePhoto, uploadImage, deleteImage, generateImagePath } from '@/utils/imageUpload';
 import { getFontFamily } from '@/config/font-config';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { useTheme } from '@/providers/theme-provider';
+import { CurrencyPickerModal } from '@/components/currency/currency-picker-modal';
+import { CurrencyService } from '@/services/currency-service';
 
 const ENABLE_ATTACHMENTS = false;
 
@@ -39,7 +56,9 @@ interface EntryEditModalProps {
 
 export function EntryEditModal({ visible, entry, book, onClose, onSave, initialType }: EntryEditModalProps) {
   const { currentBusiness } = useBusiness();
-  const { colors, theme, isDark } = useTheme();
+  const { colors, isDark, deviceFont } = useTheme();
+  const baseCurrency = currentBusiness?.currency || 'USD';
+
   const [type, setType] = useState<'cash_in' | 'cash_out'>('cash_in');
   const [amount, setAmount] = useState('');
   const [displayAmount, setDisplayAmount] = useState('');
@@ -51,13 +70,20 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   const [customPaymentMode, setCustomPaymentMode] = useState('');
   const [category, setCategory] = useState('');
 
+  // Multi-Currency states
+  const [selectedCurrency, setSelectedCurrency] = useState(baseCurrency);
+  const [exchangeRate, setExchangeRate] = useState(1.0);
+  const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
+
   const [attachments, setAttachments] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
-  // Format a raw numeric string with thousand commas
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   const formatWithCommas = (raw: string) => {
-    // Remove all non-digit and non-dot characters
     const cleaned = raw.replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -65,14 +91,10 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   };
 
   const handleAmountChange = (text: string) => {
-    // Strip commas to get raw value
     const raw = text.replace(/,/g, '');
     setAmount(raw);
     setDisplayAmount(formatWithCommas(raw));
   };
-  const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const isTablet = width > 600;
 
   const getTodayLocal = () => {
     const now = new Date();
@@ -82,68 +104,96 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     return `${yyyy}-${mm}-${dd}`;
   };
 
+  // Determine rate: check if book has custom valuation in book.settings or fetch live
+  useEffect(() => {
+    if (selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()) {
+      setExchangeRate(1.0);
+    } else {
+      const bookValuation = book?.settings?.customCurrencyValuations?.[selectedCurrency];
+      if (bookValuation && bookValuation > 0) {
+        setExchangeRate(bookValuation);
+      } else {
+        CurrencyService.getExchangeRate(selectedCurrency, baseCurrency).then((rate) => {
+          setExchangeRate(rate);
+        });
+      }
+    }
+  }, [selectedCurrency, baseCurrency, book?.settings?.customCurrencyValuations]);
+
   useEffect(() => {
     if (entry) {
       setType(entry.type);
-      const rawAmt = entry.amount.toString();
-      setAmount(rawAmt);
-      setDisplayAmount(formatWithCommas(rawAmt));
+      const curr = entry.originalCurrency || baseCurrency;
+      setSelectedCurrency(curr);
+      const origAmt = entry.originalAmount !== undefined ? entry.originalAmount.toString() : entry.amount.toString();
+      setAmount(origAmt);
+      setDisplayAmount(formatWithCommas(origAmt));
+      setExchangeRate(entry.exchangeRate || 1.0);
       setDate(entry.date);
       setDescription(entry.description);
       setDescriptionError(false);
       setPaymentMode(entry.paymentMode || '');
       setCategory(entry.category || '');
-      // setPartyId(entry.partyId); // Removed
       setAttachments(entry.attachments || (entry.attachmentUrl ? [entry.attachmentUrl] : []));
       setAutoDate(false);
     } else {
       setType(initialType || 'cash_in');
+      setSelectedCurrency(baseCurrency);
       setAmount('');
       setDisplayAmount('');
+      setDate(getTodayLocal());
       setDescription('');
       setDescriptionError(false);
       setPaymentMode('');
+      setCustomPaymentMode('');
       setCategory('');
-      // setPartyId(undefined); // Removed
       setAttachments([]);
       setAutoDate(true);
-      setDate(getTodayLocal());
     }
-  }, [entry, visible, initialType]);
+  }, [entry, visible, initialType, baseCurrency]);
 
+  const rawNumericAmount = parseFloat(amount) || 0;
+  const convertedBaseAmount = useMemo(() => {
+    if (selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()) {
+      return rawNumericAmount;
+    }
+    return Math.round(rawNumericAmount * exchangeRate * 100) / 100;
+  }, [rawNumericAmount, exchangeRate, selectedCurrency, baseCurrency]);
 
+  const paymentOptions = ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Custom'];
 
-  const paymentOptions = useMemo(() => [
-    'Cash', 'Bank Transfer', 'Card', 'UPI', 'Cheque', 'Other', 'Custom'
-  ], []);
-
-  const handleAddAttachment = () => {
-    Alert.alert('Add Attachment', 'Choose an option', [
-      { text: 'Camera', onPress: async () => { const uri = await takePhoto(); if (uri) handleUpload(uri); } },
-      { text: 'Photo Library', onPress: async () => { const uri = await pickImage(); if (uri) handleUpload(uri); } },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  const handleUpload = async (uri: string) => {
-    setUploading(true);
+  const handlePickImage = async () => {
     try {
-      const entryId = entry?.id || Date.now().toString();
-      const path = generateImagePath(book.businessId, entryId, attachments.length);
+      setUploading(true);
+      const uri = await pickImage();
+      if (!uri) return;
+      const path = generateImagePath(currentBusiness?.id || 'temp', book.id, attachments.length);
       const downloadUrl = await uploadImage(uri, path);
-      if (downloadUrl) setAttachments(prev => [...prev, downloadUrl]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to upload image');
+      if (downloadUrl) {
+        setAttachments(prev => [...prev, downloadUrl]);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to pick image');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleRemoveAttachment = async (url: string) => {
-    Alert.alert('Remove Attachment', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => { setAttachments(prev => prev.filter(a => a !== url)); deleteImage(url).catch(console.error); } },
-    ]);
+  const handleTakePhoto = async () => {
+    try {
+      setUploading(true);
+      const uri = await takePhoto();
+      if (!uri) return;
+      const path = generateImagePath(currentBusiness?.id || 'temp', book.id, attachments.length);
+      const downloadUrl = await uploadImage(uri, path);
+      if (downloadUrl) {
+        setAttachments(prev => [...prev, downloadUrl]);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to take photo');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -154,18 +204,23 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     setDescriptionError(false);
 
     const resolvedPaymentMode = paymentMode === 'Custom' ? customPaymentMode.trim() : paymentMode.trim();
+    const isCustomValuation = Boolean(book?.settings?.customCurrencyValuations?.[selectedCurrency]);
+
     const entryData: BookEntry = {
       id: entry?.id || Date.now().toString(),
       bookId: book.id,
       businessId: book.businessId,
       userId: entry?.userId || 'unknown',
       type,
-      amount: parseFloat(amount || '0') || 0,
+      amount: convertedBaseAmount,
+      originalCurrency: selectedCurrency,
+      originalAmount: rawNumericAmount,
+      exchangeRate,
+      isCustomRate: isCustomValuation,
       date,
       description: description.trim(),
       paymentMode: resolvedPaymentMode,
       category: category.trim(),
-      partyId: undefined, // Removed
       attachments,
       createdAt: entry?.createdAt || new Date().toISOString(),
     };
@@ -184,127 +239,290 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={[
-                styles.modalContent,
-                {
-                  backgroundColor: colors.surface,
-
-                  borderRadius: 20,
-                  borderColor: colors.border,
-                  borderWidth: 1,
-                  maxHeight: '70%',
-                  width: width > 500 ? 380 : '85%',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 20 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 30,
-                  elevation: 20,
-                }
-              ]}>
-                <View style={[styles.modalHeader, { borderBottomColor: colors.border, paddingVertical: 10, paddingHorizontal: 16 }]}>
+        <View style={styles.modalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={onClose} />
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View
+                style={[
+                  styles.modalContent,
+                  {
+                    backgroundColor: isDark ? '#141416' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)',
+                    width: width > 500 ? 440 : '90%',
+                    maxHeight: '85%',
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.topSheen,
+                    {
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                    },
+                  ]}
+                />
+                {/* Header */}
+                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                   <View style={styles.headerLeft}>
-                    <View style={[styles.headerIcon, { backgroundColor: type === 'cash_in' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', width: 32, height: 32, borderRadius: 10 }]}>
+                    <View
+                      style={[
+                        styles.headerIcon,
+                        {
+                          backgroundColor:
+                            type === 'cash_in'
+                              ? 'rgba(16, 185, 129, 0.12)'
+                              : 'rgba(239, 68, 68, 0.12)',
+                        },
+                      ]}
+                    >
                       {type === 'cash_in' ? (
-                        <TrendingUp size={18} color="#10b981" />
+                        <TrendingUp size={18} color="#10B981" />
                       ) : (
-                        <TrendingDown size={18} color="#ef4444" />
+                        <TrendingDown size={18} color="#EF4444" />
                       )}
                     </View>
                     <View>
-                      <Text style={[styles.modalTitle, { fontSize: 16, fontFamily: getFontFamily(currentBusiness?.selectedFont), color: colors.text }]}>{isEditing ? 'Edit Transaction' : 'New Transaction'}</Text>
+                      <Text
+                        style={[
+                          styles.modalTitle,
+                          { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' },
+                        ]}
+                      >
+                        {entry ? 'Edit Entry' : type === 'cash_in' ? 'Record Cash In' : 'Record Cash Out'}
+                      </Text>
+                      <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                        {book?.name}
+                      </Text>
                     </View>
                   </View>
-                  <TouchableOpacity style={[styles.closeButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', width: 28, height: 28, borderRadius: 8 }]} onPress={onClose}>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.closeButton,
+                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9' },
+                    ]}
+                    onPress={onClose}
+                  >
                     <X size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView style={styles.form} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                  <View style={{ marginBottom: 16, paddingHorizontal: 4 }}>
-                    <View style={[styles.pillSelector, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', padding: 4, borderRadius: 12, flexDirection: 'row', flex: 1 }]}>
+                {/* Form Scroll */}
+                <ScrollView
+                  style={styles.form}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {/* In / Out Switcher */}
+                  <View style={styles.tabContainer}>
+                    <View
+                      style={[
+                        styles.tabWrapper,
+                        {
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9',
+                        },
+                      ]}
+                    >
                       <TouchableOpacity
-                        style={[styles.pillOption, type === 'cash_in' && { backgroundColor: '#10b981', borderRadius: 8 }, { flex: 1, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }]}
-                        onPress={() => { setType('cash_in'); }}
+                        style={[
+                          styles.tabBtn,
+                          type === 'cash_in' && { backgroundColor: '#10B981' },
+                        ]}
+                        onPress={() => setType('cash_in')}
                       >
-                        <TrendingUp size={14} color={type === 'cash_in' ? '#fff' : colors.textSecondary} />
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: type === 'cash_in' ? '#fff' : colors.textSecondary }}>MONEY IN</Text>
+                        <TrendingUp
+                          size={14}
+                          color={type === 'cash_in' ? '#FFFFFF' : colors.textSecondary}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text
+                          style={[
+                            styles.tabBtnText,
+                            {
+                              color: type === 'cash_in' ? '#FFFFFF' : colors.textSecondary,
+                              fontFamily: getFontFamily(deviceFont, type === 'cash_in' ? 'bold' : 'medium'),
+                            },
+                          ]}
+                        >
+                          CASH IN
+                        </Text>
                       </TouchableOpacity>
+
                       <TouchableOpacity
-                        style={[styles.pillOption, type === 'cash_out' && { backgroundColor: '#ef4444', borderRadius: 8 }, { flex: 1, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }]}
-                        onPress={() => { setType('cash_out'); }}
+                        style={[
+                          styles.tabBtn,
+                          type === 'cash_out' && { backgroundColor: '#EF4444' },
+                        ]}
+                        onPress={() => setType('cash_out')}
                       >
-                        <TrendingDown size={14} color={type === 'cash_out' ? '#fff' : colors.textSecondary} />
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: type === 'cash_out' ? '#fff' : colors.textSecondary }}>MONEY OUT</Text>
+                        <TrendingDown
+                          size={14}
+                          color={type === 'cash_out' ? '#FFFFFF' : colors.textSecondary}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text
+                          style={[
+                            styles.tabBtnText,
+                            {
+                              color: type === 'cash_out' ? '#FFFFFF' : colors.textSecondary,
+                              fontFamily: getFontFamily(deviceFont, type === 'cash_out' ? 'bold' : 'medium'),
+                            },
+                          ]}
+                        >
+                          CASH OUT
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
 
-                  {/* Amount Section */}
-                  <View style={[styles.amountContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(241, 245, 249, 0.3)', marginBottom: 20, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={[styles.currencyPrefix, { color: type === 'cash_in' ? '#10b981' : '#ef4444', fontSize: 24, fontWeight: '600' }]}>
-                        {getCurrencySymbol(currentBusiness?.currency)}
+                  {/* Clean Amount Box */}
+                  <View
+                    style={[
+                      styles.amountCard,
+                      {
+                        backgroundColor: focusedInput === 'amount'
+                          ? isDark ? 'rgba(16, 185, 129, 0.06)' : '#F0FDF4'
+                          : isDark ? '#1E1E22' : '#F8FAFC',
+                        borderColor: focusedInput === 'amount'
+                          ? type === 'cash_in' ? '#10B981' : '#EF4444'
+                          : isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0',
+                      },
+                    ]}
+                  >
+                    <View style={styles.amountInputRow}>
+                      {/* Currency Selector Pill */}
+                      <TouchableOpacity
+                        style={[
+                          styles.currencyPill,
+                          {
+                            backgroundColor: isDark ? '#2A2A30' : '#E2E8F0',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#CBD5E1',
+                          },
+                        ]}
+                        onPress={() => setCurrencyPickerVisible(true)}
+                      >
+                        <Globe size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                        <Text
+                          style={[
+                            styles.currencyPillText,
+                            { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') },
+                          ]}
+                        >
+                          {selectedCurrency}
+                        </Text>
+                        <ChevronDown size={12} color={colors.textSecondary} style={{ marginLeft: 2 }} />
+                      </TouchableOpacity>
+
+                      <Text
+                        style={[
+                          styles.currencyPrefixText,
+                          { color: type === 'cash_in' ? '#10B981' : '#EF4444' },
+                        ]}
+                      >
+                        {getCurrencySymbol(selectedCurrency)}
                       </Text>
+
                       <TextInput
-                        style={[styles.amountInput, { color: type === 'cash_in' ? '#10b981' : '#ef4444', fontSize: 32, fontWeight: '800', minWidth: 100 }]}
+                        style={[
+                          styles.amountInputField,
+                          { color: type === 'cash_in' ? '#10B981' : '#EF4444' },
+                        ]}
                         value={displayAmount}
                         onChangeText={handleAmountChange}
+                        onFocus={() => setFocusedInput('amount')}
+                        onBlur={() => setFocusedInput(null)}
                         placeholder="0.00"
-                        placeholderTextColor={isDark ? 'rgba(255,255,255,0.1)' : "#e2e8f0"}
+                        placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.25)' : '#94A3B8'}
                         keyboardType="numeric"
                         autoFocus={!isEditing}
                       />
                     </View>
+
+                    {/* Converted Equivalent (If foreign currency) */}
+                    {selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() && (
+                      <View style={styles.convertedRow}>
+                        <Text style={[styles.convertedText, { color: colors.textSecondary }]}>
+                          ≈ {convertedBaseAmount.toFixed(2)} {baseCurrency} (@ {exchangeRate.toFixed(3)})
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
-                  {/* Description */}
+                  {/* Description Input */}
                   <View style={styles.inputGroup}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginLeft: 4 }}>
-                      <Text style={[styles.inputLabel, { color: descriptionError ? '#ef4444' : colors.text, marginBottom: 0 }]}>Description</Text>
+                    <View style={styles.labelRow}>
+                      <Text style={[styles.inputLabel, { color: descriptionError ? '#EF4444' : colors.text }]}>
+                        Description
+                      </Text>
                       {descriptionError && (
-                        <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: '600' }}>Required ✕</Text>
+                        <Text style={styles.errorTag}>Required ✕</Text>
                       )}
                     </View>
-                    <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: descriptionError ? '#ef4444' : colors.border, borderWidth: descriptionError ? 2 : 1 }]}>
-                      <AlignLeft size={20} color={descriptionError ? '#ef4444' : colors.textSecondary} style={styles.inputIcon} />
+                    <View
+                      style={[
+                        styles.inputBox,
+                        {
+                          backgroundColor: focusedInput === 'description'
+                            ? isDark ? 'rgba(16, 185, 129, 0.06)' : '#F0FDF4'
+                            : colors.inputBackground,
+                          borderColor: descriptionError
+                            ? '#EF4444'
+                            : focusedInput === 'description'
+                            ? colors.primary
+                            : colors.border,
+                        },
+                      ]}
+                    >
+                      <AlignLeft
+                        size={18}
+                        color={descriptionError ? '#EF4444' : focusedInput === 'description' ? colors.primary : colors.textSecondary}
+                        style={{ marginRight: 8 }}
+                      />
                       <TextInput
                         style={[styles.textInput, { color: colors.text }]}
                         value={description}
-                        onChangeText={(t) => { setDescription(t); if (t.trim()) setDescriptionError(false); }}
+                        onChangeText={(t) => {
+                          setDescription(t);
+                          if (t.trim()) setDescriptionError(false);
+                        }}
+                        onFocus={() => setFocusedInput('description')}
+                        onBlur={() => setFocusedInput(null)}
                         placeholder="What is this for?"
-                        placeholderTextColor={descriptionError ? 'rgba(239,68,68,0.4)' : colors.textSecondary}
+                        placeholderTextColor={colors.textSecondary}
                       />
                     </View>
                   </View>
 
-
-
-                  {/* Date */}
+                  {/* Date Input */}
                   <View style={styles.inputGroup}>
-                    <View style={styles.inputLabelRow}>
+                    <View style={styles.labelRow}>
                       <Text style={[styles.inputLabel, { color: colors.text }]}>Date</Text>
-                      <View style={styles.autoDateToggle}>
-                        <Text style={[styles.autoDateText, { color: colors.textSecondary }]}>Today</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 11, color: colors.textSecondary }}>Today</Text>
                         <Switch
                           value={autoDate}
-                          onValueChange={(v) => { setAutoDate(v); if (v) setDate(getTodayLocal()); }}
-                          trackColor={{ false: colors.border, true: '#34d399' }}
-                          thumbColor={autoDate ? colors.primary : colors.card}
-                          ios_backgroundColor={colors.border}
+                          onValueChange={(v) => {
+                            setAutoDate(v);
+                            if (v) setDate(getTodayLocal());
+                          }}
+                          trackColor={{ false: colors.border, true: '#10B981' }}
+                          thumbColor="#FFFFFF"
                           style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
                         />
                       </View>
                     </View>
-                    <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.border }, autoDate && styles.inputDisabled]}>
-                      <Calendar size={20} color={colors.textSecondary} style={styles.inputIcon} />
+                    <View
+                      style={[
+                        styles.inputBox,
+                        { backgroundColor: colors.inputBackground, borderColor: colors.border },
+                        autoDate && { opacity: 0.7 },
+                      ]}
+                    >
+                      <Calendar size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
                       <TextInput
-                        style={[styles.textInput, { color: colors.text }, autoDate && { color: colors.textSecondary }]}
+                        style={[styles.textInput, { color: colors.text }]}
                         value={date}
                         onChangeText={setDate}
                         placeholder="YYYY-MM-DD"
@@ -314,368 +532,345 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                     </View>
                   </View>
 
-                  {/* Category */}
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.inputLabel, { color: colors.text }]}>Category</Text>
-                    <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
-                      <Tag size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.textInput, { color: colors.text }]}
-                        value={category}
-                        onChangeText={setCategory}
-                        placeholder="e.g. Rent, Food, Salary"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Payment Mode */}
-                  <View style={[styles.inputGroup, { marginBottom: 8 }]}>
-                    <Text style={[styles.inputLabel, { color: colors.text, fontSize: 11 }]}>Payment Method</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.paymentScroll, { gap: 6 }]}>
-                      {paymentOptions.map(option => (
-                        <TouchableOpacity
-                          key={option}
-                          style={[
-                            styles.paymentChip,
-                            { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: colors.border, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
-                            paymentMode === option && { backgroundColor: type === 'cash_in' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderColor: type === 'cash_in' ? '#10b981' : '#ef4444' }
-                          ]}
-                          onPress={() => setPaymentMode(option)}
-                        >
-                          <Text style={[styles.paymentChipText, { fontSize: 11, color: colors.textSecondary }, paymentMode === option && { color: type === 'cash_in' ? '#10b981' : '#ef4444', fontWeight: '700' }]}>{option}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                    {paymentMode === 'Custom' && (
-                      <View style={[styles.inputWrapper, { backgroundColor: colors.inputBackground, borderColor: colors.border, marginTop: 8, height: 40 }]}>
-                        <CreditCard size={16} color={colors.textSecondary} style={styles.inputIcon} />
+                  {/* Category Input (If enabled) */}
+                  {(book?.settings?.showCategory ?? true) && (
+                    <View style={styles.inputGroup}>
+                      <Text style={[styles.inputLabel, { color: colors.text }]}>Category</Text>
+                      <View
+                        style={[
+                          styles.inputBox,
+                          {
+                            backgroundColor: focusedInput === 'category'
+                              ? isDark ? 'rgba(16, 185, 129, 0.06)' : '#F0FDF4'
+                              : colors.inputBackground,
+                            borderColor: focusedInput === 'category' ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <Tag size={18} color={focusedInput === 'category' ? colors.primary : colors.textSecondary} style={{ marginRight: 8 }} />
                         <TextInput
-                          style={[styles.textInput, { color: colors.text, fontSize: 13 }]}
-                          value={customPaymentMode}
-                          onChangeText={setCustomPaymentMode}
-                          placeholder="Enter custom method"
+                          style={[styles.textInput, { color: colors.text }]}
+                          value={category}
+                          onChangeText={setCategory}
+                          onFocus={() => setFocusedInput('category')}
+                          onBlur={() => setFocusedInput(null)}
+                          placeholder="e.g. Supplies, Rent, Client"
                           placeholderTextColor={colors.textSecondary}
                         />
                       </View>
-                    )}
-                  </View>
+                    </View>
+                  )}
 
-                  <View style={{ height: 20 }} />
+                  {/* Payment Mode Chips (If enabled) */}
+                  {(book?.settings?.showPaymentMode ?? true) && (
+                    <View style={styles.inputGroup}>
+                      <Text style={[styles.inputLabel, { color: colors.text }]}>Payment Method</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ gap: 6, paddingVertical: 2 }}
+                      >
+                        {paymentOptions.map((opt) => {
+                          const isSelected = paymentMode === opt;
+                          return (
+                            <TouchableOpacity
+                              key={opt}
+                              style={[
+                                styles.paymentPill,
+                                {
+                                  backgroundColor: isSelected
+                                    ? type === 'cash_in'
+                                      ? 'rgba(16, 185, 129, 0.15)'
+                                      : 'rgba(239, 68, 68, 0.15)'
+                                    : isDark
+                                    ? 'rgba(255, 255, 255, 0.05)'
+                                    : '#F8FAFC',
+                                  borderColor: isSelected
+                                    ? type === 'cash_in'
+                                      ? '#10B981'
+                                      : '#EF4444'
+                                    : colors.border,
+                                },
+                              ]}
+                              onPress={() => setPaymentMode(opt)}
+                            >
+                              <Text
+                                style={[
+                                  styles.paymentPillText,
+                                  {
+                                    color: isSelected
+                                      ? type === 'cash_in'
+                                        ? '#10B981'
+                                        : '#EF4444'
+                                      : colors.textSecondary,
+                                    fontWeight: isSelected ? '700' : '500',
+                                  },
+                                ]}
+                              >
+                                {opt}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                      {paymentMode === 'Custom' && (
+                        <View
+                          style={[
+                            styles.inputBox,
+                            {
+                              backgroundColor: colors.inputBackground,
+                              borderColor: colors.border,
+                              marginTop: 8,
+                            },
+                          ]}
+                        >
+                          <CreditCard size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                          <TextInput
+                            style={[styles.textInput, { color: colors.text }]}
+                            value={customPaymentMode}
+                            onChangeText={setCustomPaymentMode}
+                            placeholder="Enter custom method"
+                            placeholderTextColor={colors.textSecondary}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  <View style={{ height: 16 }} />
                 </ScrollView>
 
-                {/* Footer */}
-                <View style={[styles.footer, { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 16 }]}>
+                {/* Footer Action */}
+                <View style={[styles.footer, { borderTopColor: colors.border }]}>
                   <TouchableOpacity
-                    style={[styles.saveButtonWrapper, { borderRadius: 14 }]}
+                    style={[styles.submitButton, { borderRadius: 14 }]}
                     onPress={handleSave}
                     disabled={isSubmitting}
-                    activeOpacity={0.9}
                   >
                     <LinearGradient
-                      colors={type === 'cash_in' ? ['#10b981', '#059669'] : ['#ef4444', '#dc2626']}
-                      style={[styles.saveButton, { paddingVertical: 14, borderRadius: 14 }, isSubmitting && styles.buttonDisabled]}
+                      colors={type === 'cash_in' ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                      style={styles.gradientBtn}
                     >
                       {isSubmitting ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
+                        <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
                         <>
-                          <Send size={18} color="#fff" />
-                          <Text style={[styles.saveButtonText, { fontSize: 15 }]}>{isEditing ? 'Update Transaction' : 'Record Transaction'}</Text>
+                          <Send size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+                          <Text
+                            style={[
+                              styles.submitText,
+                              { fontFamily: getFontFamily(deviceFont, 'bold') },
+                            ]}
+                          >
+                            {isEditing ? 'Update Transaction' : 'Save Transaction'}
+                          </Text>
                         </>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
+
+                {/* Currency Picker Modal */}
+                <CurrencyPickerModal
+                  visible={currencyPickerVisible}
+                  onClose={() => setCurrencyPickerVisible(false)}
+                  selectedCurrency={selectedCurrency}
+                  onSelect={setSelectedCurrency}
+                />
               </View>
             </TouchableWithoutFeedback>
           </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
+        </KeyboardAvoidingView>
+      </Modal>
+    );
+  }
 
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 16,
+  },
+  topSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1,
+    borderRadius: 1,
+    zIndex: 10,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    width: '90%',
-    maxWidth: 400,
-    alignSelf: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 28,
+    elevation: 20,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    flex: 1,
   },
   headerIcon: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 1,
+    marginRight: 10,
   },
   modalTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 18,
-    color: '#0f172a',
+    fontSize: 16,
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    marginTop: 1,
   },
   closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  form: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  pillSelector: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: 14,
-  },
-  pillOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-  },
-  inputGroup: {
-    marginBottom: 14,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 6,
-    marginLeft: 4,
-  },
-  inputLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  autoDateToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  autoDateText: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(241, 245, 249, 0.5)',
-    borderRadius: 14,
-  },
-  currencyPrefix: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginRight: 4,
-  },
-  amountInput: {
-    fontSize: 38,
-    fontWeight: '800',
-    minWidth: 90,
-    textAlign: 'center',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  inputDisabled: {
-    opacity: 0.6,
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#0f172a',
-    height: '100%',
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  dropdownButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0f172a',
-  },
-  dropdownButtonPlaceholder: {
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  partyIcon: {
     width: 30,
     height: 30,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dropdownList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 16,
-    marginTop: 6,
-    zIndex: 1000,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 8,
-    maxHeight: 220,
+  form: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
-  dropdownItem: {
+  tabContainer: {
+    marginBottom: 14,
+  },
+  tabWrapper: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 14,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  tabBtnText: {
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  amountCard: {
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  currencyPillText: {
+    fontSize: 12,
+  },
+  currencyPrefixText: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginRight: 4,
+  },
+  amountInputField: {
+    fontSize: 32,
+    fontWeight: '800',
+    minWidth: 100,
+    paddingVertical: 0,
+  },
+  convertedRow: {
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  convertedText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  inputGroup: {
+    marginBottom: 14,
+  },
+  labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
+    marginBottom: 6,
+    paddingHorizontal: 2,
   },
-  dropdownItemSelected: {
-    backgroundColor: '#f8fafc',
-  },
-  dropdownItemText: {
-    fontSize: 15,
-    color: '#0f172a',
-  },
-  dropdownItemTextSelected: {
-    color: '#10b981',
-    fontWeight: '600',
-  },
-  partyIconSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10b981',
-  },
-  dropdownEmpty: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  dropdownEmptyText: {
-    color: '#94a3b8',
-    fontSize: 14,
-  },
-  paymentScroll: {
-    gap: 8,
-    paddingRight: 16,
-  },
-  paymentChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  paymentChipActive: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#10b981',
-    borderWidth: 2,
-  },
-  paymentChipText: {
+  inputLabel: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#64748b',
-  },
-  paymentChipTextActive: {
-    color: '#10b981',
     fontWeight: '600',
+  },
+  errorTag: {
+    fontSize: 11,
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  paymentPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  paymentPillText: {
+    fontSize: 12,
   },
   footer: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 4,
+    paddingVertical: 14,
+    borderTopWidth: 1,
   },
-  saveButtonWrapper: {
-    borderRadius: 12,
+  submitButton: {
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
   },
-  saveButton: {
+  gradientBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 10,
+    paddingVertical: 13,
+    borderRadius: 14,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  submitText: {
+    color: '#FFFFFF',
+    fontSize: 14,
   },
 });

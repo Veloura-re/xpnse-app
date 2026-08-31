@@ -3,7 +3,7 @@ import { Stack, useSegments, useRouter, useGlobalSearchParams } from "expo-route
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useCallback } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Text, TextInput, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/providers/auth-provider";
@@ -14,22 +14,38 @@ import { ThemeProvider, useTheme } from "@/providers/theme-provider";
 import { NotificationProvider, useNotifications } from "@/providers/notification-provider";
 import { DynamicIslandNotification } from "@/components/dynamic-island-notification";
 import { LoadingScreen } from "@/components/ui/loading-screen";
-import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
-import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
-import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
-import { Righteous_400Regular } from '@expo-google-fonts/righteous';
-import { Monoton_400Regular } from '@expo-google-fonts/monoton';
-import { Montserrat_400Regular } from '@expo-google-fonts/montserrat';
-import { Lato_400Regular } from '@expo-google-fonts/lato';
-import { Oswald_400Regular } from '@expo-google-fonts/oswald';
-import { Raleway_400Regular } from '@expo-google-fonts/raleway';
-import { Merriweather_400Regular } from '@expo-google-fonts/merriweather';
-import { Cinzel_400Regular } from '@expo-google-fonts/cinzel';
-import { Prata_400Regular } from '@expo-google-fonts/prata';
-import { Pacifico_400Regular } from '@expo-google-fonts/pacifico';
-import { DancingScript_400Regular } from '@expo-google-fonts/dancing-script';
-import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
-import { Inter_400Regular, Inter_700Bold } from '@expo-google-fonts/inter';
+import { useFonts } from 'expo-font';
+import { SpaceGrotesk_300Light, SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+
+// Global default font family for all Text and TextInput components
+if ((Text as any).defaultProps == null) {
+  (Text as any).defaultProps = {};
+}
+(Text as any).defaultProps.style = [{ fontFamily: 'SpaceGrotesk_400Regular' }, (Text as any).defaultProps.style];
+
+if ((TextInput as any).defaultProps == null) {
+  (TextInput as any).defaultProps = {};
+}
+(TextInput as any).defaultProps.style = [{ fontFamily: 'SpaceGrotesk_400Regular' }, (TextInput as any).defaultProps.style];
+
+// Global Web Font injection to guarantee all little texts, numbers, and inputs use Space Grotesk
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  try {
+    const existingStyle = document.getElementById('spndy-global-font-style');
+    if (!existingStyle) {
+      const style = document.createElement('style');
+      style.id = 'spndy-global-font-style';
+      style.textContent = `
+        * {
+          font-family: 'SpaceGrotesk_400Regular', 'SpaceGrotesk_500Medium', 'SpaceGrotesk_600SemiBold', 'SpaceGrotesk_700Bold', 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  } catch (e) {
+    // Ignore in SSR
+  }
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -86,14 +102,20 @@ function RootLayoutNav() {
   return (
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
-      <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack screenOptions={{ headerShown: false, headerBackTitle: "Back" }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="recurring" options={{ headerShown: false }} />
+        <Stack.Screen name="donate" options={{ headerShown: false }} />
         <Stack.Screen name="business-switcher" options={{
           presentation: "modal",
-          title: "Switch Business"
+          headerShown: false,
         }} />
         <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="account-settings" options={{ headerShown: false }} />
+        <Stack.Screen name="business-settings" options={{ headerShown: false }} />
+        <Stack.Screen name="security" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
       </Stack>
     </>
   );
@@ -134,23 +156,11 @@ function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void
 
 export default function RootLayout() {
   const [fontsLoaded, error] = useFonts({
-    AbrilFatface_400Regular,
-    PlayfairDisplay_700Bold,
-    BebasNeue_400Regular,
-    Righteous_400Regular,
-    Monoton_400Regular,
-    Montserrat_400Regular,
-    Lato_400Regular,
-    Oswald_400Regular,
-    Raleway_400Regular,
-    Merriweather_400Regular,
-    Cinzel_400Regular,
-    Prata_400Regular,
-    Pacifico_400Regular,
-    DancingScript_400Regular,
-    PermanentMarker_400Regular,
-    Inter_400Regular,
-    Inter_700Bold,
+    SpaceGrotesk_300Light,
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
   });
 
   useEffect(() => {

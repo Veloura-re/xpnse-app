@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { Stack, useRouter } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -300,11 +301,25 @@ export default function SecurityScreen() {
                 transparent
                 animationType="fade"
                 onRequestClose={() => setModalVisible(false)}
+                statusBarTranslucent={true}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+                    <GlassBackdrop isDark={isDark} onPress={() => setModalVisible(false)} />
+                    <View style={[styles.modalContent, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1, borderRadius: 28, overflow: 'hidden' }]}>
+                        {/* Top Sheen */}
+                        <View
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 24,
+                                right: 24,
+                                height: 1,
+                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                                zIndex: 10,
+                            }}
+                        />
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: modalConfig.type === 'error' ? '#ef4444' : '#10b981' }]}>
+                            <Text style={[styles.modalTitle, { color: modalConfig.type === 'error' ? '#ef4444' : '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 {modalConfig.title}
                             </Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)} style={[styles.closeButton, { backgroundColor: colors.card }]}>
@@ -497,8 +512,8 @@ const styles = StyleSheet.create({
         paddingBottom: 0,
     },
     modalTitle: {
-        fontFamily: 'AbrilFatface_400Regular',
-        fontSize: 22,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontSize: 20,
     },
     closeButton: {
         padding: 4,

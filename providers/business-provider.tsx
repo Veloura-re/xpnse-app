@@ -1,10 +1,12 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Business, Book, BookEntry, ActivityLog, UserRole, BusinessMember, User, Party } from '@/types';
+import { Business, Book, BookEntry, ActivityLog, UserRole, BusinessMember, User, Party, RecurringRule, RecurrenceFrequency } from '@/types';
+import { calculateNextDueDate, getTodayString, isRuleDue, buildEntryFromRecurringRule } from '@/utils/recurring-engine';
 import { mockBusinesses, mockBooks, mockEntries, mockActivityLogs, mockUsers } from '@/mocks/data';
 import { useAuth } from './auth-provider';
 import { useStorage } from './storage-provider';
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
+const uuidv4 = () => Crypto.randomUUID();
 import { db, firebaseInitialized } from '@/config/firebase';
 import { collection, query, where, getDocs, getDoc, limit, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment, orderBy, arrayUnion, runTransaction, QuerySnapshot, QueryDocumentSnapshot, FirestoreError, DocumentData, Transaction } from 'firebase/firestore';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
@@ -29,7 +31,7 @@ interface BusinessState {
   touchBook: (bookId: string) => Promise<void>;
 
   // Book management
-  createBook: (name: string, settings?: { showPaymentMode: boolean; showCategory: boolean; showAttachments: boolean }) => Promise<void>;
+  createBook: (name: string, settings?: any, currency?: string) => Promise<void>;
   updateBook: (bookId: string, updates: Partial<Book>) => Promise<void>;
   deleteBook: (bookId: string) => Promise<void>;
   copyBook: (bookId: string, targetBusinessId: string) => Promise<{ success: boolean; message: string }>;
@@ -59,6 +61,15 @@ interface BusinessState {
   createParty: (name: string, type: 'customer' | 'vendor', email?: string, phone?: string) => Promise<void>;
   updateParty: (partyId: string, updates: Partial<Party>) => Promise<void>;
   deleteParty: (partyId: string) => Promise<void>;
+
+  // Recurring transactions & subscriptions management
+  recurringRules: RecurringRule[];
+  createRecurringRule: (rule: Omit<RecurringRule, 'id' | 'createdAt' | 'updatedAt' | 'occurrencesCount' | 'businessId' | 'userId' | 'status'>) => Promise<void>;
+  updateRecurringRule: (ruleId: string, updates: Partial<RecurringRule>) => Promise<void>;
+  deleteRecurringRule: (ruleId: string) => Promise<void>;
+  togglePauseRecurringRule: (ruleId: string) => Promise<void>;
+  postRecurringEntryNow: (rule: RecurringRule) => Promise<void>;
+  processDueRecurringRules: () => Promise<number>;
 }
 
 export const [BusinessProvider, useBusiness] = createContextHook((): BusinessState => {
@@ -197,9 +208,25 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   const hasPermission = useCallback((requiredRole: UserRole): boolean => {
     if (!currentBusiness || !user) return false;
 
+    const currentUserId = user.id || user.uid;
+    if (!currentUserId) return false;
+
+    // Direct owner checks
+    if (currentBusiness.ownerId === currentUserId) {
+      return true;
+    }
+
     // Find the member record for this user
-    const member = currentBusiness.members?.find((m: BusinessMember) => m.userId === user.id);
-    if (!member) return false;
+    const member = currentBusiness.members?.find(
+      (m: BusinessMember) => m.userId === currentUserId || (m as any).user?.uid === currentUserId || (m as any).user?.id === currentUserId
+    );
+
+    if (!member) {
+      if (currentBusiness.memberIds?.includes(currentUserId)) {
+        return requiredRole === 'viewer' || requiredRole === 'partner';
+      }
+      return currentBusiness.ownerId === currentUserId;
+    }
 
     const roleHierarchy: Record<UserRole, number> = {
       'owner': 3,
@@ -207,7 +234,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       'viewer': 1
     };
 
-    return roleHierarchy[member.role] >= roleHierarchy[requiredRole];
+    return (roleHierarchy[member.role] || 1) >= (roleHierarchy[requiredRole] || 1);
   }, [currentBusiness, user]);
 
   // User lost access, switch to first available business or clear
@@ -505,7 +532,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
   }, [currentBusiness, db]);
 
-  const createBook = useCallback(async (name: string, settings?: { showPaymentMode: boolean; showCategory: boolean; showAttachments: boolean }) => {
+  const createBook = useCallback(async (name: string, settings?: any, currency?: string) => {
     if (!user || !currentBusiness || !db) return;
 
     if (!hasPermission('partner')) {
@@ -513,10 +540,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       return;
     }
 
+    const selectedCurrency = currency || settings?.currency || currentBusiness.currency || 'USD';
+
     const newBook: Book = {
       id: uuidv4(),
       businessId: currentBusiness.id,
       name,
+      currency: selectedCurrency,
       createdAt: new Date().toISOString(),
       createdBy: user.id!,
       totalCashIn: 0,
@@ -526,6 +556,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         showPaymentMode: true,
         showCategory: true,
         showAttachments: true,
+        currency: selectedCurrency,
       },
     };
 
@@ -644,22 +675,30 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       const bookName = bookSnap.exists() ? (bookSnap.data() as Book).name : (books.find((b: Book) => b.id === bookId)?.name || '');
 
 
-      const batch = writeBatch(db);
+      // Optimistically update books state immediately
+      setBooks((prev) => prev.filter((b: Book) => b.id !== bookId));
 
-      // Delete all entries in this book
+      // Delete all entries in this book in safe chunks (up to 450 per batch)
       const entriesQuery = query(
         collection(db, 'businesses', currentBusiness.id, 'entries'),
         where('bookId', '==', bookId)
       );
       const entriesSnapshot = await getDocs(entriesQuery);
-      entriesSnapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+      const docsToDelete = [...entriesSnapshot.docs];
 
-      // Delete the book
-      batch.delete(bookRef);
+      while (docsToDelete.length > 0) {
+        const chunk = docsToDelete.splice(0, 450);
+        const batch = writeBatch(db);
+        chunk.forEach((d) => batch.delete(d.ref));
+        if (docsToDelete.length === 0) {
+          batch.delete(bookRef);
+        }
+        await batch.commit();
+      }
 
-      await batch.commit();
+      if (entriesSnapshot.docs.length === 0) {
+        await deleteDoc(bookRef);
+      }
 
       // Bug fix: Re-read live memberIds from Firestore; always notify regardless of bookName
       const deleteBookBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
@@ -1749,6 +1788,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   }, []);
 
   const [parties, setParties] = useState<Party[]>([]);
+  const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
 
   // Listen for Parties when a business is selected
   useEffect(() => {
@@ -1767,6 +1807,27 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     });
 
     return () => unsubscribeParties();
+  }, [currentBusiness?.id]);
+
+  // Listen for Recurring Rules when a business is selected
+  useEffect(() => {
+    if (!currentBusiness || !db) {
+      setRecurringRules([]);
+      return;
+    }
+
+    const recurringQuery = query(collection(db, 'businesses', currentBusiness.id, 'recurringRules'));
+    const unsubscribeRecurring = onSnapshot(recurringQuery, (snapshot: QuerySnapshot<DocumentData>) => {
+      const rulesList: RecurringRule[] = [];
+      snapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+        rulesList.push({ id: doc.id, ...doc.data() } as RecurringRule);
+      });
+      setRecurringRules(rulesList);
+    }, (error: FirestoreError) => {
+      console.warn("Error fetching recurring rules:", error);
+    });
+
+    return () => unsubscribeRecurring();
   }, [currentBusiness?.id]);
 
   // Listen for Books
@@ -1874,6 +1935,137 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       throw error;
     }
   }, [user, currentBusiness, db]);
+
+  // Recurring Rules CRUD & Engine
+  const createRecurringRule = useCallback(async (
+    ruleData: Omit<RecurringRule, 'id' | 'createdAt' | 'updatedAt' | 'occurrencesCount' | 'businessId' | 'userId' | 'status'>
+  ) => {
+    if (!user || !currentBusiness || !db) {
+      console.warn('createRecurringRule: missing user, business or db instance');
+      throw new Error('Database connection or user session not ready.');
+    }
+
+    if (!hasPermission('partner')) {
+      console.warn('Only owners and partners can create recurring rules');
+      throw new Error('Only business owners and partners can create recurring schedules.');
+    }
+
+    const currentUserId = user.id || user.uid;
+    if (!currentUserId) {
+      throw new Error('User session not active.');
+    }
+
+    const newRuleId = uuidv4();
+    const newRule: RecurringRule = {
+      ...ruleData,
+      id: newRuleId,
+      businessId: currentBusiness.id,
+      userId: currentUserId,
+      status: 'active',
+      occurrencesCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      const filteredRule = Object.fromEntries(
+        Object.entries(newRule).filter(([_, value]) => value !== undefined)
+      );
+      await setDoc(doc(db, 'businesses', currentBusiness.id, 'recurringRules', newRuleId), filteredRule);
+      setRecurringRules((prev) => [newRule, ...prev.filter((r) => r.id !== newRuleId)]);
+    } catch (error) {
+      console.error('Error creating recurring rule:', error);
+      throw error;
+    }
+  }, [user, currentBusiness, hasPermission, db]);
+
+  const updateRecurringRule = useCallback(async (ruleId: string, updates: Partial<RecurringRule>) => {
+    if (!user || !currentBusiness || !db) return;
+
+    if (!hasPermission('partner')) {
+      console.warn('Only owners and partners can update recurring rules');
+      throw new Error('Only business owners and partners can update recurring schedules.');
+    }
+
+    try {
+      const safeUpdates = Object.fromEntries(
+        Object.entries({ ...updates, updatedAt: new Date().toISOString() }).filter(([_, value]) => value !== undefined)
+      );
+      await updateDoc(doc(db, 'businesses', currentBusiness.id, 'recurringRules', ruleId), safeUpdates);
+      setRecurringRules((prev) => prev.map((r) => (r.id === ruleId ? { ...r, ...safeUpdates } : r)));
+    } catch (error) {
+      console.error('Error updating recurring rule:', error);
+      throw error;
+    }
+  }, [user, currentBusiness, hasPermission, db]);
+
+  const deleteRecurringRule = useCallback(async (ruleId: string) => {
+    if (!user || !currentBusiness || !db) return;
+
+    if (!hasPermission('partner')) {
+      console.warn('Only owners and partners can delete recurring rules');
+      throw new Error('Only business owners and partners can delete recurring schedules.');
+    }
+
+    try {
+      await deleteDoc(doc(db, 'businesses', currentBusiness.id, 'recurringRules', ruleId));
+      setRecurringRules((prev) => prev.filter((r) => r.id !== ruleId));
+    } catch (error) {
+      console.error('Error deleting recurring rule:', error);
+      throw error;
+    }
+  }, [user, currentBusiness, hasPermission, db]);
+
+  const togglePauseRecurringRule = useCallback(async (ruleId: string) => {
+    if (!user || !currentBusiness || !db) return;
+
+    const existing = recurringRules.find((r) => r.id === ruleId);
+    if (!existing) return;
+
+    const nextStatus = existing.status === 'active' ? 'paused' : 'active';
+    await updateRecurringRule(ruleId, { status: nextStatus });
+  }, [user, currentBusiness, recurringRules, updateRecurringRule, db]);
+
+  const postRecurringEntryNow = useCallback(async (rule: RecurringRule) => {
+    if (!user || !currentBusiness || !db) return;
+
+    const todayStr = getTodayString();
+    const entryPayload = buildEntryFromRecurringRule(rule, todayStr);
+
+    // Add entry into target book
+    await addEntry(entryPayload);
+
+    // Compute next due date and increment occurrences
+    const nextDue = calculateNextDueDate(rule.nextDueDate, rule.frequency, rule.interval || 1);
+    await updateRecurringRule(rule.id, {
+      lastRunDate: todayStr,
+      occurrencesCount: (rule.occurrencesCount || 0) + 1,
+      nextDueDate: nextDue,
+    });
+  }, [user, currentBusiness, addEntry, updateRecurringRule, db]);
+
+  const processDueRecurringRules = useCallback(async (): Promise<number> => {
+    if (!user || !currentBusiness || !db) return 0;
+    if (!hasPermission('partner')) return 0;
+
+    const todayStr = getTodayString();
+    let processedCount = 0;
+
+    const dueAutoRules = recurringRules.filter(
+      (r) => r.status === 'active' && r.autoPost && isRuleDue(r.nextDueDate, todayStr)
+    );
+
+    for (const rule of dueAutoRules) {
+      try {
+        await postRecurringEntryNow(rule);
+        processedCount++;
+      } catch (err) {
+        console.error(`Error auto-processing recurring rule ${rule.id}:`, err);
+      }
+    }
+
+    return processedCount;
+  }, [user, currentBusiness, hasPermission, recurringRules, postRecurringEntryNow, db]);
 
   const copyBook = useCallback(async (bookId: string, targetBusinessId: string): Promise<{ success: boolean; message: string }> => {
     if (!user || !currentBusiness || !db) {
@@ -2108,6 +2300,15 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     createParty,
     updateParty,
     deleteParty,
+
+    // Recurring rules management
+    recurringRules,
+    createRecurringRule,
+    updateRecurringRule,
+    deleteRecurringRule,
+    togglePauseRecurringRule,
+    postRecurringEntryNow,
+    processDueRecurringRules,
 
     // Permissions
     getUserRole,

@@ -9,23 +9,26 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
   Alert,
-  Modal,
+  StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
-import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Lock, Eye, EyeOff, User, ArrowRight, Check, X } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, User, ArrowRight, Check, AlertCircle, Sparkles, ShieldCheck } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackgroundDecor } from '@/components/ui/background-decor';
+import * as Haptics from 'expo-haptics';
 
-
+const { width } = Dimensions.get('window');
 
 export default function RegisterScreen() {
   const { register } = useAuth();
-  const { deviceFont, setDeviceFont, colors, isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,18 +37,23 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Fonts loaded in RootLayout
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleRegister = async () => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (e) {}
+    }
+
     setError(null);
     if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      setError('Please fill in all fields.');
+      setError('Please fill in all required fields.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError('Passwords do not match. Please re-enter.');
       return;
     }
 
@@ -56,157 +64,374 @@ export default function RegisterScreen() {
 
     try {
       setIsSubmitting(true);
-      const result = await register(email, password, { displayName: name });
+      const result = await register(email.trim(), password, { displayName: name.trim() });
       if (result.success) {
+        if (Platform.OS !== 'web') {
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch (e) {}
+        }
         Alert.alert(
           'Account Created',
-          'Please check your email to verify your account.',
-          [{ text: 'OK', onPress: () => router.replace('/(auth)/verify-email') }]
+          'Welcome to spndy! Please check your email to verify your account.',
+          [{ text: 'Continue', onPress: () => router.replace('/(auth)/verify-email') }]
         );
       } else {
-        setError(result.error || 'Please try again.');
+        setError(result.error || 'Registration failed. Please try again.');
       }
-    } catch (error: any) {
-      setError(error.message || 'An unexpected error occurred.');
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected registration error occurred.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
+  const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#0D0D0E' : '#F8F9FA' }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <BackgroundDecor />
 
-
-      {/* Decorative Circles */}
-      <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-      <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
-      <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-      <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
+      {/* Ambient background glow orbs */}
+      <View
+        style={[
+          styles.glowOrbTop,
+          { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)' },
+        ]}
+      />
+      <View
+        style={[
+          styles.glowOrbBottom,
+          { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.05)' },
+        ]}
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: Math.max(insets.top + 16, 40), paddingBottom: Math.max(insets.bottom + 24, 40) },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Top Brand Header */}
           <View style={styles.headerContainer}>
-            <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
-            <Text style={[styles.welcomeText, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Create Account</Text>
-            <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>Join us to start tracking your wealth.</Text>
-          </View>
-
-          <View style={styles.formContainer}>
-            {/* Name Input */}
-            <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.iconContainer}>
-                <User size={20} color={colors.primary} />
-              </View>
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Full Name"
-                placeholderTextColor={colors.textSecondary}
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
+            <View
+              style={[
+                styles.brandBadge,
+                {
+                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+                  borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)',
+                },
+              ]}
+            >
+              <Sparkles size={13} color="#10B981" />
+              <Text style={[styles.brandBadgeText, { color: '#10B981' }]}>Start Your Ledger Today</Text>
             </View>
 
-            {/* Email Input */}
-            <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.iconContainer}>
-                <Mail size={20} color={colors.primary} />
+            <Text style={[styles.appName, { color: colors.text }]}>spndy</Text>
+            <Text style={[styles.welcomeText, { color: colors.text }]}>Create Account</Text>
+            <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
+              Organize multi-business finances with real-time sync
+            </Text>
+          </View>
+
+          {/* Form Card Container */}
+          <View
+            style={[
+              styles.cardContainer,
+              {
+                backgroundColor: isDark ? '#141416' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                shadowColor: '#000',
+                shadowOpacity: isDark ? 0.35 : 0.08,
+              },
+            ]}
+          >
+            {/* Top Light Sheen */}
+            <View
+              style={[
+                styles.topSheen,
+                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.8)' },
+              ]}
+            />
+
+            {/* Error Banner */}
+            {error && (
+              <View style={[styles.errorBanner, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEE2E2', borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}>
+                <AlertCircle size={16} color="#EF4444" style={{ marginRight: 8, marginTop: 1 }} />
+                <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : '#B91C1C' }]}>{error}</Text>
               </View>
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Email Address"
-                placeholderTextColor={colors.textSecondary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+            )}
+
+            {/* Full Name Input */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Full Name</Text>
+              <View
+                style={[
+                  styles.inputBox,
+                  {
+                    backgroundColor: isDark
+                      ? focusedField === 'name'
+                        ? 'rgba(16, 185, 129, 0.06)'
+                        : '#1B1B1E'
+                      : focusedField === 'name'
+                      ? '#F0FDF4'
+                      : '#F4F5F7',
+                    borderColor: focusedField === 'name'
+                      ? '#10B981'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                  },
+                ]}
+              >
+                <View style={styles.inputIconContainer}>
+                  <User size={18} color={focusedField === 'name' ? '#10B981' : colors.textSecondary} />
+                </View>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Alex Morgan"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  value={name}
+                  onChangeText={(val) => {
+                    setName(val);
+                    if (error) setError(null);
+                  }}
+                  onFocus={() => setFocusedField('name')}
+                  onBlur={() => setFocusedField(null)}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+
+            {/* Email Address Input */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email Address</Text>
+              <View
+                style={[
+                  styles.inputBox,
+                  {
+                    backgroundColor: isDark
+                      ? focusedField === 'email'
+                        ? 'rgba(16, 185, 129, 0.06)'
+                        : '#1B1B1E'
+                      : focusedField === 'email'
+                      ? '#F0FDF4'
+                      : '#F4F5F7',
+                    borderColor: focusedField === 'email'
+                      ? '#10B981'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                  },
+                ]}
+              >
+                <View style={styles.inputIconContainer}>
+                  <Mail size={18} color={focusedField === 'email' ? '#10B981' : colors.textSecondary} />
+                </View>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="name@company.com"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  value={email}
+                  onChangeText={(val) => {
+                    setEmail(val);
+                    if (error) setError(null);
+                  }}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
             </View>
 
             {/* Password Input */}
-            <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.iconContainer}>
-                <Lock size={20} color={colors.primary} />
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Password</Text>
+              <View
+                style={[
+                  styles.inputBox,
+                  {
+                    backgroundColor: isDark
+                      ? focusedField === 'password'
+                        ? 'rgba(16, 185, 129, 0.06)'
+                        : '#1B1B1E'
+                      : focusedField === 'password'
+                      ? '#F0FDF4'
+                      : '#F4F5F7',
+                    borderColor: focusedField === 'password'
+                      ? '#10B981'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                  },
+                ]}
+              >
+                <View style={styles.inputIconContainer}>
+                  <Lock size={18} color={focusedField === 'password' ? '#10B981' : colors.textSecondary} />
+                </View>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  value={password}
+                  onChangeText={(val) => {
+                    setPassword(val);
+                    if (error) setError(null);
+                  }}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    if (Platform.OS !== 'web') {
+                      try {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      } catch (e) {}
+                    }
+                    setShowPassword((prev) => !prev);
+                  }}
+                  style={styles.eyeBtn}
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} color={colors.textSecondary} />
+                  ) : (
+                    <Eye size={18} color={colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
               </View>
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Password"
-                placeholderTextColor={colors.textSecondary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                {showPassword ? <EyeOff size={20} color={colors.textSecondary} /> : <Eye size={20} color={colors.textSecondary} />}
-              </TouchableOpacity>
             </View>
 
             {/* Confirm Password Input */}
-            <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.iconContainer}>
-                <Check size={20} color={colors.primary} />
+            <View style={styles.fieldGroup}>
+              <View style={styles.passwordLabelRow}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Confirm Password</Text>
+                {passwordsMatch && (
+                  <View style={styles.matchBadge}>
+                    <Check size={12} color="#10B981" />
+                    <Text style={styles.matchBadgeText}>Match</Text>
+                  </View>
+                )}
               </View>
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Confirm Password"
-                placeholderTextColor={colors.textSecondary}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
-                {showConfirmPassword ? <EyeOff size={20} color={colors.textSecondary} /> : <Eye size={20} color={colors.textSecondary} />}
-              </TouchableOpacity>
+              <View
+                style={[
+                  styles.inputBox,
+                  {
+                    backgroundColor: isDark
+                      ? focusedField === 'confirmPassword'
+                        ? 'rgba(16, 185, 129, 0.06)'
+                        : '#1B1B1E'
+                      : focusedField === 'confirmPassword'
+                      ? '#F0FDF4'
+                      : '#F4F5F7',
+                    borderColor: focusedField === 'confirmPassword'
+                      ? '#10B981'
+                      : passwordsMatch
+                      ? '#10B981'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                  },
+                ]}
+              >
+                <View style={styles.inputIconContainer}>
+                  <Lock size={18} color={focusedField === 'confirmPassword' ? '#10B981' : colors.textSecondary} />
+                </View>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Re-enter your password"
+                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  value={confirmPassword}
+                  onChangeText={(val) => {
+                    setConfirmPassword(val);
+                    if (error) setError(null);
+                  }}
+                  onFocus={() => setFocusedField('confirmPassword')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    if (Platform.OS !== 'web') {
+                      try {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      } catch (e) {}
+                    }
+                    setShowConfirmPassword((prev) => !prev);
+                  }}
+                  style={styles.eyeBtn}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={18} color={colors.textSecondary} />
+                  ) : (
+                    <Eye size={18} color={colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {error && (
-              <Text style={{ color: '#ef4444', textAlign: 'center', marginBottom: 16 }}>
-                {error}
-              </Text>
-            )}
-
-            {/* Register Button */}
+            {/* Primary Sign Up Button */}
             <TouchableOpacity
               onPress={handleRegister}
               disabled={isSubmitting}
-              style={styles.registerButtonWrapper}
-              activeOpacity={0.9}
+              activeOpacity={0.88}
+              style={styles.actionBtnWrapper}
             >
               <LinearGradient
-                colors={['#10b981', '#059669']}
+                colors={['#10B981', '#059669']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.registerButton}
+                style={styles.actionBtn}
               >
                 {isSubmitting ? (
-                  <ActivityIndicator color="white" />
+                  <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <>
-                    <Text style={styles.registerButtonText}>Sign Up</Text>
-                    <ArrowRight size={20} color="white" style={{ marginLeft: 8 }} />
-                  </>
+                  <View style={styles.actionBtnContent}>
+                    <Text style={styles.actionBtnText}>Create Account</Text>
+                    <ArrowRight size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                  </View>
                 )}
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Login Link */}
-            <View style={styles.loginContainer}>
-              <Text style={[styles.loginText, { color: colors.textSecondary }]}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
-                <Text style={[styles.loginLink, { color: colors.primary }]}>Sign In</Text>
-              </TouchableOpacity>
+            {/* Trust badge */}
+            <View style={styles.trustBadgeRow}>
+              <ShieldCheck size={14} color={isDark ? '#4ADE80' : '#16A34A'} />
+              <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>
+                Free 256-Bit Encrypted Cloud Sync
+              </Text>
             </View>
+          </View>
+
+          {/* Bottom Switch to Sign In */}
+          <View style={styles.bottomNavContainer}>
+            <Text style={[styles.bottomNavText, { color: colors.textSecondary }]}>
+              Already have an account?{' '}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  } catch (e) {}
+                }
+                router.replace('/(auth)/login');
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.bottomNavLink, { color: '#10B981' }]}>Sign In</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -215,136 +440,201 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
     overflow: 'hidden',
   },
-
-  circle1: {
+  glowOrbTop: {
     position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    top: -80,
+    left: -40,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
   },
-  circle2: {
+  glowOrbBottom: {
     position: 'absolute',
-    bottom: -50,
-    left: -100,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    bottom: -100,
+    right: -60,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   headerContainer: {
-    marginBottom: 40,
     alignItems: 'center',
+    marginBottom: 24,
+  },
+  brandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 6,
+  },
+  brandBadgeText: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   appName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#10b981',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 16,
+    fontSize: 30,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 4,
   },
   welcomeText: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 42,
-    color: '#0f172a',
-    marginBottom: 8,
+    fontSize: 22,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
+    marginBottom: 4,
     textAlign: 'center',
   },
   subtitleText: {
-    fontSize: 16,
-    color: '#64748b',
+    fontSize: 13,
     textAlign: 'center',
+    maxWidth: 320,
+    lineHeight: 18,
   },
-  formContainer: {
+  cardContainer: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
     alignSelf: 'center',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    padding: 24,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 24,
+    elevation: 8,
+    overflow: 'hidden',
   },
-  inputContainer: {
+  topSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 18,
+  },
+  fieldGroup: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+    letterSpacing: 0.2,
+  },
+  passwordLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  matchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    height: 56,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    gap: 4,
   },
-  iconContainer: {
-    paddingHorizontal: 16,
-    justifyContent: 'center',
+  matchBadgeText: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  inputBox: {
+    flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    height: 50,
+    paddingHorizontal: 14,
+  },
+  inputIconContainer: {
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '500',
     height: '100%',
   },
-  eyeButton: {
-    paddingHorizontal: 16,
+  eyeBtn: {
+    padding: 6,
+    marginLeft: 4,
   },
-  registerButtonWrapper: {
+  actionBtnWrapper: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: 16,
-    marginBottom: 24,
+    marginTop: 8,
+    marginBottom: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  registerButton: {
-    flexDirection: 'row',
-    height: 56,
+  actionBtn: {
+    height: 52,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  registerButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+  actionBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  loginContainer: {
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  trustBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  trustBadgeText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  bottomNavContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 20,
   },
-  loginText: {
-    color: '#64748b',
-    fontSize: 15,
+  bottomNavText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
-  loginLink: {
-    color: '#10b981',
+  bottomNavLink: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
     fontWeight: '700',
-    fontSize: 15,
   },
-
 });

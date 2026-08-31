@@ -1,4 +1,10 @@
-export const CURRENCIES = [
+export interface Currency {
+    code: string;
+    symbol: string;
+    name: string;
+}
+
+export const CURRENCIES: Currency[] = [
     { code: 'USD', symbol: '$', name: 'US Dollar' },
     { code: 'AED', symbol: 'د.إ', name: 'United Arab Emirates Dirham' },
     { code: 'AFN', symbol: '؋', name: 'Afghan Afghani' },

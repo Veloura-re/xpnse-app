@@ -32,6 +32,8 @@ import {
     Check,
     FileText,
     FileDown,
+    Sun,
+    Moon,
 } from 'lucide-react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/providers/theme-provider';
@@ -40,8 +42,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/utils/currency-utils';
 import { getFontFamily } from '@/config/font-config';
 import { BlurView } from 'expo-blur';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { StatCard, ProgressBar } from '@/components/analytics/analytics-components';
 import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
+import { BackgroundDecor } from '@/components/ui/background-decor';
 import { exportToPDF } from '@/utils/exportUtils';
 import { ActivityIndicator } from 'react-native';
 import { BookEntry } from '@/types';
@@ -69,7 +73,7 @@ const SORT_OPTIONS: SortConfig[] = [
 ];
 
 export default function AnalyticsScreen() {
-    const { colors, isDark, deviceFont, theme } = useTheme();
+    const { colors, isDark, deviceFont, theme, setTheme } = useTheme();
     const { books, currentBusiness } = useBusiness();
     const insets = useSafeAreaInsets();
     const [timeRange, setTimeRange] = useState<TimeRange>('all');
@@ -86,24 +90,21 @@ export default function AnalyticsScreen() {
     // Calculate dates for transaction fetching
     const { startDate, endDate } = useMemo(() => {
         const now = new Date();
-        const end = new Date();
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         let start: Date | undefined;
 
         switch (timeRange) {
             case 'today':
-                start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
                 break;
             case 'week':
-                start = new Date(now);
-                start.setDate(now.getDate() - 7);
+                start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0);
                 break;
             case 'month':
-                start = new Date(now);
-                start.setMonth(now.getMonth() - 1);
+                start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 0, 0, 0, 0);
                 break;
             case 'year':
-                start = new Date(now);
-                start.setFullYear(now.getFullYear() - 1);
+                start = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), 0, 0, 0, 0);
                 break;
             case 'all':
                 start = undefined;
@@ -120,7 +121,7 @@ export default function AnalyticsScreen() {
         getTotals,
         refresh: refreshTransactions
     } = usePaginatedEntries(isGlobal ? null : (currentBusiness?.id || null), undefined, {
-        pageSize: 100,
+        pageSize: 200,
         startDate,
         endDate: timeRange !== 'all' ? endDate : undefined
     });
@@ -131,7 +132,7 @@ export default function AnalyticsScreen() {
             let isActive = true;
             const fetchTotals = async () => {
                 const totals = await getTotals();
-                if (isActive) {
+                if (isActive && totals) {
                     setAggregateTotals(totals);
                 }
             };
@@ -144,10 +145,22 @@ export default function AnalyticsScreen() {
         }, [getTotals, refreshTransactions])
     );
 
-    // Calculate analytics from transactions and books
-    const analytics = useMemo(() => {
-        const businessBooks = isGlobal ? books : books.filter(b => b.businessId === currentBusiness?.id);
+    // Strictly compute active business books and active book IDs
+    const businessBooks = useMemo(() => {
+        return isGlobal ? books : books.filter(b => b.businessId === currentBusiness?.id);
+    }, [books, currentBusiness?.id, isGlobal]);
 
+    const activeBookIdSet = useMemo(() => {
+        return new Set(businessBooks.map(b => b.id));
+    }, [businessBooks]);
+
+    // Valid transactions strictly belonging to active, non-deleted books
+    const validTransactions = useMemo(() => {
+        return transactions.filter(entry => entry.bookId && activeBookIdSet.has(entry.bookId));
+    }, [transactions, activeBookIdSet]);
+
+    // Calculate analytics from transactions and books with complete precision
+    const analytics = useMemo(() => {
         if (!businessBooks || businessBooks.length === 0) {
             return {
                 totalCashIn: 0,
@@ -163,58 +176,81 @@ export default function AnalyticsScreen() {
         let totalCashIn = 0;
         let totalCashOut = 0;
         let totalTransactions = 0;
-        const periodBalanceMap: Record<string, number> = {};
+        const periodBalanceMap: Record<string, { in: number, out: number, net: number }> = {};
+
+        // Initialize period balance map for each active book
+        businessBooks.forEach(book => {
+            periodBalanceMap[book.id] = { in: 0, out: 0, net: 0 };
+        });
 
         if (timeRange === 'all') {
-            // Use pre-aggregated lifetime totals from books for "All Time" accuracy
+            // Lifetime totals directly computed from active books
             businessBooks.forEach(book => {
-                totalCashIn += Number(book.totalCashIn) || 0;
-                totalCashOut += Number(book.totalCashOut) || 0;
+                const bookIn = Number(book.totalCashIn) || 0;
+                const bookOut = Number(book.totalCashOut) || 0;
+                totalCashIn += bookIn;
+                totalCashOut += bookOut;
             });
-            totalTransactions = transactions.length;
-        } else if (aggregateTotals && (aggregateTotals.count > 0 || transactions.length === 0)) {
-            // Use server-side aggregate totals for filtered periods
-            totalCashIn = aggregateTotals.totalCashIn;
-            totalCashOut = aggregateTotals.totalCashOut;
-            totalTransactions = aggregateTotals.count;
-
-            // Still calculate per-book period balance from loaded transactions
-            transactions.forEach((entry: BookEntry) => {
-                const amount = Number(entry.amount) || 0;
-                if (!periodBalanceMap[entry.bookId]) periodBalanceMap[entry.bookId] = 0;
-                periodBalanceMap[entry.bookId] += (entry.type === 'cash_in' ? amount : -amount);
-            });
+            totalTransactions = validTransactions.length;
         } else {
-            // Fallback to client-side aggregation of loaded transactions 
-            // useful when index is missing or for small data sets
-            transactions.forEach((entry: BookEntry) => {
+            // Filter transactions strictly for the active time window and active books
+            const startMs = startDate ? startDate.getTime() : 0;
+            const endMs = endDate ? endDate.getTime() : Infinity;
+
+            const relevantTransactions = validTransactions.filter(entry => {
+                const entryTime = entry.createdAt 
+                    ? new Date(entry.createdAt).getTime() 
+                    : (entry.date ? new Date(entry.date + 'T00:00:00').getTime() : 0);
+                return entryTime >= startMs && entryTime <= endMs;
+            });
+
+            relevantTransactions.forEach((entry: BookEntry) => {
                 const amount = Number(entry.amount) || 0;
                 if (entry.type === 'cash_in') {
                     totalCashIn += amount;
+                    if (periodBalanceMap[entry.bookId]) {
+                        periodBalanceMap[entry.bookId].in += amount;
+                    }
                 } else {
                     totalCashOut += amount;
+                    if (periodBalanceMap[entry.bookId]) {
+                        periodBalanceMap[entry.bookId].out += amount;
+                    }
                 }
 
-                if (!periodBalanceMap[entry.bookId]) periodBalanceMap[entry.bookId] = 0;
-                periodBalanceMap[entry.bookId] += (entry.type === 'cash_in' ? amount : -amount);
+                if (periodBalanceMap[entry.bookId]) {
+                    periodBalanceMap[entry.bookId].net = 
+                        periodBalanceMap[entry.bookId].in - periodBalanceMap[entry.bookId].out;
+                }
             });
-            totalTransactions = transactions.length;
+
+            totalTransactions = relevantTransactions.length;
         }
 
-        // Prepare Top Books data
-        let topBooks = businessBooks.map(book => ({
-            ...book,
-            // Use period balance if not "all", otherwise use lifetime
-            displayBalance: timeRange === 'all' ? (book.netBalance || 0) : (periodBalanceMap[book.id] || 0)
-        }));
+        const safeTotalIn = isNaN(totalCashIn) ? 0 : totalCashIn;
+        const safeTotalOut = isNaN(totalCashOut) ? 0 : totalCashOut;
+        const safeNet = safeTotalIn - safeTotalOut;
 
-        // Filter by SEARCH IF search is active
+        // Prepare Top Books data with strictly computed balances
+        let topBooks = businessBooks.map(book => {
+            const periodData = periodBalanceMap[book.id];
+            const displayBalance = timeRange === 'all'
+                ? (typeof book.netBalance === 'number' ? book.netBalance : (Number(book.totalCashIn || 0) - Number(book.totalCashOut || 0)))
+                : (periodData?.net || 0);
+
+            return {
+                ...book,
+                displayBalance,
+            };
+        });
+
+        // Filter by search query if active
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             topBooks = topBooks.filter(book => book.name.toLowerCase().includes(q));
         }
 
-        // Apply Sorting to Top Books based on displayBalance
+        // Apply Sorting based on displayBalance
         topBooks.sort((a, b) => {
             switch (selectedSort) {
                 case 'name-asc': return a.name.localeCompare(b.name);
@@ -226,20 +262,18 @@ export default function AnalyticsScreen() {
         });
 
         return {
-            totalCashIn,
-            totalCashOut,
-            netBalance: totalCashIn - totalCashOut,
+            totalCashIn: safeTotalIn,
+            totalCashOut: safeTotalOut,
+            netBalance: safeNet,
             totalTransactions,
             bookCount: businessBooks.length,
-            topBooks: topBooks, // Show all books instead of just top 5
+            topBooks,
             isLoading: loadingTransactions
         };
-    }, [books, currentBusiness, searchQuery, timeRange, selectedSort, transactions, loadingTransactions, aggregateTotals, isGlobal]);
-
-
+    }, [businessBooks, activeBookIdSet, searchQuery, timeRange, selectedSort, validTransactions, loadingTransactions, startDate, endDate]);
 
     const handleExportBusinessPDF = async () => {
-        if (!currentBusiness || transactions.length === 0) return;
+        if (!currentBusiness || validTransactions.length === 0) return;
         const dateStr = new Date().toISOString().split('T')[0];
         const defaultName = `${currentBusiness.name.replace(/[^a-zA-Z0-9]/g, '_')}_Business_Export_${dateStr}`;
         setExportFileName(defaultName);
@@ -247,19 +281,18 @@ export default function AnalyticsScreen() {
     };
 
     const confirmExportPDF = async () => {
-        if (!currentBusiness || transactions.length === 0) return;
+        if (!currentBusiness || validTransactions.length === 0) return;
         setExportModalVisible(false);
         setIsExporting(true);
         try {
             const rangeLabel = timeRange === 'all' ? 'All Time' : timeRange.charAt(0).toUpperCase() + timeRange.slice(1);
-            await exportToPDF(currentBusiness, transactions, { 
+            await exportToPDF(currentBusiness, validTransactions, { 
                 fileName: exportFileName || 'Business_Export', 
                 isBusiness: true, 
                 rangeLabel 
             });
         } catch (error) {
             console.error('Error exporting PDF:', error);
-            // Alert.alert('Export Error', 'Failed to generate PDF report.');
         } finally {
             setIsExporting(false);
         }
@@ -269,12 +302,24 @@ export default function AnalyticsScreen() {
         <View>
             <View style={styles.header}>
                 <View style={styles.headerTopRow}>
-                    <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
+                    <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>spndy</Text>
                     <View style={styles.headerActions}>
+                        {/* Small Theme Toggle */}
+                        <TouchableOpacity
+                            style={[
+                                styles.headerIconButton,
+                                { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }
+                            ]}
+                            onPress={() => setTheme(isDark ? 'light' : 'dark')}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            {isDark ? <Sun size={16} color="#F59E0B" /> : <Moon size={16} color={colors.textSecondary} />}
+                        </TouchableOpacity>
+
                         <TouchableOpacity
                             style={[
                                 styles.headerIconButton, 
-                                { backgroundColor: colors.surface, borderColor: colors.border },
+                                { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass },
                                 isGlobal && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
                             ]}
                             onPress={() => setIsGlobal(!isGlobal)}
@@ -284,12 +329,12 @@ export default function AnalyticsScreen() {
                     </View>
                 </View>
                 {!isSearchExpanded ? (
-                    <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>
+                    <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>
                         {isGlobal ? 'Global Overview' : (currentBusiness?.name || 'Overview')}
                     </Text>
                 ) : (
                     <View style={styles.searchBarContainer}>
-                        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <View style={[styles.searchBar, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}>
                             <Search size={14} color={colors.textSecondary} style={styles.searchIcon} />
                             <TextInput
                                 style={[styles.searchInput, { color: colors.text }]}
@@ -313,14 +358,14 @@ export default function AnalyticsScreen() {
                 )}
             </View>
 
-            <View style={[styles.balanceCard, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <View style={[styles.balanceCard, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass, overflow: 'hidden' }]}>
                 <BlurView
                     intensity={isDark ? 40 : 60}
                     tint={isDark ? 'dark' : 'light'}
                     style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
-                    colors={isDark ? ['rgba(10,10,10,0.4)', 'rgba(17,17,17,0.4)'] : ['rgba(255,255,255,0.6)', 'rgba(248,250,252,0.6)']}
+                    colors={isDark ? ['rgba(34, 34, 32, 0.82)', 'rgba(29, 29, 27, 0.88)'] : ['rgba(255, 255, 255, 0.88)', 'rgba(250, 247, 242, 0.82)']}
                     style={StyleSheet.absoluteFill}
                 />
                 <View style={styles.balanceHeader}>
@@ -334,7 +379,7 @@ export default function AnalyticsScreen() {
                 ) : (
                     <Text style={[
                         styles.balanceValue,
-                        { color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
+                        { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700', color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
                     ]}>
                         {formatCurrency(analytics.netBalance, currentBusiness?.currency)}
                     </Text>
@@ -518,14 +563,11 @@ export default function AnalyticsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+            <BackgroundDecor />
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
-            {/* Decorative Circles - pointerEvents="none" to prevent touch interception */}
-            <View pointerEvents="none" style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-            <View pointerEvents="none" style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
             <FlatList
-                data={transactions}
+                data={validTransactions}
                 renderItem={renderTransactionItem}
                 ListHeaderComponent={renderHeader}
                 ListEmptyComponent={
@@ -551,11 +593,24 @@ export default function AnalyticsScreen() {
             />
 
             {/* Sort Modal */}
-            <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)}>
-                <TouchableOpacity style={styles.sortModalOverlay} activeOpacity={1} onPress={() => setSortModalVisible(false)}>
-                    <View style={[styles.bottomSheet, { backgroundColor: colors.surface }]}>
+            <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)} statusBarTranslucent={true}>
+                <View style={styles.sortModalOverlay}>
+                    <GlassBackdrop isDark={isDark} onPress={() => setSortModalVisible(false)} />
+                    <View style={[styles.bottomSheet, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1, borderBottomWidth: 0, overflow: 'hidden' }]}>
+                        {/* Top Sheen */}
+                        <View
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 24,
+                                right: 24,
+                                height: 1,
+                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                                zIndex: 10,
+                            }}
+                        />
                         <View style={[styles.bottomSheetHeader, { borderBottomColor: colors.border }]}>
-                            <Text style={[styles.bottomSheetTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Sort & Filter</Text>
+                            <Text style={[styles.bottomSheetTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Sort & Filter</Text>
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.card }]} onPress={() => setSortModalVisible(false)}>
                                 <X size={20} color={colors.textSecondary} />
                             </TouchableOpacity>
@@ -573,7 +628,7 @@ export default function AnalyticsScreen() {
                                                     style={[
                                                         styles.sortOptionItem,
                                                         { backgroundColor: colors.card, borderColor: colors.border },
-                                                        isActive && [styles.sortOptionActive, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.1)' : '#eff6ff', borderColor: colors.primary }]
+                                                        isActive && [styles.sortOptionActive, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#eff6ff', borderColor: colors.primary }]
                                                     ]}
                                                     onPress={() => {
                                                         if (group === 'Sort By') {
@@ -597,7 +652,7 @@ export default function AnalyticsScreen() {
                             ))}
                         </View>
                     </View>
-                </TouchableOpacity>
+                </View>
             </Modal >
 
             {/* Export Filename Modal */}
@@ -609,17 +664,22 @@ export default function AnalyticsScreen() {
                 statusBarTranslucent={true}
             >
                 <View style={styles.modalOverlay}>
-                    <TouchableOpacity 
-                        style={StyleSheet.absoluteFill} 
-                        activeOpacity={1} 
-                        onPress={() => setExportModalVisible(false)} 
-                    >
-                        <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-                    </TouchableOpacity>
-
-                    <View style={[styles.popupContainer, { backgroundColor: colors.surface }]}>
+                    <GlassBackdrop isDark={isDark} onPress={() => setExportModalVisible(false)} />
+                    <View style={[styles.popupContainer, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1, borderRadius: 24, overflow: 'hidden' }]}>
+                        {/* Top Sheen */}
+                        <View
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 24,
+                                right: 24,
+                                height: 1,
+                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                                zIndex: 10,
+                            }}
+                        />
                         <View style={[styles.popupHeader, { borderBottomColor: colors.border }]}>
-                            <Text style={[styles.popupTitle, { color: colors.text }]}>Name Your File</Text>
+                            <Text style={[styles.popupTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>Name Your File</Text>
                             <TouchableOpacity onPress={() => setExportModalVisible(false)} style={styles.popupCloseButton}>
                                 <X size={20} color={colors.textSecondary} />
                             </TouchableOpacity>

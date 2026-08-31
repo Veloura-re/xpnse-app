@@ -20,9 +20,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Business } from '@/types';
 import { Building2, Plus, Search, X, Check, SlidersHorizontal, MoreHorizontal, ArrowRight } from 'lucide-react-native';
 import { RoleBadge } from '@/components/role-badge';
-import { useFonts } from '@expo-google-fonts/abril-fatface';
-
+import { BackgroundDecor } from '@/components/ui/background-decor';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { NeumorphView } from '@/components/neumorphism';
 import { getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
@@ -177,80 +177,77 @@ export default function BusinessSwitcherScreen() {
     const businessColor = item.color || (isSelected ? colors.primary : colors.textSecondary);
 
     return (
-
-      <NeumorphView 
-        style={{ marginBottom: 12, marginHorizontal: 4 }} 
-        borderRadius={20} 
-        inset={isSelected}
+      <View
+        style={[
+          styles.businessItemCard,
+          {
+            backgroundColor: colors.cardGlass,
+            borderColor: isSelected ? colors.primary : colors.borderGlass,
+            borderWidth: isSelected ? 1.5 : 1,
+            borderRadius: 20,
+            marginBottom: 12,
+            shadowColor: isDark ? '#000' : '#2A2015',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: isDark ? 0.35 : 0.05,
+            shadowRadius: 10,
+            elevation: 3,
+          }
+        ]}
       >
         <TouchableOpacity
-          style={[
-            styles.businessItem,
-            {
-              backgroundColor: 'transparent',
-              borderColor: 'transparent',
-              borderWidth: 0,
-              borderBottomWidth: 0,
-              padding: 16,
-            }
-          ]}
+          style={styles.businessItem}
           onPress={() => handleSwitchBusiness(item.id)}
           activeOpacity={0.7}
         >
-        <View style={[
-          styles.businessIcon,
-          {
-            backgroundColor: isSelected ? (isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4') : (isDark ? '#334155' : '#f1f5f9'),
-            borderRadius: 16
-          }
-        ]}>
-          <BusinessIcon size={24} color={isSelected ? (item.color || colors.primary) : (item.color || colors.textSecondary)} />
-        </View>
-        <View style={styles.businessContent}>
-          <Text style={[
-            styles.businessName,
+          <View style={[
+            styles.businessIcon,
             {
-              color: colors.text,
-              fontWeight: isSelected ? '700' : '600'
+              backgroundColor: isSelected ? (isDark ? 'rgba(33, 201, 141, 0.12)' : 'rgba(16, 185, 129, 0.1)') : (isDark ? '#262624' : '#F4F0E8'),
+              borderRadius: 16
             }
           ]}>
-            {item.name}
-          </Text>
-          <View style={styles.businessMeta}>
-            <RoleBadge role={userRole} size="small" />
-            <Text style={[styles.businessMembers, { color: colors.textSecondary }]}>
-              {memberCount} member{memberCount !== 1 ? 's' : ''}
+            <BusinessIcon size={24} color={isSelected ? (item.color || colors.primary) : (item.color || colors.textSecondary)} />
+          </View>
+          <View style={styles.businessContent}>
+            <Text style={[
+              styles.businessName,
+              {
+                color: colors.text,
+                fontFamily: 'SpaceGrotesk_700Bold',
+                fontSize: 16,
+              }
+            ]}>
+              {item.name}
             </Text>
+            <View style={styles.businessMeta}>
+              <RoleBadge role={userRole} size="small" />
+              <Text style={[styles.businessMembers, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                {memberCount} member{memberCount !== 1 ? 's' : ''}
+              </Text>
+            </View>
           </View>
-        </View>
-        {isSelected && (
-          <View style={[styles.checkIcon, { backgroundColor: 'transparent' }]}>
-            <Check size={20} color={colors.primary} />
-          </View>
-        )}
+          {isSelected && (
+            <View style={[styles.checkIcon, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : 'rgba(16, 185, 129, 0.12)', padding: 6, borderRadius: 12 }]}>
+              <Check size={18} color={colors.primary} />
+            </View>
+          )}
         </TouchableOpacity>
-      </NeumorphView>
+      </View>
     );
   };
 
-    const baseBgColor = isDark ? '#1a1a1c' : '#eff2f5';
-
   return (
-    <View style={[styles.container, { backgroundColor: baseBgColor }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <BackgroundDecor />
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Decorative Circles */}
-      <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-      <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
       <View
-        style={[styles.headerContainer, { paddingTop: insets.top + 50 }]}
+        style={[styles.headerContainer, { paddingTop: insets.top + 20 }]}
       >
-        <Stack.Screen options={{ headerShown: false }} />
         <View style={[styles.headerRow, { alignItems: 'flex-end', paddingBottom: 6 }]}>
           <View>
-            <Text style={[styles.appName, { color: colors.primary }]}>Workspace</Text>
-            <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Switch Business</Text>
+            <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>Workspace</Text>
+            <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Switch Business</Text>
           </View>
           <TouchableOpacity
             style={[styles.headerIconButton, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 4 }, selectedSort !== 'date-desc' && { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }]}
@@ -264,9 +261,6 @@ export default function BusinessSwitcherScreen() {
       <View
         style={styles.contentArea}
       >
-
-
-
         <View
           style={[
             styles.card,
@@ -296,27 +290,30 @@ export default function BusinessSwitcherScreen() {
       <View
         style={[styles.fabContainer, { bottom: insets.bottom + 110 }]}
       >
-        <NeumorphView borderRadius={32}>
-          <TouchableOpacity
-            style={[
-              styles.fab,
-              {
-                backgroundColor: 'transparent',
-              }
-            ]}
-            onPress={() => setShowCreateForm(true)}
-            activeOpacity={0.7}
+        <TouchableOpacity
+          style={[
+            styles.fab,
+            {
+              borderRadius: 30,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.35,
+              shadowRadius: 12,
+              elevation: 6,
+            }
+          ]}
+          onPress={() => setShowCreateForm(true)}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={[colors.primary, '#059669']}
+            style={styles.fabGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            <LinearGradient
-              colors={[colors.primary, '#059669']}
-              style={styles.fabGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Plus size={32} color="#fff" strokeWidth={2.5} />
-            </LinearGradient>
-          </TouchableOpacity>
-        </NeumorphView>
+            <Plus size={30} color="#fff" strokeWidth={2.5} />
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
 
       <Modal
@@ -326,9 +323,8 @@ export default function BusinessSwitcherScreen() {
         onRequestClose={() => setShowCreateForm(false)}
         statusBarTranslucent={true}
       >
-        <View
-          style={[styles.modalOverlay, { paddingHorizontal: 20, backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]}
-        >
+        <View style={[styles.modalOverlay, { paddingHorizontal: 20 }]}>
+          <GlassBackdrop isDark={isDark} onPress={() => setShowCreateForm(false)} />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
@@ -338,21 +334,34 @@ export default function BusinessSwitcherScreen() {
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.borderGlass,
                   borderWidth: 1,
                   borderRadius: 24,
                   padding: 20,
                   width: '100%',
                   maxWidth: 380,
-                  shadowColor: isDark ? 'transparent' : '#000',
+                  shadowColor: '#000',
                   shadowOffset: { width: 0, height: 12 },
                   shadowOpacity: 0.25,
                   shadowRadius: 24,
-                  elevation: isDark ? 0 : 16,
+                  elevation: 12,
+                  overflow: 'hidden',
                 }
               ]}
             >
+              {/* Top Sheen */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 20,
+                  right: 20,
+                  height: 1,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                  zIndex: 10,
+                }}
+              />
               <View style={styles.modalHeader}>
                 <View style={[
                   styles.modalIconContainer,
@@ -366,22 +375,23 @@ export default function BusinessSwitcherScreen() {
                 ]}>
                   <Building2 size={24} color={colors.primary} />
                 </View>
-                <Text style={[styles.createFormTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Create Business</Text>
-                <Text style={[styles.createFormSubtitle, { color: colors.textSecondary }]}>Start tracking finances for your new entity</Text>
+                <Text style={[styles.createFormTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Create Business</Text>
+                <Text style={[styles.createFormSubtitle, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>Start tracking finances for your new entity</Text>
               </View>
 
-              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 12 }]}>BUSINESS NAME</Text>
+              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 12, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>BUSINESS NAME</Text>
               <TextInput
                 style={[
                   styles.createFormInput,
                   {
-                    backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
-                    borderColor: isDark ? '#333' : '#e2e8f0',
+                    backgroundColor: colors.inputBackground,
+                    borderColor: colors.border,
                     color: colors.text,
                     borderWidth: 1,
                     borderRadius: 14,
                     padding: 14,
                     fontSize: 15,
+                    fontFamily: 'SpaceGrotesk_400Regular',
                     fontWeight: '500'
                   }
                 ]}
@@ -393,7 +403,7 @@ export default function BusinessSwitcherScreen() {
                 autoCapitalize="words"
               />
 
-              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 16 }]}>CHOOSE LOGO</Text>
+              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>CHOOSE LOGO</Text>
 
               <View style={{ marginBottom: 20, alignItems: 'center' }}>
                 <TouchableOpacity
@@ -405,11 +415,11 @@ export default function BusinessSwitcherScreen() {
                     flexDirection: 'row',
                     gap: 12,
                     width: '100%',
-                    backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
+                    backgroundColor: colors.inputBackground,
                     padding: 12,
                     borderRadius: 14,
                     borderWidth: 1,
-                    borderColor: isDark ? '#333' : '#e2e8f0'
+                    borderColor: colors.border,
                   }}
                 >
                   <View style={{
@@ -436,10 +446,10 @@ export default function BusinessSwitcherScreen() {
                     })()}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }}>
                       {LOGO_OPTIONS.find(l => l.id === selectedLogoId)?.label || 'Select Logo'}
                     </Text>
-                    <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500', marginTop: 1 }}>
+                    <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500', marginTop: 1, fontFamily: 'SpaceGrotesk_400Regular' }}>
                       Tap to change icon
                     </Text>
                   </View>
@@ -462,7 +472,7 @@ export default function BusinessSwitcherScreen() {
                     setNewBusinessName('');
                   }}
                 >
-                  <Text style={[styles.cancelButtonText, { color: isDark ? colors.text : '#64748b', fontSize: 15, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.cancelButtonText, { color: isDark ? colors.text : '#64748b', fontSize: 15, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1 }}
@@ -489,7 +499,7 @@ export default function BusinessSwitcherScreen() {
                     {isCreating ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={[styles.createButtonText, { fontSize: 15, fontWeight: '700', color: '#fff' }]} numberOfLines={1}>Create</Text>
+                      <Text style={[styles.createButtonText, { fontSize: 15, fontWeight: '700', color: '#fff', fontFamily: 'SpaceGrotesk_700Bold' }]} numberOfLines={1}>Create</Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -501,10 +511,23 @@ export default function BusinessSwitcherScreen() {
 
       {/* Sort & Filter Modal */}
       <Modal visible={sortModalVisible} transparent animationType="fade" onRequestClose={() => setSortModalVisible(false)} statusBarTranslucent={true}>
-        <TouchableOpacity style={styles.sortModalOverlay} activeOpacity={1} onPress={() => setSortModalVisible(false)}>
-          <View style={[styles.bottomSheet, { backgroundColor: colors.surface }]}>
+        <View style={styles.sortModalOverlay}>
+          <GlassBackdrop isDark={isDark} onPress={() => setSortModalVisible(false)} />
+          <View style={[styles.bottomSheet, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1, borderBottomWidth: 0, overflow: 'hidden' }]}>
+            {/* Top Sheen */}
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 24,
+                right: 24,
+                height: 1,
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                zIndex: 10,
+              }}
+            />
             <View style={[styles.bottomSheetHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.bottomSheetTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Sort & Filter</Text>
+              <Text style={[styles.bottomSheetTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Sort & Filter</Text>
               <TouchableOpacity style={[styles.sheetCloseButton, { backgroundColor: colors.card }]} onPress={() => setSortModalVisible(false)}>
                 <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -512,7 +535,7 @@ export default function BusinessSwitcherScreen() {
             <View style={styles.bottomSheetContent}>
               {['Sort By', 'Time Filter'].map((group) => (
                 <View key={group} style={styles.sortSection}>
-                  <Text style={[styles.sortSectionTitle, { color: colors.textSecondary }]}>{group}</Text>
+                  <Text style={[styles.sortSectionTitle, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>{group}</Text>
                   <View style={styles.sortGrid}>
                     {SORT_OPTIONS.filter(opt => opt.group === group).map(option => {
                       const isActive = selectedSort === option.value;
@@ -526,7 +549,7 @@ export default function BusinessSwitcherScreen() {
                           }}
                         >
                           {isActive && <View style={[styles.activeDot, { backgroundColor: colors.primary }]} />}
-                          <Text style={[styles.sortOptionText, { color: colors.textSecondary }, isActive && [styles.sortOptionTextActive, { color: colors.text }]]}>
+                          <Text style={[styles.sortOptionText, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }, isActive && [styles.sortOptionTextActive, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]]}>
                             {option.label}
                           </Text>
                           {isActive && <Check size={16} color={colors.primary} style={{ marginLeft: 'auto' }} />}
@@ -538,46 +561,57 @@ export default function BusinessSwitcherScreen() {
               ))}
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Logo Picker Modal */}
       <Modal visible={showLogoPicker} transparent animationType="fade" onRequestClose={() => setShowLogoPicker(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { justifyContent: 'flex-end', backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]}
-        >
+        <View style={[styles.modalOverlay, { justifyContent: 'flex-end' }]}>
+          <GlassBackdrop isDark={isDark} onPress={() => setShowLogoPicker(false)} />
           <View style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]} pointerEvents="box-none">
             <View style={[styles.modalContent, {
               height: '85%',
               maxHeight: '85%',
               padding: 0,
-              backgroundColor: isDark ? '#0A0A0A' : colors.card,
-              borderColor: isDark ? '#2C3333' : colors.border,
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.borderGlass,
               borderTopLeftRadius: 32,
               borderTopRightRadius: 32,
               borderBottomLeftRadius: 0,
               borderBottomRightRadius: 0,
               overflow: 'hidden',
               borderWidth: 1,
-              shadowColor: isDark ? 'transparent' : "#000",
+              shadowColor: '#000',
               shadowOffset: {
                 width: 0,
                 height: -4,
               },
-              shadowOpacity: 0.15,
-              shadowRadius: 8,
-              elevation: isDark ? 0 : 10,
+              shadowOpacity: 0.25,
+              shadowRadius: 20,
+              elevation: 16,
             }]}>
+              {/* Top Sheen */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 24,
+                  right: 24,
+                  height: 1,
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                  zIndex: 10,
+                }}
+              />
               {/* Header with pill */}
               <View style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 8 }}>
-                <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: isDark ? '#333' : '#e2e8f0' }} />
+                <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#e2e8f0' }} />
               </View>
 
               {/* Title Row */}
               <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 24 }}>
                 <View style={{ alignItems: 'center' }}>
-                  <Text style={{ fontFamily: getFontFamily(deviceFont), fontSize: 28, color: colors.text, textAlign: 'center' }}>Choose Logo</Text>
-                  <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>Select an icon for your business</Text>
+                  <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 28, color: colors.text, textAlign: 'center' }}>Choose Logo</Text>
+                  <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 4, textAlign: 'center', fontFamily: 'SpaceGrotesk_400Regular' }}>Select an icon for your business</Text>
                 </View>
               </View>
 
@@ -992,8 +1026,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 36,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 32,
     color: '#0f172a',
   },
   contentArea: {
@@ -1131,13 +1165,13 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 0,
   },
+  businessItemCard: {
+    overflow: 'hidden',
+  },
   businessItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    padding: 16,
   },
   selectedBusinessItem: {
     backgroundColor: '#f8fafc',
@@ -1251,7 +1285,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   createFormTitle: {
-    fontFamily: 'AbrilFatface_400Regular',
+    fontFamily: 'SpaceGrotesk_700Bold',
     fontSize: 24,
     color: '#0f172a',
     marginBottom: 8,

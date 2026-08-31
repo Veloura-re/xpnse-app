@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   badgeText: {
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     fontWeight: '600',
   },
   textSmall: {

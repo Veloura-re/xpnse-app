@@ -68,6 +68,11 @@ service cloud.firestore {
       allow read, write: if isMember(businessId);
     }
     
+    // Recurring Rules subcollection (Strictly scoped to current business)
+    match /businesses/{businessId}/recurringRules/{ruleId} {
+      allow read, write: if isMember(businessId);
+    }
+    
     // Invitations collection
     match /invitations/{invitationId} {
       allow read: if isAuthenticated() && 

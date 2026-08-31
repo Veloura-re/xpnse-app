@@ -94,6 +94,7 @@ export interface Book {
   id: string;
   businessId: string;
   name: string;
+  currency?: string;
   createdAt: string;
   createdBy: string;
   totalCashIn: number;
@@ -107,6 +108,10 @@ export interface BookSettings {
   showPaymentMode: boolean;
   showCategory: boolean;
   showAttachments: boolean;
+  currency?: string;
+  enableMultiCurrency?: boolean;
+  customCurrencyValuations?: Record<string, number>;
+  trackedCurrencies?: string[];
 }
 
 export interface BookEntry {
@@ -115,7 +120,7 @@ export interface BookEntry {
   businessId: string;
   userId: string;
   type: 'cash_in' | 'cash_out';
-  amount: number;
+  amount: number; // Converted amount in Business Base Currency
   date: string;
   description: string;
   paymentMode?: string;
@@ -125,11 +130,50 @@ export interface BookEntry {
   partyId?: string;
   memberIds?: string[];
   createdAt: string;
+  // Multi-Currency fields
+  originalCurrency?: string;
+  originalAmount?: number;
+  exchangeRate?: number;
+  isCustomRate?: boolean;
+  // Recurring rule linkage
+  recurringRuleId?: string;
+}
+
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
+
+export interface RecurringRule {
+  id: string;
+  businessId: string;
+  bookId: string;
+  userId: string;
+  type: 'cash_in' | 'cash_out';
+  amount: number; // In Business Base Currency
+  originalCurrency?: string;
+  originalAmount?: number;
+  exchangeRate?: number;
+  isCustomRate?: boolean;
+  description: string;
+  category?: string;
+  paymentMode?: string;
+  partyId?: string;
+  frequency: RecurrenceFrequency;
+  interval?: number; // e.g. every 1 month, every 2 weeks
+  startDate: string; // YYYY-MM-DD
+  nextDueDate: string; // YYYY-MM-DD
+  lastRunDate?: string | null;
+  endDate?: string | null;
+  endAfterOccurrences?: number | null;
+  occurrencesCount: number;
+  status: 'active' | 'paused' | 'completed';
+  autoPost: boolean; // true = auto create BookEntry on due; false = notify user
+  notifyBeforeDays?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ActivityLog {
   id: string;
-  entityType: 'business' | 'book' | 'entry';
+  entityType: 'business' | 'book' | 'entry' | 'recurring_rule';
   entityId: string;
   userId: string;
   action: string;

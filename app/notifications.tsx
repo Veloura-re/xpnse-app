@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Lay
 import { Stack, useRouter } from 'expo-router';
 import { useNotifications } from '@/providers/notification-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, ChevronLeft, ChevronDown, ChevronUp, Check, CheckCheck, Trash2, Circle, CheckCircle2, X } from 'lucide-react-native';
+import { Bell, ChevronLeft, ChevronDown, ChevronUp, Check, CheckCheck, Trash2, Circle, CheckCircle2, X, Sparkles } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
+import * as Haptics from 'expo-haptics';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { getFontFamily } from '@/config/font-config';
@@ -18,7 +19,7 @@ if (Platform.OS === 'android') {
 }
 
 export default function NotificationsScreen() {
-    const { notifications, markAsRead, markAllAsRead, isLoading, refreshNotifications, deleteNotification } = useNotifications();
+    const { notifications, markAsRead, markAllAsRead, isLoading, refreshNotifications, deleteNotification, createNotification } = useNotifications();
     const { currentBusiness } = useBusiness();
     const { deviceFont, colors, isDark } = useTheme();
     const insets = useSafeAreaInsets();
@@ -28,6 +29,11 @@ export default function NotificationsScreen() {
     const isSelectionMode = selectedIds.size > 0;
 
     const toggleSelection = (id: string) => {
+        if (Platform.OS !== 'web') {
+            try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            } catch (e) {}
+        }
         const newSet = new Set(selectedIds);
         if (newSet.has(id)) {
             newSet.delete(id);
@@ -38,10 +44,17 @@ export default function NotificationsScreen() {
     };
 
     const handleLongPress = (id: string) => {
+        if (Platform.OS !== 'web') {
+            try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            } catch (e) {}
+        }
         if (!isSelectionMode) {
             const newSet = new Set(selectedIds);
             newSet.add(id);
             setSelectedIds(newSet);
+        } else {
+            toggleSelection(id);
         }
     };
 
@@ -50,8 +63,6 @@ export default function NotificationsScreen() {
     };
 
     const handleBulkDelete = async () => {
-        // Optimistic UI updates could be tricky with multiple async calls, 
-        // but existing deleteNotification is fast.
         for (const id of selectedIds) {
             deleteNotification(id);
         }
@@ -112,20 +123,33 @@ export default function NotificationsScreen() {
         }
     };
 
+    const handleSendTestNotification = async () => {
+        if (Platform.OS !== 'web') {
+            try {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (e) {}
+        }
+        await createNotification({
+            title: 'Notifications Active! 🎉',
+            message: 'Your in-app alerts and notifications are working seamlessly.',
+            type: 'success',
+        });
+    };
+
     const renderItem = ({ item, index }: { item: any, index: number }) => {
         let iconColor = item.color || '#10b981';
-        let bgColor = 'rgba(16, 185, 129, 0.05)'; // Default emerald bg
+        let bgColor = isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5';
         const titleLower = item.title?.toLowerCase() || '';
         const messageLower = item.message?.toLowerCase() || '';
 
         if (titleLower.includes('cash in') || messageLower.includes('cash in') ||
             titleLower.includes('received') || messageLower.includes('received')) {
-            iconColor = '#10b981'; // Green
-            bgColor = '#ecfdf5';
+            iconColor = '#10b981';
+            bgColor = isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5';
         } else if (titleLower.includes('cash out') || messageLower.includes('cash out') ||
             titleLower.includes('paid') || messageLower.includes('paid')) {
-            iconColor = '#ef4444'; // Red
-            bgColor = '#fef2f2';
+            iconColor = '#ef4444';
+            bgColor = isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2';
         }
 
         const isExpanded = expandedIds.has(item.id);
@@ -136,17 +160,18 @@ export default function NotificationsScreen() {
             <TouchableOpacity
                 style={[
                     styles.notificationItem,
-                    { backgroundColor: colors.card, borderBottomColor: colors.border },
-                    !item.read && [styles.unreadItem, { backgroundColor: isDark ? colors.surface : '#f8fafc' }],
+                    { backgroundColor: colors.cardGlass, borderBottomColor: colors.borderGlass },
+                    !item.read && [styles.unreadItem, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4' }],
                     index === notifications.length - 1 && styles.lastItem,
-                    selectedIds.has(item.id) && [styles.selectedItem, { backgroundColor: isDark ? colors.surface : '#f8fafc' }],
-                    { overflow: 'hidden' } // Ensure blur stays within bounds
+                    selectedIds.has(item.id) && [styles.selectedItem, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7' }],
+                    { overflow: 'hidden' }
                 ]}
                 onPress={() => isSelectionMode ? toggleSelection(item.id) : toggleExpand(item.id, item.read)}
                 onLongPress={() => handleLongPress(item.id)}
+                delayLongPress={500}
                 activeOpacity={0.7}
             >
-                <View style={[styles.iconContainer, { backgroundColor: isSelectionMode ? (selectedIds.has(item.id) ? (isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4') : colors.card) : bgColor }]}>
+                <View style={[styles.iconContainer, { backgroundColor: isSelectionMode ? (selectedIds.has(item.id) ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7') : colors.card) : bgColor }]}>
                     {isSelectionMode ? (
                         selectedIds.has(item.id) ? (
                             <CheckCircle2 size={20} color={colors.primary} />
@@ -163,14 +188,13 @@ export default function NotificationsScreen() {
 
                 <View style={styles.contentContainer}>
                     <View style={styles.headerRow}>
-                        <Text style={[styles.title, { color: colors.text }, !item.read && styles.unreadText]} numberOfLines={1}>
+                        <Text style={[styles.title, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }, !item.read && styles.unreadText]} numberOfLines={1}>
                             {item.title}
                         </Text>
                         <Text style={[styles.time, { color: colors.textSecondary }]}>
                             {(() => {
                                 const raw = item.createdAt;
                                 if (!raw) return 'Just now';
-                                // Handles Firestore Timestamp objects and ISO strings
                                 const date = raw?.toDate ? raw.toDate() : new Date(raw);
                                 return isNaN(date.getTime()) ? 'Just now' : formatDistanceToNow(date, { addSuffix: true });
                             })()}
@@ -178,7 +202,7 @@ export default function NotificationsScreen() {
                     </View>
 
                     <Text
-                        style={[styles.message, { color: colors.textSecondary }, isExpanded && styles.messageExpanded]}
+                        style={[styles.message, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }, isExpanded && styles.messageExpanded]}
                         numberOfLines={isExpanded ? undefined : 2}
                     >
                         {item.message}
@@ -217,19 +241,16 @@ export default function NotificationsScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
 
-            <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.1)' }]} />
-            <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.03)' : 'rgba(16, 185, 129, 0.08)' }]} />
-
             <View
                 style={[styles.headerContainer, { paddingTop: insets.top + 20 }]}
             >
                 <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
+                    <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1 }]}>
                         <ChevronLeft size={24} color={colors.text} />
                     </TouchableOpacity>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                         <TouchableOpacity
-                            onPress={markAllAsRead}
+                            onPress={handleMarkAllAsRead}
                             style={[styles.markAllButton, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }]}
                             activeOpacity={0.7}
                         >
@@ -248,12 +269,12 @@ export default function NotificationsScreen() {
                         )}
                     </View>
                 </View>
-                <Text style={[styles.appName, { color: colors.primary }]}>spndy</Text>
-                <Text style={[styles.headerTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>{isSelectionMode ? `${selectedIds.size} Selected` : 'Notifications'}</Text>
+                <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>spndy</Text>
+                <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>{isSelectionMode ? `${selectedIds.size} Selected` : 'Notifications'}</Text>
             </View>
 
             {isSelectionMode && (
-                <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.selectionBar, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}>
                     <TouchableOpacity onPress={handleBulkRead} style={styles.actionButton}>
                         <CheckCheck size={20} color={colors.primary} />
                         <Text style={[styles.actionText, { color: colors.primary }]}>Mark Read</Text>
@@ -272,7 +293,7 @@ export default function NotificationsScreen() {
             <View
                 style={styles.contentArea}
             >
-                <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass }]}>
                     <FlatList
                         data={notifications}
                         renderItem={renderItem}
@@ -285,11 +306,23 @@ export default function NotificationsScreen() {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <View style={[styles.emptyIconContainer, { backgroundColor: colors.surface }]}>
-                                    <Bell size={24} color={colors.textSecondary} />
+                                <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }]}>
+                                    <Bell size={28} color={colors.primary} />
                                 </View>
-                                <Text style={[styles.emptyTitle, { color: colors.text }]}>No notifications</Text>
-                                <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>You're all caught up!</Text>
+                                <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>No notifications yet</Text>
+                                <Text style={[styles.emptyMessage, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                    You'll see activity, updates, and balance alerts here.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.testNotifBtn, { backgroundColor: colors.primary }]}
+                                    onPress={handleSendTestNotification}
+                                    activeOpacity={0.85}
+                                >
+                                    <Sparkles size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                                    <Text style={[styles.testNotifBtnText, { fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                        Send Test Notification
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         }
                     />
@@ -350,8 +383,8 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     headerTitle: {
-        fontFamily: 'AbrilFatface_400Regular',
-        fontSize: 36,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontSize: 32,
         color: '#0f172a',
     },
     markAllButton: {
@@ -500,6 +533,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#64748b',
         textAlign: 'center',
+        marginBottom: 18,
+    },
+    testNotifBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 14,
+        marginTop: 6,
+    },
+    testNotifBtnText: {
+        color: '#FFFFFF',
+        fontSize: 14,
     },
     deleteButton: {
         flexDirection: 'row',

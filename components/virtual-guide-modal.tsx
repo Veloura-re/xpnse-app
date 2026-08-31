@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp, ZoomIn, useAnimatedStyle, withSpring, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useTheme } from '@/providers/theme-provider';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { getFontFamily } from '@/config/font-config';
 
 interface VirtualGuideModalProps {
@@ -119,12 +120,7 @@ export function VirtualGuideModal({ visible, onClose }: VirtualGuideModalProps) 
             statusBarTranslucent
         >
             <View style={styles.container}>
-                <View
-                    style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.95)' }]}
-                />
-
-                {/* Dark mode overlay for extra depth */}
-                {isDark && <View style={styles.darkOverlay} />}
+                <GlassBackdrop isDark={isDark} onPress={onClose} />
 
                 <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}>
 
@@ -326,6 +322,7 @@ const styles = StyleSheet.create({
         lineHeight: 38,
     },
     description: {
+        fontFamily: 'SpaceGrotesk_400Regular',
         fontSize: 16,
         textAlign: 'center',
         lineHeight: 24,
@@ -351,6 +348,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     buttonText: {
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: 'white',
         fontSize: 18,
         fontWeight: '700',

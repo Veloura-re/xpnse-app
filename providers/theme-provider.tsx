@@ -10,10 +10,14 @@ export interface ThemeColors {
   secondary: string;
   background: string;
   surface: string;
+  surfaceGlass: string;
   card: string;
+  cardGlass: string;
   text: string;
   textSecondary: string;
   border: string;
+  borderGlass: string;
+  glassHighlight: string;
   success: string;
   error: string;
   warning: string;
@@ -35,40 +39,48 @@ interface ThemeState {
 }
 
 const lightColors: ThemeColors = {
-  primary: '#10b981',
-  secondary: '#64748b',
-  background: '#f8fafc',
-  surface: '#ffffff',
-  card: '#ffffff',
-  text: '#0f172a',
-  textSecondary: '#64748b',
-  border: '#e2e8f0',
-  success: '#10b981',
-  error: '#ef4444',
-  warning: '#f59e0b',
-  info: '#10b981',
-  inputBackground: '#f1f5f9',
-  tabBar: '#ffffff',
-  header: '#ffffff',
-  shadow: '#000000',
+  primary: '#10B981',
+  secondary: '#706D67',
+  background: '#FAF7F2',
+  surface: '#FFFFFF',
+  surfaceGlass: 'rgba(255, 255, 255, 0.92)',
+  card: 'rgba(255, 255, 255, 0.90)',
+  cardGlass: 'rgba(255, 255, 255, 0.84)',
+  text: '#1F1E1D',
+  textSecondary: '#706D67',
+  border: 'rgba(224, 218, 208, 0.85)',
+  borderGlass: 'rgba(215, 210, 200, 0.75)',
+  glassHighlight: 'rgba(255, 255, 255, 0.85)',
+  success: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  info: '#0EA5E9',
+  inputBackground: 'rgba(242, 238, 232, 0.90)',
+  tabBar: '#FAF7F2',
+  header: '#FAF7F2',
+  shadow: '#281E14',
 };
 
 const darkColors: ThemeColors = {
-  primary: '#10b981',
-  secondary: '#A6A6A6',
-  background: '#000000', // Pitch Black Background
-  surface: '#0A0A0A',    // Very Dark Surface
-  card: '#1B2020',       // DM Card
-  text: '#F5F5F5',       // DM Text Main
-  textSecondary: '#A6A6A6', // DM Text Soft
-  border: '#2C3333',     // DM Border
-  success: '#22c55e',
-  error: '#ef4444',
-  warning: '#f59e0b',
-  info: '#10b981',
-  inputBackground: '#1B2020',
-  tabBar: '#121212',
-  header: '#000000',
+  primary: '#10B981',
+  secondary: '#9C9992',
+  background: '#141412',
+  surface: '#1E1E1C',
+  surfaceGlass: 'rgba(26, 26, 24, 0.92)',
+  card: 'rgba(26, 26, 24, 0.88)',
+  cardGlass: 'rgba(26, 26, 24, 0.82)',
+  text: '#F3F1ED',
+  textSecondary: '#9C9992',
+  border: 'rgba(255, 255, 255, 0.12)',
+  borderGlass: 'rgba(255, 255, 255, 0.10)',
+  glassHighlight: 'rgba(255, 255, 255, 0.08)',
+  success: '#22C55E',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  info: '#38BDF8',
+  inputBackground: 'rgba(255, 255, 255, 0.06)',
+  tabBar: '#141412',
+  header: '#141412',
   shadow: '#000000',
 };
 

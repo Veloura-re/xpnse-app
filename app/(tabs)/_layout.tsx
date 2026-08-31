@@ -5,7 +5,6 @@ import { useAuth } from '@/providers/auth-provider';
 import { BookOpen, BarChart3, Settings, Users } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FloatingDock from '@/components/navigation/FloatingDock';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 export default function TabLayout() {
   const { isDark, colors } = useTheme();
@@ -24,7 +23,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      tabBar={(props: BottomTabBarProps) => <FloatingDock {...props} />}
+      tabBar={(props) => <FloatingDock {...props} />}
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,

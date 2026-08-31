@@ -16,6 +16,7 @@ import {
     Switch,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { useAuth } from '@/providers/auth-provider';
 import { useFirebase } from '@/providers/firebase-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,10 +40,10 @@ import {
     ChevronLeft,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFonts, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { getFontFamily } from '@/config/font-config';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
+import { BackgroundDecor } from '@/components/ui/background-decor';
 
 // ModalInput component defined outside main component to prevent re-creation on every render
 const ModalInput = ({
@@ -92,7 +93,7 @@ const ModalInput = ({
                         modalStyles.input,
                         {
                             color: colors.text,
-                            fontFamily: 'Inter_400Regular',
+                            fontFamily: 'SpaceGrotesk_400Regular',
                             paddingLeft: Icon ? 40 : 12,
                         },
                         showPasswordToggle && { paddingRight: 40 }
@@ -149,9 +150,8 @@ const EditModal = ({
             onRequestClose={onClose}
             statusBarTranslucent={true}
         >
-            <View
-                style={[modalStyles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.4)' }]}
-            >
+            <View style={modalStyles.modalOverlay}>
+                <GlassBackdrop isDark={isDark} onPress={onClose} />
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
                     style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}
@@ -165,13 +165,27 @@ const EditModal = ({
                                         style={[
                                             modalStyles.modalContent,
                                             {
-                                                backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                                                borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0',
+                                                backgroundColor: colors.surfaceGlass,
+                                                borderColor: colors.borderGlass,
                                                 borderWidth: 1,
+                                                borderRadius: 28,
                                                 padding: 24,
+                                                overflow: 'hidden',
                                             }
                                         ]}
                                     >
+                                        {/* Top Sheen */}
+                                        <View
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 24,
+                                                right: 24,
+                                                height: 1,
+                                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                                                zIndex: 10,
+                                            }}
+                                        />
                                         <View style={modalStyles.modalHeader}>
                                             <View>
                                                 <Text style={[modalStyles.modalTitle, fontFamily ? { fontFamily } : {}, { color: colors.text }]}>{title}</Text>
@@ -256,13 +270,8 @@ export default function AccountSettingsScreen() {
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [showThemeModal, setShowThemeModal] = useState(false);
     const [verificationMessage, setVerificationMessage] = useState('');
     const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
-
-    const [fontsLoaded] = useFonts({
-        AbrilFatface_400Regular,
-    });
 
     const resetFormStates = () => {
         setActiveEditor(null);
@@ -378,16 +387,10 @@ export default function AccountSettingsScreen() {
         }
     };
 
-    if (!fontsLoaded) return null;
-
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <BackgroundDecor />
             <Stack.Screen options={{ headerShown: false }} />
-
-            {/* Decorative Background Elements */}
-            <View style={styles.circle1} />
-            <View style={styles.circle2} />
-            <View style={styles.circle3} />
 
             <ScrollView
                 style={styles.scrollContainer}
@@ -489,41 +492,6 @@ export default function AccountSettingsScreen() {
                                 </Text>
                             </View>
                         </View>
-                    </View>
-
-                    {/* Appearance Settings */}
-                    <View style={[
-                        styles.sectionCard,
-                        {
-                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.7)',
-                            borderColor: colors.border,
-                            borderWidth: 1,
-                            shadowColor: isDark ? 'transparent' : '#000',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.05,
-                            shadowRadius: 10,
-                            elevation: isDark ? 0 : 2,
-                        }
-                    ]}>
-                        <View style={[styles.sectionHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]}>
-                            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APPEARANCE</Text>
-                        </View>
-
-                        <TouchableOpacity style={styles.settingItem} onPress={() => setShowThemeModal(true)} activeOpacity={0.7}>
-                            <View style={[styles.settingIcon, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }]}>
-                                {theme === 'dark' ? <Moon size={18} color={colors.primary} /> :
-                                    <Sun size={18} color="#f59e0b" />}
-                            </View>
-                            <View style={styles.settingContent}>
-                                <Text style={[styles.settingLabel, { color: colors.text }]}>Visual Theme</Text>
-                                <Text style={[styles.settingValue, { color: colors.textSecondary }]}>
-                                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-                                </Text>
-                            </View>
-                            <View style={styles.pickerArrow}>
-                                <ChevronRight size={18} color={colors.textSecondary} />
-                            </View>
-                        </TouchableOpacity>
                     </View>
 
                     {/* Profile Settings Card */}
@@ -723,87 +691,6 @@ export default function AccountSettingsScreen() {
                 />
             </EditModal>
 
-            <Modal
-                visible={showThemeModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowThemeModal(false)}
-                statusBarTranslucent={true}
-            >
-                <View style={[modalStyles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}>
-                    <TouchableWithoutFeedback onPress={() => setShowThemeModal(false)}>
-                        <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-                            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                                <View
-                                    style={[
-                                        modalStyles.modalContent,
-                                        {
-                                            backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                                            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0',
-                                            borderWidth: 1,
-                                            maxWidth: 340
-                                        }
-                                    ]}
-                                >
-                                    <View style={[modalStyles.modalHeader, { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9' }]}>
-                                        <Text style={[modalStyles.modalTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Theme</Text>
-                                        <TouchableOpacity onPress={() => setShowThemeModal(false)} style={[modalStyles.closeButton, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9' }]}>
-                                            <X size={20} color={colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <View style={{ padding: 12 }}>
-                                        {(['light', 'dark'] as const).map((mode) => (
-                                            <TouchableOpacity
-                                                key={mode}
-                                                style={[
-                                                    styles.themeOption,
-                                                    {
-                                                        backgroundColor: theme === mode ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4') : 'transparent',
-                                                        borderRadius: 12,
-                                                        padding: 12,
-                                                        flexDirection: 'row',
-                                                        alignItems: 'center',
-                                                        marginVertical: 4
-                                                    }
-                                                ]}
-                                                onPress={() => {
-                                                    setTheme(mode);
-                                                    setShowThemeModal(false);
-                                                }}
-                                            >
-                                                <View style={[styles.themeIcon, {
-                                                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
-                                                    width: 44,
-                                                    height: 44,
-                                                    borderRadius: 14,
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    marginRight: 16
-                                                }]}>
-                                                    {mode === 'dark' ? <Moon size={18} color={theme === mode ? colors.primary : colors.textSecondary} /> :
-                                                        <Sun size={18} color={theme === mode ? "#f59e0b" : colors.textSecondary} />}
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={{
-                                                        fontSize: 15,
-                                                        fontWeight: theme === mode ? '700' : '500',
-                                                        color: theme === mode ? colors.text : colors.textSecondary
-                                                    }}>
-                                                        {mode === 'dark' ? 'Dark Mode' : 'Light Mode'}
-                                                    </Text>
-                                                </View>
-                                                {theme === mode && <Check size={18} color={colors.primary} />}
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </View>
-                            </TouchableWithoutFeedback>
-                        </View>
-                    </TouchableWithoutFeedback>
-                </View>
-            </Modal>
-
         </View>
     );
 }
@@ -976,11 +863,10 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     headerTitle: {
-        fontFamily: 'AbrilFatface_400Regular',
-        fontSize: 42,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        fontSize: 32,
         color: '#0f172a',
         marginBottom: 12,
-        letterSpacing: -1,
     },
     headerLine: {
         width: 40,

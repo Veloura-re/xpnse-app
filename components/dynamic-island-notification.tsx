@@ -290,12 +290,14 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     title: {
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#f8fafc',
         fontSize: 13,
         fontWeight: '700',
         letterSpacing: 0.1,
     },
     message: {
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: '#94a3b8',
         fontSize: 11.5,
         lineHeight: 15,
