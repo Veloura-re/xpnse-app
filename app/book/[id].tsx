@@ -31,6 +31,7 @@ import {
   TrendingUp,
   TrendingDown,
   Copy,
+  CopyPlus,
   FileDown,
   MoreVertical,
   SlidersHorizontal,
@@ -520,6 +521,49 @@ export default function BookDetailScreen() {
     }
   }, [targetBookId, selectedEntries, filteredEntries, addEntry, refresh, exitSelectionMode, books, user, sendBulkNotification]);
 
+  const handleBulkDuplicate = useCallback(async () => {
+    if (!book || selectedEntries.size === 0) return;
+
+    try {
+      setIsBulkOperating(true);
+      if (Platform.OS !== 'web') {
+        try {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (e) {}
+      }
+      const entriesToDuplicate = filteredEntries.filter(e => selectedEntries.has(e.id));
+
+      await Promise.all(entriesToDuplicate.map(entry => {
+        const newEntry = {
+          ...entry,
+          id: uuidv4(),
+          bookId: book.id,
+          description: entry.description ? `${entry.description} (Copy)` : 'Copy',
+          createdAt: new Date().toISOString(),
+        };
+        return addEntry(newEntry, { bookName: book.name, silent: true });
+      }));
+
+      await sendBulkNotification({
+        title: 'Transactions Duplicated',
+        message: `${user?.displayName || user?.name || 'A user'} duplicated ${entriesToDuplicate.length} items in "${book.name}"`,
+        type: 'success',
+        metadata: {
+          count: entriesToDuplicate.length,
+          bookId: book.id
+        }
+      });
+
+      exitSelectionMode();
+      refresh();
+    } catch (error) {
+      console.error("Failed to duplicate entries:", error);
+      Alert.alert("Error", "Failed to duplicate entries. Please try again.");
+    } finally {
+      setIsBulkOperating(false);
+    }
+  }, [book, selectedEntries, filteredEntries, addEntry, refresh, exitSelectionMode, user, sendBulkNotification]);
+
   const handleExport = useCallback((format: 'csv' | 'xlsx' | 'pdf') => {
     if (!book) return;
 
@@ -815,81 +859,102 @@ export default function BookDetailScreen() {
                 )}
                 <View style={[
                   styles.entryIcon,
-                  { backgroundColor: item.type === 'cash_in' ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2') }
+                  { backgroundColor: item.type === 'cash_in' ? (isDark ? 'rgba(16, 185, 129, 0.18)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2') }
                 ]}>
                   {item.type === 'cash_in' ? (
-                    <TrendingUp size={16} color="#10b981" />
+                    <TrendingUp size={18} color="#10b981" />
                   ) : (
-                    <TrendingDown size={16} color="#ef4444" />
+                    <TrendingDown size={18} color="#ef4444" />
                   )}
                 </View>
 
                 <View style={styles.entryContent}>
+                  {/* Top Row: Description & Amount */}
                   <View style={styles.entryHeader}>
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
-                      <Text style={[styles.entryDescription, { color: colors.text, flexShrink: 1 }]} numberOfLines={1}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                      <Text style={[styles.entryDescription, { color: colors.text }]} numberOfLines={1}>
                         {item.description || (item.type === 'cash_in' ? 'Cash In' : 'Cash Out')}
                       </Text>
                       {item.recurringRuleId && (
                         <View
-                          style={{
-                            marginLeft: 6,
-                            paddingHorizontal: 5,
-                            paddingVertical: 2,
-                            borderRadius: 6,
-                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 3,
-                          }}
+                          style={[
+                            styles.recurringBadge,
+                            {
+                              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                              borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)',
+                            }
+                          ]}
                         >
-                          <Repeat size={10} color={colors.primary} />
-                          <Text style={{ fontSize: 9, color: colors.primary, fontWeight: '700' }}>RECURRING</Text>
+                          <Repeat size={10} color="#10b981" />
+                          <Text style={styles.recurringBadgeText}>RECURRING</Text>
                         </View>
                       )}
                     </View>
 
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[
-                          styles.entryAmount,
-                          { color: item.type === 'cash_in' ? '#10b981' : '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }
-                        ]}>
-                          {item.type === 'cash_out' ? '-' : '+'}{formatCurrency(item.amount, bookCurrency)}
-                        </Text>
-                        <Text style={[styles.entryBalance, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                          Bal: {formatCurrency(item.displayBalance ?? 0, bookCurrency)}
-                        </Text>
-                    </View>
+                    <Text style={[
+                      styles.entryAmount,
+                      { color: item.type === 'cash_in' ? '#10b981' : '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }
+                    ]}>
+                      {item.type === 'cash_out' ? '-' : '+'}{formatCurrency(item.amount, bookCurrency)}
+                    </Text>
                   </View>
 
+                  {/* Bottom Row: Metadata & Single Running Balance Pill */}
                   <View style={styles.entryFooter}>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginRight: 8 }}>
                       <Text style={[styles.entryDate, { color: colors.textSecondary }]}>
                         {isToday ? 'Today' : entryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        {book?.settings?.showPaymentMode && item.paymentMode && ` • ${item.paymentMode}`}
-                        {book?.settings?.showCategory && item.category && ` • ${item.category}`}
-                        {partyName && ` • ${partyName}`}
-                        {` • Entered by ${creatorName}`}
                       </Text>
-                      {item.displayBalance !== undefined && (
-                        <Text style={[styles.entryBalance, { color: colors.textSecondary }]}>
-                          Bal: {formatCurrency(item.displayBalance, currentBusiness?.currency)}
+                      {book?.settings?.showPaymentMode && item.paymentMode && (
+                        <Text style={[styles.entryMetaText, { color: colors.textSecondary }]}>
+                          {' '}• {item.paymentMode}
                         </Text>
                       )}
+                      {book?.settings?.showCategory && item.category && (
+                        <Text style={[styles.entryMetaText, { color: colors.textSecondary }]}>
+                          {' '}• {item.category}
+                        </Text>
+                      )}
+                      {partyName && (
+                        <Text style={[styles.entryMetaText, { color: colors.textSecondary }]}>
+                          {' '}• {partyName}
+                        </Text>
+                      )}
+                      <Text style={[styles.entryMetaText, { color: colors.textSecondary }]}>
+                        {' '}• {creatorName}
+                      </Text>
                     </View>
 
-                    {(userRole === 'owner' || userRole === 'partner') && (
-                      <TouchableOpacity
-                        style={styles.entryAction}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setMenuEntry(item);
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <MoreVertical size={14} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                    )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {item.displayBalance !== undefined && (
+                        <View
+                          style={[
+                            styles.entryBalancePill,
+                            {
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9',
+                              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                            }
+                          ]}
+                        >
+                          <Text style={[styles.entryBalanceText, { color: colors.textSecondary }]}>
+                            Bal {formatCurrency(item.displayBalance, bookCurrency)}
+                          </Text>
+                        </View>
+                      )}
+
+                      {(userRole === 'owner' || userRole === 'partner') && (
+                        <TouchableOpacity
+                          style={styles.entryAction}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setMenuEntry(item);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <MoreVertical size={15} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -962,50 +1027,200 @@ export default function BookDetailScreen() {
         </View>
       )}
 
-      {/* Bulk Action Bar */}
+      {/* Redesigned Floating Bulk Action Dock */}
       {selectionMode && selectedEntries.size > 0 && (
-        <View
+        <Animated.View
+          entering={FadeInUp.springify().damping(18)}
           style={[
-            styles.bulkActionBar,
+            styles.bulkDockContainer,
             {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
-              bottom: insets.bottom + 85
+              bottom: Math.max(insets.bottom + 16, 20),
             }
           ]}
         >
-          <View style={styles.bulkActionInfo}>
-            <Text style={[styles.bulkActionCount, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>
-              {selectedEntries.size} {selectedEntries.size === 1 ? 'entry' : 'entries'}
-            </Text>
+          <View
+            style={[
+              styles.bulkDockCard,
+              {
+                backgroundColor: isDark ? 'rgba(20, 20, 22, 0.95)' : 'rgba(255, 255, 255, 0.96)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+              }
+            ]}
+          >
+            {/* Top Sheen Line */}
+            <LinearGradient
+              colors={isDark ? ['rgba(255,255,255,0.15)', 'transparent'] : ['rgba(255,255,255,0.8)', 'transparent']}
+              style={styles.dockSheen}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+            />
+
+            {/* Header Row / Selection Counter */}
+            <View style={styles.dockHeaderRow}>
+              <View
+                style={[
+                  styles.dockBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)',
+                  }
+                ]}
+              >
+                <Text style={[styles.dockBadgeText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                  {selectedEntries.size} {selectedEntries.size === 1 ? 'Selected' : 'Selected'}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.dockCloseBtn,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9',
+                  }
+                ]}
+                onPress={exitSelectionMode}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.7}
+              >
+                <X size={13} color={colors.textSecondary} />
+                <Text style={[styles.dockCloseBtnText, { color: colors.textSecondary }]}>Deselect</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 4 Action Buttons in Responsive Grid Row */}
+            <View style={styles.dockButtonsRow}>
+              {/* 1. Duplicate Button */}
+              <TouchableOpacity
+                style={[
+                  styles.dockActionButton,
+                  {
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5',
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.28)' : 'rgba(16, 185, 129, 0.22)',
+                  }
+                ]}
+                onPress={handleBulkDuplicate}
+                disabled={isBulkOperating}
+                activeOpacity={0.75}
+              >
+                <View
+                  style={[
+                    styles.dockIconCircle,
+                    { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.15)' }
+                  ]}
+                >
+                  <CopyPlus size={18} color="#10b981" />
+                </View>
+                <Text
+                  style={[
+                    styles.dockActionLabel,
+                    { color: isDark ? '#34d399' : '#059669', fontFamily: 'SpaceGrotesk_700Bold' }
+                  ]}
+                >
+                  Duplicate
+                </Text>
+              </TouchableOpacity>
+
+              {/* 2. Copy to Book Button */}
+              <TouchableOpacity
+                style={[
+                  styles.dockActionButton,
+                  {
+                    backgroundColor: isDark ? 'rgba(14, 165, 233, 0.12)' : '#f0f9ff',
+                    borderColor: isDark ? 'rgba(14, 165, 233, 0.28)' : 'rgba(14, 165, 233, 0.22)',
+                  }
+                ]}
+                onPress={() => {
+                  setTargetBookId(otherBooks[0]?.id || null);
+                  setBulkCopyModalVisible(true);
+                }}
+                disabled={isBulkOperating}
+                activeOpacity={0.75}
+              >
+                <View
+                  style={[
+                    styles.dockIconCircle,
+                    { backgroundColor: isDark ? 'rgba(14, 165, 233, 0.2)' : 'rgba(14, 165, 233, 0.15)' }
+                  ]}
+                >
+                  <Copy size={18} color="#0ea5e9" />
+                </View>
+                <Text
+                  style={[
+                    styles.dockActionLabel,
+                    { color: isDark ? '#38bdf8' : '#0284c7', fontFamily: 'SpaceGrotesk_700Bold' }
+                  ]}
+                >
+                  Copy
+                </Text>
+              </TouchableOpacity>
+
+              {/* 3. Move / Transfer to Book Button */}
+              <TouchableOpacity
+                style={[
+                  styles.dockActionButton,
+                  {
+                    backgroundColor: isDark ? 'rgba(139, 92, 246, 0.12)' : '#f5f3ff',
+                    borderColor: isDark ? 'rgba(139, 92, 246, 0.28)' : 'rgba(139, 92, 246, 0.22)',
+                  }
+                ]}
+                onPress={() => {
+                  setTargetBookId(otherBooks[0]?.id || null);
+                  setBulkTransferModalVisible(true);
+                }}
+                disabled={isBulkOperating}
+                activeOpacity={0.75}
+              >
+                <View
+                  style={[
+                    styles.dockIconCircle,
+                    { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)' }
+                  ]}
+                >
+                  <ArrowRightLeft size={18} color="#8b5cf6" />
+                </View>
+                <Text
+                  style={[
+                    styles.dockActionLabel,
+                    { color: isDark ? '#a78bfa' : '#7c3aed', fontFamily: 'SpaceGrotesk_700Bold' }
+                  ]}
+                >
+                  Move
+                </Text>
+              </TouchableOpacity>
+
+              {/* 4. Delete Button */}
+              <TouchableOpacity
+                style={[
+                  styles.dockActionButton,
+                  {
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                    borderColor: isDark ? 'rgba(239, 68, 68, 0.28)' : 'rgba(239, 68, 68, 0.22)',
+                  }
+                ]}
+                onPress={() => setBulkDeleteConfirmation(true)}
+                disabled={isBulkOperating}
+                activeOpacity={0.75}
+              >
+                <View
+                  style={[
+                    styles.dockIconCircle,
+                    { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.15)' }
+                  ]}
+                >
+                  <Trash2 size={18} color="#ef4444" />
+                </View>
+                <Text
+                  style={[
+                    styles.dockActionLabel,
+                    { color: isDark ? '#f87171' : '#dc2626', fontFamily: 'SpaceGrotesk_700Bold' }
+                  ]}
+                >
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.bulkActionButtons}>
-            <TouchableOpacity
-              style={[styles.bulkActionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => {
-                setTargetBookId(otherBooks[0]?.id || null);
-                setBulkTransferModalVisible(true);
-              }}
-            >
-              <ArrowRight size={20} color="#0ea5e9" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.bulkActionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => {
-                setTargetBookId(otherBooks[0]?.id || null);
-                setBulkCopyModalVisible(true);
-              }}
-            >
-              <Copy size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.bulkActionButton, styles.bulkActionButtonDanger, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2', borderColor: '#ef4444' }]}
-              onPress={() => setBulkDeleteConfirmation(true)}
-            >
-              <Trash2 size={20} color="#ef4444" />
-            </TouchableOpacity>
-          </View>
-        </View>
+        </Animated.View>
       )}
 
       {/* Modals */}
@@ -2164,18 +2379,34 @@ const styles = StyleSheet.create({
   entryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-    borderRadius: 12,
-    marginBottom: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginBottom: 8,
     borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+        shadowColor: '#000',
+      },
+      web: {
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+      },
+    }),
   },
   entryIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   entryIconIn: {
     // backgroundColor applied dynamically
@@ -2190,17 +2421,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   entryDescription: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0f172a',
-    flex: 1,
-    marginRight: 8,
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  recurringBadge: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  recurringBadgeText: {
+    fontSize: 9,
+    color: '#10b981',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   entryAmount: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
   },
   textIn: {
@@ -2215,18 +2461,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   entryDate: {
-    fontSize: 10,
-    color: '#94a3b8',
-    flex: 1,
+    fontSize: 11,
+    fontWeight: '500',
   },
-  entryBalance: {
+  entryMetaText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  entryBalancePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  entryBalanceText: {
     fontSize: 10,
-    color: '#64748b',
-    fontWeight: '600',
-    marginTop: 0,
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   entryAction: {
-    padding: 4,
+    padding: 3,
+    marginLeft: 2,
   },
   selectionCheckCircle: {
     width: 22,
@@ -2487,54 +2742,101 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#475569',
   },
-  // Bulk Action Bar
-  bulkActionBar: {
+  // Redesigned Floating Bulk Action Dock
+  bulkDockContainer: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    borderTopWidth: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 24,
-    flexDirection: 'row',
+    left: 16,
+    right: 16,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    zIndex: 999,
+  },
+  bulkDockCard: {
+    width: '100%',
+    maxWidth: 440,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
         shadowColor: '#000',
+      },
+      web: {
+        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.15)',
+        backdropFilter: 'blur(20px)',
       },
     }),
   },
-  bulkActionInfo: {
-    flex: 1,
+  dockSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1.5,
   },
-  bulkActionCount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  bulkActionButtons: {
+  dockHeaderRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
-  bulkActionButton: {
-    padding: 10,
-    borderRadius: 10,
+  dockBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
     borderWidth: 1,
+  },
+  dockBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  dockCloseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dockCloseBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dockButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+  },
+  dockActionButton: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+    borderRadius: 16,
+    borderWidth: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 44, // Optional: fixed width for square buttons
-    height: 44,
   },
-  bulkActionButtonDanger: {
-    // backgroundColor applied dynamically
+  dockIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  dockActionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 
   // Popup Styles (Export Modal)
