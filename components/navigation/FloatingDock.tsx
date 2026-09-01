@@ -57,8 +57,8 @@ export default function FloatingDock({ state, descriptors, navigation }: Floatin
                     style={[
                         styles.blurContainer,
                         {
-                            backgroundColor: isDark ? 'rgba(26, 26, 24, 0.82)' : 'rgba(255, 255, 255, 0.85)',
-                            borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(234, 229, 222, 0.90)',
+                            backgroundColor: isDark ? 'rgba(26, 26, 24, 0.90)' : (Platform.OS === 'android' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.92)'),
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : '#E2E8F0',
                         }
                     ]}
                     tint={isDark ? 'dark' : 'light'}

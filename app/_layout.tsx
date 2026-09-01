@@ -161,6 +161,13 @@ export default function RootLayout() {
     SpaceGrotesk_500Medium,
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
+    'SpaceGrotesk-Light': SpaceGrotesk_300Light,
+    'SpaceGrotesk-Regular': SpaceGrotesk_400Regular,
+    'SpaceGrotesk-Medium': SpaceGrotesk_500Medium,
+    'SpaceGrotesk-SemiBold': SpaceGrotesk_600SemiBold,
+    'SpaceGrotesk-Bold': SpaceGrotesk_700Bold,
+    'SpaceGrotesk': SpaceGrotesk_400Regular,
+    'Space Grotesk': SpaceGrotesk_400Regular,
   });
 
   useEffect(() => {

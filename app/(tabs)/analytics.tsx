@@ -358,28 +358,30 @@ export default function AnalyticsScreen() {
                 )}
             </View>
 
-            <View style={[styles.balanceCard, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass, overflow: 'hidden' }]}>
-                <BlurView
-                    intensity={isDark ? 40 : 60}
-                    tint={isDark ? 'dark' : 'light'}
-                    style={StyleSheet.absoluteFill}
-                />
-                <LinearGradient
-                    colors={isDark ? ['rgba(34, 34, 32, 0.82)', 'rgba(29, 29, 27, 0.88)'] : ['rgba(255, 255, 255, 0.88)', 'rgba(250, 247, 242, 0.82)']}
-                    style={StyleSheet.absoluteFill}
-                />
+            <View style={[
+                styles.balanceCard, 
+                { 
+                    backgroundColor: isDark ? colors.surface : '#FFFFFF', 
+                    borderColor: colors.border,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: isDark ? 0.25 : 0.05,
+                    shadowRadius: 12,
+                    elevation: isDark ? 3 : 1,
+                }
+            ]}>
                 <View style={styles.balanceHeader}>
                     <View style={[styles.balanceIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
                         <Wallet size={18} color="#10b981" />
                     </View>
-                    <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
+                    <Text style={[styles.balanceLabel, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_500Medium' }]}>Net Balance</Text>
                 </View>
                 {analytics.isLoading ? (
                     <ActivityIndicator color={colors.primary} size="large" style={{ marginVertical: 10, alignSelf: 'flex-start' }} />
                 ) : (
                     <Text style={[
                         styles.balanceValue,
-                        { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700', color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
+                        { fontFamily: 'SpaceGrotesk_700Bold', color: analytics.netBalance >= 0 ? '#10b981' : '#ef4444' }
                     ]}>
                         {formatCurrency(analytics.netBalance, currentBusiness?.currency)}
                     </Text>
@@ -391,8 +393,8 @@ export default function AnalyticsScreen() {
                             <TrendingUp size={14} color="#10b981" />
                         </View>
                         <View>
-                            <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total In</Text>
-                            <Text style={[styles.miniValue, { color: '#10b981' }]}>
+                            <Text style={[styles.miniLabel, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>Total In</Text>
+                            <Text style={[styles.miniValue, { color: '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
                             </Text>
                         </View>
@@ -403,8 +405,8 @@ export default function AnalyticsScreen() {
                             <TrendingDown size={14} color="#ef4444" />
                         </View>
                         <View>
-                            <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Total Out</Text>
-                            <Text style={[styles.miniValue, { color: '#ef4444' }]}>
+                            <Text style={[styles.miniLabel, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>Total Out</Text>
+                            <Text style={[styles.miniValue, { color: '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 {analytics.isLoading ? '---' : formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
                             </Text>
                         </View>
@@ -434,16 +436,22 @@ export default function AnalyticsScreen() {
             {analytics.topBooks.length > 0 && (
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <PieChart size={20} color={colors.primary} />
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Books by Balance</Text>
+                        <PieChart size={18} color={colors.primary} />
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>Top Books by Balance</Text>
                     </View>
-                    <View style={[styles.sectionCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-                        <BlurView
-                            intensity={isDark ? 30 : 50}
-                            tint={isDark ? 'dark' : 'light'}
-                            style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '80' }]}
-                        />
-                        <View style={{ padding: 12 }}>
+                    <View style={[
+                        styles.sectionCard, 
+                        { 
+                            backgroundColor: isDark ? colors.surface : '#FFFFFF', 
+                            borderColor: colors.border,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: isDark ? 0.2 : 0.04,
+                            shadowRadius: 8,
+                            elevation: isDark ? 2 : 1,
+                        }
+                    ]}>
+                        <View style={{ padding: 14 }}>
                             {analytics.topBooks.map((book) => (
                                 <TouchableOpacity 
                                     key={book.id} 
@@ -468,24 +476,30 @@ export default function AnalyticsScreen() {
 
             <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                    <DollarSign size={20} color={colors.primary} />
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Cash Flow Summary</Text>
+                    <DollarSign size={18} color={colors.primary} />
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>Cash Flow Summary</Text>
                 </View>
-                <View style={[styles.sectionCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-                    <BlurView
-                        intensity={isDark ? 30 : 50}
-                        tint={isDark ? 'dark' : 'light'}
-                        style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '80' }]}
-                    />
-                    <View style={{ padding: 12 }}>
+                <View style={[
+                    styles.sectionCard, 
+                    { 
+                        backgroundColor: isDark ? colors.surface : '#FFFFFF', 
+                        borderColor: colors.border,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: isDark ? 0.2 : 0.04,
+                        shadowRadius: 8,
+                        elevation: isDark ? 2 : 1,
+                    }
+                ]}>
+                    <View style={{ padding: 14 }}>
                         <View style={styles.flowRow}>
                             <View style={styles.flowItem}>
-                                <View style={[styles.flowIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                                <View style={[styles.flowIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7' }]}>
                                     <TrendingUp size={16} color="#10b981" />
                                 </View>
                                 <View style={styles.flowInfo}>
-                                    <Text style={[styles.flowLabel, { color: colors.textSecondary }]}>Money In</Text>
-                                    <Text style={[styles.flowValue, { color: '#10b981' }]}>
+                                    <Text style={[styles.flowLabel, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>Money In</Text>
+                                    <Text style={[styles.flowValue, { color: '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                         {formatCurrency(analytics.totalCashIn, currentBusiness?.currency)}
                                     </Text>
                                 </View>
@@ -494,12 +508,12 @@ export default function AnalyticsScreen() {
                         <View style={[styles.flowDivider, { backgroundColor: colors.border }]} />
                         <View style={styles.flowRow}>
                             <View style={styles.flowItem}>
-                                <View style={[styles.flowIcon, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                                <View style={[styles.flowIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2' }]}>
                                     <TrendingDown size={16} color="#ef4444" />
                                 </View>
                                 <View style={styles.flowInfo}>
-                                    <Text style={[styles.flowLabel, { color: colors.textSecondary }]}>Money Out</Text>
-                                    <Text style={[styles.flowValue, { color: '#ef4444' }]}>
+                                    <Text style={[styles.flowLabel, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>Money Out</Text>
+                                    <Text style={[styles.flowValue, { color: '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                         {formatCurrency(analytics.totalCashOut, currentBusiness?.currency)}
                                     </Text>
                                 </View>
@@ -510,8 +524,8 @@ export default function AnalyticsScreen() {
             </View>
 
             <View style={styles.sectionHeader}>
-                <ArrowRightLeft size={20} color={colors.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
+                <ArrowRightLeft size={18} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>Recent Activity</Text>
             </View>
         </View>
     );

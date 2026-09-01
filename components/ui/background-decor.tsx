@@ -20,8 +20,8 @@ export function BackgroundDecor({ pointerEvents = 'none' }: BackgroundDecorProps
           styles.orb,
           styles.topRightOrb,
           {
-            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-            borderColor: isDark ? 'rgba(16, 185, 129, 0.06)' : 'rgba(16, 185, 129, 0.07)',
+            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.03)',
+            borderColor: isDark ? 'rgba(16, 185, 129, 0.06)' : 'transparent',
           },
         ]}
       >
@@ -29,7 +29,7 @@ export function BackgroundDecor({ pointerEvents = 'none' }: BackgroundDecorProps
           colors={
             isDark
               ? ['rgba(16, 185, 129, 0.14)', 'rgba(16, 185, 129, 0.02)', 'transparent']
-              : ['rgba(16, 185, 129, 0.12)', 'rgba(16, 185, 129, 0.03)', 'transparent']
+              : ['rgba(16, 185, 129, 0.06)', 'rgba(16, 185, 129, 0.01)', 'transparent']
           }
           start={{ x: 0.2, y: 0.2 }}
           end={{ x: 0.8, y: 0.8 }}
@@ -43,8 +43,8 @@ export function BackgroundDecor({ pointerEvents = 'none' }: BackgroundDecorProps
           styles.orb,
           styles.centerLeftOrb,
           {
-            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.06)' : 'rgba(16, 185, 129, 0.06)',
-            borderColor: isDark ? 'rgba(16, 185, 129, 0.04)' : 'rgba(16, 185, 129, 0.05)',
+            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.06)' : 'rgba(16, 185, 129, 0.02)',
+            borderColor: isDark ? 'rgba(16, 185, 129, 0.04)' : 'transparent',
           },
         ]}
       >
@@ -52,7 +52,7 @@ export function BackgroundDecor({ pointerEvents = 'none' }: BackgroundDecorProps
           colors={
             isDark
               ? ['rgba(16, 185, 129, 0.10)', 'rgba(16, 185, 129, 0.01)', 'transparent']
-              : ['rgba(16, 185, 129, 0.09)', 'rgba(16, 185, 129, 0.02)', 'transparent']
+              : ['rgba(16, 185, 129, 0.05)', 'rgba(16, 185, 129, 0.01)', 'transparent']
           }
           start={{ x: 0.7, y: 0.3 }}
           end={{ x: 0.3, y: 0.9 }}
@@ -66,8 +66,8 @@ export function BackgroundDecor({ pointerEvents = 'none' }: BackgroundDecorProps
           styles.orb,
           styles.bottomRightOrb,
           {
-            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.07)' : 'rgba(16, 185, 129, 0.06)',
-            borderColor: isDark ? 'rgba(16, 185, 129, 0.04)' : 'rgba(16, 185, 129, 0.05)',
+            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.07)' : 'rgba(16, 185, 129, 0.02)',
+            borderColor: isDark ? 'rgba(16, 185, 129, 0.04)' : 'transparent',
           },
         ]}
       >
@@ -75,7 +75,7 @@ export function BackgroundDecor({ pointerEvents = 'none' }: BackgroundDecorProps
           colors={
             isDark
               ? ['rgba(16, 185, 129, 0.12)', 'rgba(16, 185, 129, 0.02)', 'transparent']
-              : ['rgba(16, 185, 129, 0.10)', 'rgba(16, 185, 129, 0.02)', 'transparent']
+              : ['rgba(16, 185, 129, 0.05)', 'rgba(16, 185, 129, 0.01)', 'transparent']
           }
           start={{ x: 0.3, y: 0.3 }}
           end={{ x: 0.9, y: 0.9 }}

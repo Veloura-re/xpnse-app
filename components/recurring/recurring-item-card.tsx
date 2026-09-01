@@ -61,12 +61,17 @@ export function RecurringItemCard({
       style={[
         styles.card,
         {
-          backgroundColor: colors.cardGlass,
+          backgroundColor: isDark ? colors.surface : '#FFFFFF',
           borderColor: dueBadge.isDueToday || dueBadge.isOverdue
             ? isCashIn
               ? colors.primary
               : '#EF4444'
-            : colors.borderGlass,
+            : colors.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: isDark ? 0.25 : 0.04,
+          shadowRadius: 8,
+          elevation: isDark ? 2 : 1,
           opacity: isPaused ? 0.65 : 1,
         },
       ]}

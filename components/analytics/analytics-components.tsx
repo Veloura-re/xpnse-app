@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrency } from '@/utils/currency-utils';
@@ -26,16 +25,22 @@ export const StatCard = React.memo(({
     colors,
     isDark
 }: StatCardProps) => (
-    <View style={[styles.statCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-        <BlurView
-            intensity={isDark ? 30 : 50}
-            tint={isDark ? 'dark' : 'light'}
-            style={[StyleSheet.absoluteFill, { backgroundColor: colors.card + '90' }]}
-        />
+    <View style={[
+        styles.statCard, 
+        { 
+            backgroundColor: isDark ? colors.surface : '#FFFFFF', 
+            borderColor: colors.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: isDark ? 0.2 : 0.04,
+            shadowRadius: 8,
+            elevation: isDark ? 2 : 1,
+        }
+    ]}>
         <View style={styles.statContent}>
             <View style={styles.statHeader}>
-                <View style={[styles.statIcon, { backgroundColor: `${color}20` }]}>
-                    <Icon size={14} color={color} />
+                <View style={[styles.statIcon, { backgroundColor: `${color}18` }]}>
+                    <Icon size={16} color={color} />
                 </View>
                 {trend && (
                     <View style={[styles.trendBadge, { backgroundColor: trend === 'up' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
@@ -78,7 +83,7 @@ export const ProgressBar = React.memo(({ label, value, total, color, colors, isD
                     {formatCurrency(value, currency)}
                 </Text>
             </View>
-            <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+            <View style={[styles.progressTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                 <LinearGradient
                     colors={[color, color]}
                     start={{ x: 0, y: 0 }}
@@ -98,13 +103,13 @@ const styles = StyleSheet.create({
         minHeight: 100,
     },
     statContent: {
-        padding: 12,
+        padding: 14,
     },
     statHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 10,
     },
     statIcon: {
         width: 32,
@@ -123,35 +128,35 @@ const styles = StyleSheet.create({
     },
     trendText: {
         fontSize: 9,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     statValue: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 2,
     },
     statTitle: {
-        fontSize: 11,
-        fontWeight: '500',
+        fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     progressItem: {
-        marginBottom: 10,
+        marginBottom: 12,
     },
     progressHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     progressLabel: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_500Medium',
         flex: 1,
         marginRight: 8,
     },
     progressValue: {
-        fontSize: 11,
-        fontWeight: '500',
+        fontSize: 12,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     progressTrack: {
         height: 6,

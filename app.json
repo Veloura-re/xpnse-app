@@ -27,6 +27,13 @@
       },
       "package": "com.zzz1.businessfinancemanagementappkkqzwnt"
     },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zzz1.businessfinancemanagementappkkqzwnt",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
     "web": {
       "favicon": "./assets/images/cashbook-icon.png",
       "bundler": "metro",
@@ -50,13 +57,14 @@
         "origin": "https://spndy.app/"
       },
       "eas": {
-        "projectId": "02593026-0eb9-421d-8a29-b57812d626ba"
+        "projectId": "7a9025e1-7d9a-4bce-babf-4a77545d859f"
       }
     },
     "plugins": [
       "expo-router",
       "expo-notifications",
       "./plugins/withNdkOverride"
-    ]
+    ],
+    "owner": "lucy-structural"
   }
 }

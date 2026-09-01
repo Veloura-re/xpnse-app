@@ -108,25 +108,11 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Brand Header */}
+          {/* Top Header */}
           <View style={styles.headerContainer}>
-            <View
-              style={[
-                styles.brandBadge,
-                {
-                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
-                  borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)',
-                },
-              ]}
-            >
-              <Sparkles size={13} color="#10B981" />
-              <Text style={[styles.brandBadgeText, { color: '#10B981' }]}>Multi-Business Ledger OS</Text>
-            </View>
-
-            <Text style={[styles.appName, { color: colors.text }]}>spndy</Text>
             <Text style={[styles.welcomeText, { color: colors.text }]}>Welcome Back</Text>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
-              Sign in to manage your books, entries & team ledgers
+              Sign in to manage your books & finances
             </Text>
           </View>
 
@@ -136,9 +122,11 @@ export default function LoginScreen() {
               styles.cardContainer,
               {
                 backgroundColor: isDark ? '#141416' : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
                 shadowColor: '#000',
-                shadowOpacity: isDark ? 0.35 : 0.08,
+                shadowOpacity: isDark ? 0.35 : 0.05,
+                shadowRadius: 16,
+                elevation: isDark ? 6 : 2,
               },
             ]}
           >
@@ -281,14 +269,6 @@ export default function LoginScreen() {
                 )}
               </LinearGradient>
             </TouchableOpacity>
-
-            {/* Trust badge */}
-            <View style={styles.trustBadgeRow}>
-              <ShieldCheck size={14} color={isDark ? '#4ADE80' : '#16A34A'} />
-              <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>
-                End-to-End Multi-Tenant Isolation
-              </Text>
-            </View>
           </View>
 
           {/* Bottom Switch to Register */}
@@ -370,36 +350,36 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   welcomeText: {
-    fontSize: 22,
+    fontSize: 32,
     fontFamily: 'SpaceGrotesk_700Bold',
-    fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: -0.8,
   },
   subtitleText: {
-    fontSize: 14,
+    fontSize: 15,
+    fontFamily: 'SpaceGrotesk_400Regular',
     textAlign: 'center',
     maxWidth: 320,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   cardContainer: {
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
     borderRadius: 24,
-    borderWidth: 1.5,
+    borderWidth: 1,
     padding: 24,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 24,
-    elevation: 8,
-    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 3,
   },
   topSheen: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
-    height: 1.5,
+    left: 24,
+    right: 24,
+    height: 1,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -411,7 +391,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_500Medium',
     flex: 1,
     lineHeight: 18,
   },
@@ -420,7 +400,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_500Medium',
     marginBottom: 8,
     letterSpacing: 0.2,
   },
@@ -432,13 +412,13 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLink: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    borderWidth: 1,
     height: 52,
     paddingHorizontal: 14,
   },
@@ -448,7 +428,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_400Regular',
     height: '100%',
   },
   eyeBtn: {
@@ -456,15 +436,15 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   actionBtnWrapper: {
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
     marginTop: 6,
     marginBottom: 16,
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    elevation: 3,
   },
   actionBtn: {
     height: 52,
@@ -480,7 +460,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: 'SpaceGrotesk_700Bold',
-    fontWeight: '700',
     letterSpacing: 0.3,
   },
   trustBadgeRow: {
@@ -491,7 +470,7 @@ const styles = StyleSheet.create({
   },
   trustBadgeText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   bottomNavContainer: {
     flexDirection: 'row',
@@ -501,11 +480,10 @@ const styles = StyleSheet.create({
   },
   bottomNavText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   bottomNavLink: {
     fontSize: 14,
     fontFamily: 'SpaceGrotesk_700Bold',
-    fontWeight: '700',
   },
 });

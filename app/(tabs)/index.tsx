@@ -111,13 +111,13 @@ const BookCard = React.memo(
         style={[
           styles.card,
           {
-            backgroundColor: colors.cardGlass,
-            borderColor: colors.borderGlass,
-            shadowColor: colors.shadow,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: isDark ? 0.3 : 0.05,
-            shadowRadius: 12,
-            elevation: 3,
+            backgroundColor: isDark ? colors.surface : '#FFFFFF',
+            borderColor: isDark ? colors.border : '#E2E8F0',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: isDark ? 0.25 : 0.04,
+            shadowRadius: 8,
+            elevation: isDark ? 2 : 1,
           },
         ]}
       >
@@ -160,21 +160,21 @@ const BookCard = React.memo(
                   <Text
                     style={[
                       styles.bookName,
-                      { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold'), fontSize: 16 },
+                      { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold', fontSize: 16 },
                     ]}
                     numberOfLines={1}
                   >
                     {item.name}
                   </Text>
                   <View style={[styles.bookCurrencyBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: colors.border }]}>
-                    <Text style={[styles.bookCurrencyBadgeText, { color: colors.textSecondary }]}>{bookCurrency}</Text>
+                    <Text style={[styles.bookCurrencyBadgeText, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>{bookCurrency}</Text>
                   </View>
                 </View>
                 <Text
                   style={[
                     styles.statValue,
                     item.netBalance >= 0 ? styles.textSuccess : styles.textDanger,
-                    { fontSize: 14, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold', marginLeft: 'auto', marginRight: 8 },
+                    { fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold', marginLeft: 'auto', marginRight: 8 },
                   ]}
                 >
                   {formatCurrency(Math.abs(item.netBalance), bookCurrency)}
@@ -193,19 +193,19 @@ const BookCard = React.memo(
                 )}
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                <Text style={[styles.bookDate, { color: colors.textSecondary, fontSize: 12 }]}>
+                <Text style={[styles.bookDate, { color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                   {new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TrendingUp size={13} color="#10B981" style={{ marginRight: 3 }} />
-                    <Text style={[styles.miniStatValue, { color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    <Text style={[styles.miniStatValue, { color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                       {formatCurrency(item.totalCashIn || 0, bookCurrency)}
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TrendingDown size={13} color="#EF4444" style={{ marginRight: 3 }} />
-                    <Text style={[styles.miniStatValue, { color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    <Text style={[styles.miniStatValue, { color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                       {formatCurrency(item.totalCashOut || 0, bookCurrency)}
                     </Text>
                   </View>
