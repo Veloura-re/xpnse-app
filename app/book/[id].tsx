@@ -805,8 +805,10 @@ export default function BookDetailScreen() {
                       ? isDark
                         ? 'rgba(16, 185, 129, 0.12)'
                         : '#f0fdf4'
-                      : colors.cardGlass,
-                    borderColor: isSelected ? colors.primary : colors.borderGlass,
+                      : (isDark ? colors.surface : '#FFFFFF'),
+                    borderColor: isSelected 
+                      ? colors.primary 
+                      : (isDark ? colors.borderGlass : '#E2E8F0'),
                     borderWidth: isSelected ? 1.5 : 1,
                   },
                 ]}
@@ -962,11 +964,11 @@ export default function BookDetailScreen() {
           }}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={15}
-          windowSize={10}
+          removeClippedSubviews={Platform.OS === 'android'}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={40}
+          initialNumToRender={10}
+          windowSize={5}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           ListFooterComponent={

@@ -686,6 +686,11 @@ export default function BooksScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 120 }]}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={Platform.OS === 'android'}
+            maxToRenderPerBatch={8}
+            updateCellsBatchingPeriod={40}
+            initialNumToRender={8}
+            windowSize={5}
             ListEmptyComponent={
               <View style={styles.emptyList}>
                 <View style={[styles.emptyListIconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>

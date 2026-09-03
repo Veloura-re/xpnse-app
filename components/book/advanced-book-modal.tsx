@@ -60,6 +60,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
 
   // Valuations state: Map of currencyCode -> numeric valuation in baseCurrency
   const [valuations, setValuations] = useState<Record<string, number>>({});
+  const [rawValuations, setRawValuations] = useState<Record<string, string>>({});
   const [liveRates, setLiveRates] = useState<Record<string, number>>({});
   const [trackedCurrencies, setTrackedCurrencies] = useState<string[]>([]);
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
@@ -89,8 +90,16 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
         ? existingTracked
         : ['EUR', 'GBP', 'KES'].filter(c => c !== baseCurrency);
 
+      const initialRaw: Record<string, string> = {};
+      Object.entries(existingValuations).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) {
+          initialRaw[k] = String(v);
+        }
+      });
+
       setTrackedCurrencies(initialTracked);
       setValuations(existingValuations);
+      setRawValuations(initialRaw);
 
       // Fetch live rates for these currencies
       fetchLiveRates(initialTracked);
@@ -116,21 +125,35 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   };
 
   const handleRateChange = (currencyCode: string, text: string) => {
-    const parsed = parseFloat(text);
+    // Sanitize input: allow digits and at most one decimal point
+    const sanitized = text.replace(/[^0-9.]/g, '');
+    const parts = sanitized.split('.');
+    const formatted = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : sanitized;
+
+    setRawValuations(prev => ({ ...prev, [currencyCode]: formatted }));
+
+    const parsed = parseFloat(formatted);
     if (!isNaN(parsed) && parsed > 0) {
       setValuations(prev => ({ ...prev, [currencyCode]: parsed }));
-    } else if (text === '') {
-      const copy = { ...valuations };
-      delete copy[currencyCode];
-      setValuations(copy);
+    } else if (formatted === '') {
+      setValuations(prev => {
+        const copy = { ...prev };
+        delete copy[currencyCode];
+        return copy;
+      });
     }
   };
 
   const handleResetToLive = (currencyCode: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (e) {}
+    }
     const live = liveRates[currencyCode];
     if (live) {
       setValuations(prev => ({ ...prev, [currencyCode]: live }));
+      setRawValuations(prev => ({ ...prev, [currencyCode]: String(live) }));
     }
   };
 
@@ -147,14 +170,28 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       const rate = await CurrencyService.getExchangeRate(currencyCode, baseCurrency);
       setLiveRates(prev => ({ ...prev, [currencyCode]: rate }));
       setValuations(prev => ({ ...prev, [currencyCode]: rate }));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setRawValuations(prev => ({ ...prev, [currencyCode]: String(rate) }));
+      if (Platform.OS !== 'web') {
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (e) {}
+      }
     }
   };
 
   const handleRemoveCurrency = (currencyCode: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (e) {}
+    }
     setTrackedCurrencies(prev => prev.filter(c => c !== currencyCode));
     setValuations(prev => {
+      const copy = { ...prev };
+      delete copy[currencyCode];
+      return copy;
+    });
+    setRawValuations(prev => {
       const copy = { ...prev };
       delete copy[currencyCode];
       return copy;
@@ -165,17 +202,39 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
     if (!book) return;
     setIsSaving(true);
     try {
+      // Build final normalized valuations map
+      const finalValuations: Record<string, number> = {};
+      trackedCurrencies.forEach(curr => {
+        const raw = rawValuations[curr];
+        if (raw !== undefined && raw !== '') {
+          const num = parseFloat(raw);
+          if (!isNaN(num) && num > 0) {
+            finalValuations[curr] = num;
+            return;
+          }
+        }
+        if (valuations[curr] !== undefined && valuations[curr] > 0) {
+          finalValuations[curr] = valuations[curr];
+        } else if (liveRates[curr] !== undefined && liveRates[curr] > 0) {
+          finalValuations[curr] = liveRates[curr];
+        }
+      });
+
       await updateBook(book.id, {
         settings: {
           showPaymentMode,
           showCategory,
           showAttachments,
           enableMultiCurrency: trackedCurrencies.length > 0,
-          customCurrencyValuations: valuations,
+          customCurrencyValuations: finalValuations,
           trackedCurrencies,
         },
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') {
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (e) {}
+      }
       Alert.alert('Settings Saved', 'Advanced book valuations and settings updated successfully.');
       onClose();
     } catch (err: any) {
@@ -193,7 +252,11 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   const handlePostRecurringNow = async (rule: RecurringRule) => {
     try {
       await postRecurringEntryNow(rule);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') {
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (e) {}
+      }
       Alert.alert('Transaction Posted', `"${rule.description}" posted to ${book.name}.`);
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Could not post recurring entry.');
@@ -208,78 +271,85 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       >
         <View style={styles.modalOverlay}>
           <GlassBackdrop isDark={isDark} onPress={onClose} />
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View
-                style={[
-                  styles.modalContent,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.borderGlass,
-                    width: width > 550 ? 500 : '92%',
-                    maxHeight: '88%',
-                  },
-                ]}
-              >
-                {/* Top Sheen */}
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: isDark ? colors.surface : '#FFFFFF',
+                borderColor: isDark ? colors.borderGlass : '#E2E8F0',
+                width: width > 550 ? 500 : '94%',
+                maxHeight: '88%',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: isDark ? 0.35 : 0.08,
+                shadowRadius: 24,
+                elevation: isDark ? 10 : 3,
+              },
+            ]}
+          >
+            {/* Top Sheen */}
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 24,
+                right: 24,
+                height: 1,
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
+                zIndex: 10,
+              }}
+            />
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: isDark ? colors.border : '#E2E8F0' }]}>
+              <View style={styles.headerLeft}>
                 <View
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 24,
-                    right: 24,
-                    height: 1,
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
-                    zIndex: 10,
-                  }}
-                />
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                  <View style={styles.headerLeft}>
-                    <View
-                      style={[
-                        styles.headerIconBox,
-                        { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)' },
-                      ]}
-                    >
-                      <Globe size={20} color={colors.primary} />
-                    </View>
-                    <View>
-                      <Text
-                        style={[
-                          styles.modalTitle,
-                          { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' },
-                        ]}
-                      >
-                        Advanced Book
-                      </Text>
-                      <Text
-                        style={[
-                          styles.modalSubtitle,
-                          { color: colors.textSecondary, fontFamily: getFontFamily(deviceFont, 'regular') },
-                        ]}
-                      >
-                        {book?.name} • Multi-Currency Valuations
-                      </Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.closeBtn,
-                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9' },
-                    ]}
-                    onPress={onClose}
-                  >
-                    <X size={18} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Body Scroll */}
-                <ScrollView
-                  style={styles.bodyScroll}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
+                  style={[
+                    styles.headerIconBox,
+                    { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#DCFCE7' },
+                  ]}
                 >
+                  <Globe size={20} color={colors.primary} />
+                </View>
+                <View>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' },
+                    ]}
+                  >
+                    Advanced Book
+                  </Text>
+                  <Text
+                    style={[
+                      styles.modalSubtitle,
+                      { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' },
+                    ]}
+                  >
+                    {book?.name} • Multi-Currency Valuations
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.closeBtn,
+                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9' },
+                ]}
+                onPress={onClose}
+              >
+                <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Body Scroll with smooth single-finger gesture handling */}
+            <ScrollView
+              style={styles.bodyScroll}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+            >
                   {/* Base Currency Banner */}
                   <View
                     style={[
@@ -418,14 +488,21 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                               ]}
                             >
                               <TextInput
-                                style={[styles.rateInput, { color: colors.text }]}
-                                value={currentValuation ? String(currentValuation) : ''}
+                                style={[styles.rateInput, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}
+                                value={
+                                  rawValuations[curr] !== undefined
+                                    ? rawValuations[curr]
+                                    : (valuations[curr] !== undefined ? String(valuations[curr]) : '')
+                                }
                                 onChangeText={(text) => handleRateChange(curr, text)}
-                                keyboardType="numeric"
+                                keyboardType="decimal-pad"
                                 placeholder={live ? String(live) : '1.0'}
                                 placeholderTextColor={colors.textSecondary}
+                                selectTextOnFocus={true}
+                                autoCorrect={false}
+                                autoCapitalize="none"
                               />
-                              <Text style={[styles.baseSuffix, { color: colors.textSecondary }]}>
+                              <Text style={[styles.baseSuffix, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 {baseCurrency}
                               </Text>
                             </View>
@@ -442,7 +519,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                               ]}
                               onPress={() => handleResetToLive(curr)}
                             >
-                              <Text style={[styles.resetBtnText, { color: colors.primary }]}>
+                              <Text style={[styles.resetBtnText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                                 Set Live ({live.toFixed(3)})
                               </Text>
                             </TouchableOpacity>
@@ -634,7 +711,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                         <Text
                           style={[
                             styles.saveBtnText,
-                            { fontFamily: getFontFamily(deviceFont, 'bold') },
+                            { fontFamily: 'SpaceGrotesk_700Bold' },
                           ]}
                         >
                           Save Changes
@@ -644,8 +721,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                   </TouchableOpacity>
                 </View>
               </View>
-            </TouchableWithoutFeedback>
-          </View>
+            </View>
         </KeyboardAvoidingView>
 
       {/* World Currency Picker Modal */}

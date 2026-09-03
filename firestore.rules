@@ -78,20 +78,28 @@ service cloud.firestore {
       allow read: if isAuthenticated() && 
                      (request.auth.uid == resource.data.invitedUserId || 
                       request.auth.uid == resource.data.invitedBy);
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.invitedUserId;
+      allow create: if isAuthenticated() && 
+                       request.resource.data.invitedBy == request.auth.uid &&
+                       isMember(request.resource.data.businessId);
+      allow update: if isAuthenticated() && 
+                       (request.auth.uid == resource.data.invitedUserId || request.auth.uid == resource.data.invitedBy);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.invitedBy;
     }
 
     // Activity Logs collection
     match /activityLogs/{logId} {
       allow read: if isAuthenticated() && isMember(resource.data.businessId);
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       isMember(request.resource.data.businessId);
     }
 
     // Notifications collection
     match /notifications/{notificationId} {
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid || 
+                        (request.resource.data.businessId != null && isMember(request.resource.data.businessId)));
     }
 
     // Global Analytics: Collection Group Rule for entries
