@@ -19,6 +19,7 @@ if (Platform.OS !== 'web') {
             shouldSetBadge: true,
             shouldShowBanner: true,
             shouldShowList: true,
+            priority: Notifications.AndroidNotificationPriority.MAX,
         }),
     });
 }
@@ -191,7 +192,8 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
                     body,
                     data,
                     sound: true,
-                    color: color, // Android only
+                    color: color || '#10b981',
+                    priority: Notifications.AndroidNotificationPriority.MAX,
                 },
                 trigger: null, // Send immediately
             });
@@ -337,11 +339,16 @@ async function registerForPushNotificationsAsync() {
 
     if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
-            name: 'Default',
+            name: 'Transactions & Alerts',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#10b981',
             showBadge: true,
+            sound: 'default',
+            enableVibrate: true,
+            enableLights: true,
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+            bypassDnd: false,
         });
     }
 

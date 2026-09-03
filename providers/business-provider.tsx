@@ -10,6 +10,7 @@ const uuidv4 = () => Crypto.randomUUID();
 import { db, firebaseInitialized } from '@/config/firebase';
 import { collection, query, where, getDocs, getDoc, limit, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment, orderBy, arrayUnion, runTransaction, QuerySnapshot, QueryDocumentSnapshot, FirestoreError, DocumentData, Transaction } from 'firebase/firestore';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
+import { PushNotificationService } from '@/services/push-notification-service';
 
 interface BusinessState {
   // Existing state
@@ -637,6 +638,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           });
         });
         await batch.commit();
+
+        // Dispatch native push notification to partners
+        PushNotificationService.sendToUsers(createBookMembersToNotify, {
+          title: 'New Book Created',
+          body: `${user.displayName || user.name || user.email} created "${name}" in ${currentBusiness.name}`,
+          data: { bookId: newBook.id, path: `/book/${newBook.id}` }
+        }).catch(() => {});
       }
     } catch (error) {
       console.error("Error creating book:", error);
@@ -727,6 +735,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           });
         });
         await notifBatch.commit();
+
+        // Dispatch native push notification to partners
+        PushNotificationService.sendToUsers(deleteBookMembersToNotify, {
+          title: 'Book Deleted',
+          body: `${user.displayName || user.name || user.email} deleted "${resolvedDeleteBookName}"`,
+          data: { bookId: bookId }
+        }).catch(() => {});
       }
     } catch (error) {
       console.error("Error deleting book:", error);
@@ -856,6 +871,14 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           });
         });
         await notifBatch.commit();
+
+        // Dispatch native push notification to partners (heads-up popup)
+        const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
+        PushNotificationService.sendToUsers(memberIdsToNotify, {
+          title: entryData.type === 'cash_in' ? '💰 Money Received' : '💸 Money Paid',
+          body: `${user.displayName || user.name || user.email} added ${entryTypeName} of ${formatCurrency(amount, currentBusiness.currency)} for ${description} to "${resolvedBookName}"${balanceText}`,
+          data: { bookId: entryData.bookId, entryId: newEntryId, path: `/book/${entryData.bookId}` }
+        }).catch(() => {});
       }
     } catch (error) {
       console.error("Error adding entry:", error);
@@ -1050,6 +1073,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           });
         });
         await notifBatch.commit();
+
+        // Dispatch native push notification to partners
+        PushNotificationService.sendToUsers(updateMemberIdsToNotify, {
+          title: '✏️ Entry Updated',
+          body: `${user.displayName || user.name || user.email} updated a ${entryTypeName} (${description}) in "${resolvedBookName}"${balanceText}`,
+          data: { bookId: oldEntry.bookId, entryId: entryId, path: `/book/${oldEntry.bookId}` }
+        }).catch(() => {});
       }
     } catch (error) {
       console.error("Error updating entry:", error);
@@ -1152,6 +1182,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             });
           });
           await notifBatch.commit();
+
+          // Dispatch native push notification to partners
+          PushNotificationService.sendToUsers(deleteMemberIdsToNotify, {
+            title: '🗑️ Entry Deleted',
+            body: `${user.displayName || user.name || user.email} deleted ${entryTypeName} (${description}) of ${formatCurrency(amount, currentBusiness.currency)} from "${resolvedDeleteBookName}"`,
+            data: { bookId: entryData.bookId, entryId: entryId }
+          }).catch(() => {});
         }
       }
     } catch (error) {
@@ -1699,6 +1736,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         });
       });
       await batch.commit();
+
+      // Dispatch native push notification to partners
+      PushNotificationService.sendToUsers(bulkMembersToNotify, {
+        title: options.title,
+        body: options.message,
+        data: { ...(options.metadata || {}), path: '/(tabs)/team' }
+      }).catch(() => {});
     } catch (error) {
       console.error('Error sending bulk notification:', error);
     }
