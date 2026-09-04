@@ -876,9 +876,19 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
         const rateCache: Record<string, number> = {};
         const getRate = async (from: string, to: string): Promise<number> => {
-          const key = `${from}_${to}`;
+          const upperFrom = from.toUpperCase();
+          const upperTo = to.toUpperCase();
+          if (upperFrom === upperTo) return 1.0;
+          const key = `${upperFrom}_${upperTo}`;
           if (rateCache[key] !== undefined) return rateCache[key];
-          const r = await CurrencyService.getExchangeRate(from, to);
+          if (upperTo === newCurrency && finalSettings?.customCurrencyValuations?.[upperFrom]) {
+            const customVal = Number(finalSettings.customCurrencyValuations[upperFrom]);
+            if (!isNaN(customVal) && customVal > 0) {
+              rateCache[key] = customVal;
+              return customVal;
+            }
+          }
+          const r = await CurrencyService.getExchangeRate(upperFrom, upperTo);
           rateCache[key] = r;
           return r;
         };
@@ -917,6 +927,30 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           });
         }
 
+        // Recalculate recurring rules for this book
+        try {
+          const rulesQuery = query(
+            collection(firestore, 'businesses', currentBusiness.id, 'recurringRules'),
+            where('bookId', '==', bookId)
+          );
+          const rulesSnapshot = await getDocs(rulesQuery);
+          for (const ruleDoc of rulesSnapshot.docs) {
+            const ruleData = ruleDoc.data() as RecurringRule;
+            const ruleOrigCurrency = (ruleData.originalCurrency || oldCurrency).toUpperCase();
+            const ruleOrigAmount = ruleData.originalAmount !== undefined ? Number(ruleData.originalAmount) : Number(ruleData.amount || 0);
+            const ruleRate = await getRate(ruleOrigCurrency, newCurrency);
+
+            queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'recurringRules', ruleDoc.id), {
+              amount: Math.round(ruleOrigAmount * ruleRate * 100) / 100,
+              exchangeRate: ruleRate,
+              originalCurrency: ruleOrigCurrency,
+              originalAmount: ruleOrigAmount,
+            });
+          }
+        } catch (e) {
+          console.warn('Error recalculating recurring rules for book:', e);
+        }
+
         calculatedCashIn = Math.round(calculatedCashIn * 100) / 100;
         calculatedCashOut = Math.round(calculatedCashOut * 100) / 100;
         const calculatedNet = Math.round((calculatedCashIn - calculatedCashOut) * 100) / 100;
@@ -933,6 +967,19 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         for (const b of batchList) {
           await b.commit();
         }
+
+        // Multi-Tenant Audit Log
+        try {
+          const activityRef = doc(collection(firestore, 'activityLogs'));
+          await setDoc(activityRef, {
+            businessId: currentBusiness.id,
+            entityType: 'book',
+            entityId: bookId,
+            userId: user.id || user.uid,
+            action: `Converted book "${existingBook?.name || bookId}" base currency from ${oldCurrency} to ${newCurrency}`,
+            timestamp: new Date().toISOString(),
+          });
+        } catch {}
       } else {
         await updateDoc(doc(firestore, 'businesses', currentBusiness.id, 'books', bookId), finalUpdates);
       }

@@ -30,6 +30,7 @@ import {
   TrendingDown,
   Info,
   Layers,
+  ChevronRight,
 } from 'lucide-react-native';
 import { Book, RecurringRule } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
@@ -56,7 +57,10 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   const { colors, isDark, deviceFont } = useTheme();
   const { currentBusiness, updateBook, recurringRules, postRecurringEntryNow } = useBusiness();
 
-  const baseCurrency = currentBusiness?.currency || 'USD';
+  const [selectedBookCurrency, setSelectedBookCurrency] = useState(
+    (book?.currency || book?.settings?.currency || currentBusiness?.currency || 'USD').toUpperCase()
+  );
+  const [baseCurrencyPickerVisible, setBaseCurrencyPickerVisible] = useState(false);
 
   // Valuations state: Map of currencyCode -> numeric valuation in baseCurrency
   const [valuations, setValuations] = useState<Record<string, number>>({});
@@ -78,6 +82,9 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   // Initialize from book settings
   useEffect(() => {
     if (book) {
+      const currentBookCurr = (book.currency || book.settings?.currency || currentBusiness?.currency || 'USD').toUpperCase();
+      setSelectedBookCurrency(currentBookCurr);
+
       setShowPaymentMode(book.settings?.showPaymentMode ?? true);
       setShowCategory(book.settings?.showCategory ?? true);
       setShowAttachments(book.settings?.showAttachments ?? false);
@@ -87,8 +94,8 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       
       // Ensure at least default popular currencies if none set
       const initialTracked = existingTracked.length > 0
-        ? existingTracked
-        : ['EUR', 'GBP', 'KES'].filter(c => c !== baseCurrency);
+        ? existingTracked.filter(c => c !== currentBookCurr)
+        : ['EUR', 'GBP', 'KES'].filter(c => c !== currentBookCurr);
 
       const initialRaw: Record<string, string> = {};
       Object.entries(existingValuations).forEach(([k, v]) => {
@@ -102,17 +109,18 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       setRawValuations(initialRaw);
 
       // Fetch live rates for these currencies
-      fetchLiveRates(initialTracked);
+      fetchLiveRates(initialTracked, currentBookCurr);
     }
-  }, [book, baseCurrency]);
+  }, [book, currentBusiness]);
 
-  const fetchLiveRates = async (currenciesToFetch: string[]) => {
+  const fetchLiveRates = async (currenciesToFetch: string[], targetBase?: string) => {
+    const anchor = (targetBase || selectedBookCurrency).toUpperCase();
     setIsRefreshingRates(true);
     try {
       const fetched: Record<string, number> = {};
       for (const curr of currenciesToFetch) {
-        if (curr !== baseCurrency) {
-          const rate = await CurrencyService.getExchangeRate(curr, baseCurrency);
+        if (curr !== anchor) {
+          const rate = await CurrencyService.getExchangeRate(curr, anchor);
           fetched[curr] = rate;
         }
       }
@@ -121,6 +129,20 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       console.warn('Failed to fetch live rates:', err);
     } finally {
       setIsRefreshingRates(false);
+    }
+  };
+
+  const handleSelectBaseCurrency = (newCode: string) => {
+    const upper = newCode.toUpperCase();
+    setSelectedBookCurrency(upper);
+    setBaseCurrencyPickerVisible(false);
+    const updatedTracked = trackedCurrencies.filter(c => c !== upper);
+    setTrackedCurrencies(updatedTracked);
+    fetchLiveRates(updatedTracked, upper);
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (e) {}
     }
   };
 
@@ -159,18 +181,19 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
 
   const handleAddCurrency = async (currencyCode: string) => {
     setCurrencyPickerVisible(false);
-    if (currencyCode === baseCurrency) {
-      Alert.alert('Base Currency', `${currencyCode} is already your business base currency.`);
+    const upper = currencyCode.toUpperCase();
+    if (upper === selectedBookCurrency) {
+      Alert.alert('Base Currency', `${upper} is already the base ledger currency for this book.`);
       return;
     }
 
-    if (!trackedCurrencies.includes(currencyCode)) {
-      const next = [...trackedCurrencies, currencyCode];
+    if (!trackedCurrencies.includes(upper)) {
+      const next = [...trackedCurrencies, upper];
       setTrackedCurrencies(next);
-      const rate = await CurrencyService.getExchangeRate(currencyCode, baseCurrency);
-      setLiveRates(prev => ({ ...prev, [currencyCode]: rate }));
-      setValuations(prev => ({ ...prev, [currencyCode]: rate }));
-      setRawValuations(prev => ({ ...prev, [currencyCode]: String(rate) }));
+      const rate = await CurrencyService.getExchangeRate(upper, selectedBookCurrency);
+      setLiveRates(prev => ({ ...prev, [upper]: rate }));
+      setValuations(prev => ({ ...prev, [upper]: rate }));
+      setRawValuations(prev => ({ ...prev, [upper]: String(rate) }));
       if (Platform.OS !== 'web') {
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -221,10 +244,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       });
 
       await updateBook(book.id, {
+        currency: selectedBookCurrency,
         settings: {
           showPaymentMode,
           showCategory,
           showAttachments,
+          currency: selectedBookCurrency,
           enableMultiCurrency: trackedCurrencies.length > 0,
           customCurrencyValuations: finalValuations,
           trackedCurrencies,
@@ -351,7 +376,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
               scrollEventThrottle={16}
             >
                   {/* Base Currency Banner */}
-                  <View
+                  <TouchableOpacity
                     style={[
                       styles.baseBanner,
                       {
@@ -359,6 +384,8 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                         borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#E2E8F0',
                       },
                     ]}
+                    onPress={() => setBaseCurrencyPickerVisible(true)}
+                    activeOpacity={0.75}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                       <View>
@@ -371,22 +398,40 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                             { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') },
                           ]}
                         >
-                          {baseCurrency} ({getCurrencySymbol(baseCurrency)})
+                          {selectedBookCurrency} ({getCurrencySymbol(selectedBookCurrency)})
                         </Text>
                       </View>
-                      <View
-                        style={[
-                          styles.basePill,
-                          { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)' },
-                        ]}
-                      >
-                        <Text style={[styles.basePillText, { color: colors.primary }]}>PRIMARY</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View
+                          style={[
+                            styles.basePill,
+                            { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)' },
+                          ]}
+                        >
+                          <Text style={[styles.basePillText, { color: colors.primary }]}>PRIMARY</Text>
+                        </View>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: colors.primary,
+                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
+                          }}
+                        >
+                          <Text style={{ fontSize: 12, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>Change</Text>
+                          <ChevronRight size={14} color={colors.primary} />
+                        </View>
                       </View>
                     </View>
                     <Text style={[styles.baseBannerDesc, { color: colors.textSecondary }]}>
-                      All ledger totals and analytics are anchored in {baseCurrency}. You can value foreign currencies below whenever you want.
+                      All ledger totals and analytics are anchored in {selectedBookCurrency}. Tap here to change primary currency, or value foreign currencies below.
                     </Text>
-                  </View>
+                  </TouchableOpacity>
 
                   {/* Section: Valued Foreign Currencies */}
                   <View style={styles.sectionHeaderRow}>
@@ -476,7 +521,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                         <View style={styles.rateInputRow}>
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.inputFieldLabel, { color: colors.textSecondary }]}>
-                              Valuation (1 {curr} = ? {baseCurrency})
+                              Valuation (1 {curr} = ? {selectedBookCurrency})
                             </Text>
                             <View
                               style={[
@@ -503,7 +548,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                                 autoCapitalize="none"
                               />
                               <Text style={[styles.baseSuffix, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                                {baseCurrency}
+                                {selectedBookCurrency}
                               </Text>
                             </View>
                           </View>
@@ -618,7 +663,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                               </View>
                             </View>
                             <Text style={[styles.recurringSub, { color: colors.textSecondary }]}>
-                              Due: {rule.nextDueDate} • {formatCurrency(rule.amount, rule.originalCurrency || baseCurrency)}
+                              Due: {rule.nextDueDate} • {formatCurrency(rule.amount, rule.originalCurrency || selectedBookCurrency)}
                             </Text>
                           </View>
 
@@ -632,6 +677,28 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                       );
                     })
                   )}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.addCurrBtn,
+                      {
+                        borderColor: colors.primary,
+                        backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.05)',
+                        marginTop: 12,
+                      },
+                    ]}
+                    onPress={() => setRecurringModalVisible(true)}
+                  >
+                    <Plus size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                    <Text
+                      style={[
+                        styles.addCurrBtnText,
+                        { color: colors.primary, fontFamily: getFontFamily(deviceFont, 'bold') },
+                      ]}
+                    >
+                      Create Recurring Rule
+                    </Text>
+                  </TouchableOpacity>
 
                   {/* Section: Book Display Settings */}
                   <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
@@ -686,20 +753,34 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                   <View style={{ height: 20 }} />
                 </ScrollView>
 
-                {/* Footer Save Button */}
+                {/* Bottom Action Buttons */}
                 <View style={[styles.footer, { borderTopColor: colors.border }]}>
                   <TouchableOpacity
                     style={[
                       styles.cancelBtn,
-                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9' },
+                      {
+                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9',
+                        borderColor: colors.border,
+                      },
                     ]}
                     onPress={onClose}
+                    disabled={isSaving}
                   >
-                    <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Close</Text>
+                    <Text
+                      style={[
+                        styles.cancelBtnText,
+                        { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_600SemiBold' },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                    style={[
+                      styles.saveBtn,
+                      { backgroundColor: colors.primary },
+                    ]}
                     onPress={handleSaveAll}
                     disabled={isSaving}
                   >
@@ -724,12 +805,21 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
             </View>
         </KeyboardAvoidingView>
 
+      {/* Base Ledger Currency Picker Modal */}
+      <CurrencyPickerModal
+        visible={baseCurrencyPickerVisible}
+        onClose={() => setBaseCurrencyPickerVisible(false)}
+        onSelect={handleSelectBaseCurrency}
+        selectedCurrency={selectedBookCurrency}
+        title="Select Base Ledger Currency"
+      />
+
       {/* World Currency Picker Modal */}
       <CurrencyPickerModal
         visible={currencyPickerVisible}
         onClose={() => setCurrencyPickerVisible(false)}
         onSelect={handleAddCurrency}
-        selectedCurrency={baseCurrency}
+        selectedCurrency={selectedBookCurrency}
         title="Add Foreign Currency to Book"
       />
 

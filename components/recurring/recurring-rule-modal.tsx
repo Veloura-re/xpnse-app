@@ -66,10 +66,11 @@ export function RecurringRuleModal({
   const { colors, isDark, deviceFont } = useTheme();
   const { books, currentBusiness, createRecurringRule, updateRecurringRule, deleteRecurringRule } = useBusiness();
 
-  const baseCurrency = currentBusiness?.currency || 'USD';
+  const [selectedBookId, setSelectedBookId] = useState<string>(initialBookId || (books[0]?.id || ''));
+  const selectedBook = useMemo(() => books.find(b => b.id === selectedBookId), [books, selectedBookId]);
+  const baseCurrency = (selectedBook?.currency || selectedBook?.settings?.currency || currentBusiness?.currency || 'USD').toUpperCase();
 
   const [type, setType] = useState<'cash_in' | 'cash_out'>('cash_out');
-  const [selectedBookId, setSelectedBookId] = useState<string>(initialBookId || (books[0]?.id || ''));
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(baseCurrency);
   const [exchangeRate, setExchangeRate] = useState(1.0);
@@ -131,16 +132,24 @@ export function RecurringRuleModal({
 
   // Fetch FX rate when currency changes
   useEffect(() => {
-    if (currency.toUpperCase() === baseCurrency.toUpperCase()) {
+    const upperCurr = currency.toUpperCase();
+    const upperBase = baseCurrency.toUpperCase();
+    if (upperCurr === upperBase) {
       setExchangeRate(1.0);
       setCustomRateText('1.0');
     } else {
-      CurrencyService.getExchangeRate(currency, baseCurrency).then((rate) => {
-        setExchangeRate(rate);
-        setCustomRateText(rate.toFixed(4));
-      });
+      const bookVal = selectedBook?.settings?.customCurrencyValuations?.[upperCurr] ?? selectedBook?.settings?.customCurrencyValuations?.[currency];
+      if (bookVal && bookVal > 0) {
+        setExchangeRate(bookVal);
+        setCustomRateText(bookVal.toString());
+      } else {
+        CurrencyService.getExchangeRate(upperCurr, upperBase).then((rate) => {
+          setExchangeRate(rate);
+          setCustomRateText(rate.toFixed(4));
+        });
+      }
     }
-  }, [currency, baseCurrency]);
+  }, [currency, baseCurrency, selectedBook]);
 
   const rawNumericAmount = parseFloat(amount) || 0;
   const convertedAmount = CurrencyService.convert(rawNumericAmount, currency, baseCurrency, exchangeRate);

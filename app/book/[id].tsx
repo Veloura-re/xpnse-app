@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useLayoutEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -99,6 +99,11 @@ export default function BookDetailScreen() {
   } = usePaginatedEntries(currentBusiness?.id || null, id, {
     pageSize: 100
   });
+
+  // Auto-refresh entries when book currency or exchange valuations change
+  useEffect(() => {
+    refresh();
+  }, [book?.currency, book?.settings?.currency, JSON.stringify(book?.settings?.customCurrencyValuations)]);
 
   // Modal and UI States
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -277,12 +282,12 @@ export default function BookDetailScreen() {
     try {
       await updateBook(bookId, data);
       setEditBookModalVisible(false);
-      // No need to refresh as books are updated via context/snapshot
+      refresh();
     } catch (error) {
       console.error("Failed to update book:", error);
       Alert.alert("Error", "Failed to update book. Please try again.");
     }
-  }, [updateBook]);
+  }, [updateBook, refresh]);
 
   const handleDeleteBook = useCallback(async (bookId: string) => {
     try {
@@ -893,12 +898,19 @@ export default function BookDetailScreen() {
                       )}
                     </View>
 
-                    <Text style={[
-                      styles.entryAmount,
-                      { color: item.type === 'cash_in' ? '#10b981' : '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }
-                    ]}>
-                      {item.type === 'cash_out' ? '-' : '+'}{formatCurrency(item.amount, bookCurrency)}
-                    </Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[
+                        styles.entryAmount,
+                        { color: item.type === 'cash_in' ? '#10b981' : '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }
+                      ]}>
+                        {item.type === 'cash_out' ? '-' : '+'}{formatCurrency(item.amount, bookCurrency)}
+                      </Text>
+                      {item.originalCurrency && item.originalCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 1 }}>
+                          ({item.originalCurrency} {item.originalAmount !== undefined ? item.originalAmount : item.amount})
+                        </Text>
+                      )}
+                    </View>
                   </View>
 
                   {/* Bottom Row: Metadata & Single Running Balance Pill */}

@@ -6,14 +6,15 @@ import { Alert, Platform } from 'react-native';
 
 // Helper function to format currency
 const formatCurrency = (amount, currency = 'USD') => {
-  if (typeof amount !== 'number' || isNaN(amount)) return `${currency} 0.00`;
+  const safeCurrency = (currency || 'USD').toUpperCase();
+  if (typeof amount !== 'number' || isNaN(amount)) return `${safeCurrency} 0.00`;
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: safeCurrency,
     }).format(amount);
   } catch {
-    return `${currency} ${amount.toFixed(2)}`;
+    return `${safeCurrency} ${amount.toFixed(2)}`;
   }
 };
 
@@ -114,7 +115,7 @@ export const exportToExcel = async (book, entries, options = {}) => {
     const metaData = [
       { Label: 'Book', Value: book.name },
       { Label: 'Generated At', Value: new Date().toLocaleString() },
-      { Label: 'Balance', Value: formatCurrency(book.netBalance, book.currency) },
+      { Label: 'Balance', Value: formatCurrency(book.netBalance, book.currency || book.settings?.currency || 'USD') },
       { Label: 'Total Entries', Value: entries.length },
     ];
     const metaWs = XLSX.utils.json_to_sheet(metaData);
@@ -645,7 +646,7 @@ export const exportToCSV = async (book, entries, options = {}) => {
     const metaLines = [
       ['Book', book.name],
       ['Generated At', new Date().toLocaleString()],
-      ['Balance', formatCurrency(book.netBalance, book.currency)],
+      ['Balance', formatCurrency(book.netBalance, book.currency || book.settings?.currency || 'USD')],
       ['Total Entries', String(entries.length)],
       []
     ];

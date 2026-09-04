@@ -6,26 +6,32 @@ import { CURRENCIES } from '@/constants/currencies';
  */
 export const getCurrencySymbol = (code: string | undefined): string => {
     if (!code) return '$';
-    const currency = CURRENCIES.find(c => c.code === code);
-    return currency?.symbol || code;
+    const upper = code.trim().toUpperCase();
+    const currency = CURRENCIES.find(c => c.code.toUpperCase() === upper);
+    return currency?.symbol || upper;
 };
 
 /**
  * Formats a numeric amount into a localized currency string.
- * Uses Intl.NumberFormat for precision and formatting.
- * Fallbacks to a basic string format if Intl fails.
+ * Uses Intl.NumberFormat for precision and formatting with robust fallback.
  */
 export const formatCurrency = (amount: number, code: string | undefined): string => {
-    const currencyCode = code || 'USD';
+    const rawCode = (code || 'USD').trim().toUpperCase();
+    const num = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
     try {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
-            currency: currencyCode,
+            currency: rawCode,
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
-        }).format(amount);
+        }).format(num);
     } catch (error) {
-        const symbol = getCurrencySymbol(code);
-        return `${symbol}${amount.toFixed(2)}`;
+        const symbol = getCurrencySymbol(rawCode);
+        const formattedNum = Math.abs(num).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+        return num < 0 ? `-${symbol}${formattedNum}` : `${symbol}${formattedNum}`;
     }
 };
+

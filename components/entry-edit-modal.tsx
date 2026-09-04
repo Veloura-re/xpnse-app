@@ -57,7 +57,7 @@ interface EntryEditModalProps {
 export function EntryEditModal({ visible, entry, book, onClose, onSave, initialType }: EntryEditModalProps) {
   const { currentBusiness } = useBusiness();
   const { colors, isDark, deviceFont } = useTheme();
-  const baseCurrency = currentBusiness?.currency || 'USD';
+  const baseCurrency = (book?.currency || book?.settings?.currency || currentBusiness?.currency || 'USD').toUpperCase();
 
   const [type, setType] = useState<'cash_in' | 'cash_out'>('cash_in');
   const [amount, setAmount] = useState('');
@@ -106,14 +106,17 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
 
   // Determine rate: check if book has custom valuation in book.settings or fetch live
   useEffect(() => {
-    if (selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()) {
+    const upperSelected = selectedCurrency.toUpperCase();
+    const upperBase = baseCurrency.toUpperCase();
+
+    if (upperSelected === upperBase) {
       setExchangeRate(1.0);
     } else {
-      const bookValuation = book?.settings?.customCurrencyValuations?.[selectedCurrency];
+      const bookValuation = book?.settings?.customCurrencyValuations?.[upperSelected] ?? book?.settings?.customCurrencyValuations?.[selectedCurrency];
       if (bookValuation && bookValuation > 0) {
         setExchangeRate(bookValuation);
       } else {
-        CurrencyService.getExchangeRate(selectedCurrency, baseCurrency).then((rate) => {
+        CurrencyService.getExchangeRate(upperSelected, upperBase).then((rate) => {
           setExchangeRate(rate);
         });
       }
