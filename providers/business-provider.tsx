@@ -11,6 +11,7 @@ import { db, firebaseInitialized } from '@/config/firebase';
 import { collection, query, where, getDocs, getDoc, limit, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment, orderBy, arrayUnion, runTransaction, QuerySnapshot, QueryDocumentSnapshot, FirestoreError, DocumentData, Transaction } from 'firebase/firestore';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 import { PushNotificationService } from '@/services/push-notification-service';
+import { CurrencyService } from '@/services/currency-service';
 
 interface BusinessState {
   // Existing state
@@ -24,7 +25,7 @@ interface BusinessState {
   // Business management
   switchBusiness: (businessId: string) => void;
   createBusiness: (name: string, currency?: string, icon?: string, color?: string) => Promise<void>;
-  updateBusiness: (updates: Partial<Business>) => Promise<void>;
+  updateBusiness: (updates: Partial<Business>, options?: { recalculateRates?: boolean; customRate?: number }) => Promise<void>;
   updateBusinessFont: (fontId: string) => Promise<void>;
   updateBusinessLogo: (icon: string, color: string) => Promise<void>;
   deleteBusiness: (businessId: string) => Promise<void>;
@@ -337,31 +338,160 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
   }, [user, storage]);
 
-  const updateBusiness = useCallback(async (updates: Partial<Business>) => {
+  const updateBusiness = useCallback(async (
+    updates: Partial<Business>,
+    options?: { recalculateRates?: boolean; customRate?: number }
+  ) => {
     if (!currentBusiness || !db || !user) return;
+    const firestore = db;
 
     if (!hasPermission('partner')) {
       throw new Error('Only owners and partners can update business settings');
     }
 
+    const oldCurrency = (currentBusiness.currency || 'USD').toUpperCase();
+    const newCurrency = updates.currency ? updates.currency.toUpperCase() : oldCurrency;
+    const isCurrencyChanging = Boolean(updates.currency && newCurrency !== oldCurrency);
+
     try {
-      // Fix 1: Correct Firestore collection path ('businesses' was missing)
-      await updateDoc(doc(db, 'businesses', currentBusiness.id), updates);
+      if (isCurrencyChanging) {
+        // 1. Determine exchange rate between old currency and new currency
+        const rate = options?.customRate || (await CurrencyService.getExchangeRate(oldCurrency, newCurrency));
+        console.log(`💱 Recalculating business financial ledger from ${oldCurrency} to ${newCurrency} at exchange rate ${rate}`);
+
+        const batchList: any[] = [];
+        let currentBatch = writeBatch(firestore);
+        let opCount = 0;
+
+        const queueBatchUpdate = (docRef: any, data: any) => {
+          currentBatch.update(docRef, data);
+          opCount++;
+          if (opCount >= 400) {
+            batchList.push(currentBatch);
+            currentBatch = writeBatch(firestore);
+            opCount = 0;
+          }
+        };
+
+        // 2. Recalculate all Books in this business
+        const booksSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'books'));
+        booksSnap.forEach((bookDoc) => {
+          const bookData = bookDoc.data() as Book;
+          const oldNet = Number(bookData.netBalance || 0);
+          const oldIn = Number(bookData.totalCashIn || 0);
+          const oldOut = Number(bookData.totalCashOut || 0);
+
+          const bookUpdates: Record<string, any> = {
+            netBalance: Math.round(oldNet * rate * 100) / 100,
+            totalCashIn: Math.round(oldIn * rate * 100) / 100,
+            totalCashOut: Math.round(oldOut * rate * 100) / 100,
+          };
+
+          if (!bookData.currency || bookData.currency.toUpperCase() === oldCurrency) {
+            bookUpdates.currency = newCurrency;
+          }
+
+          queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'books', bookDoc.id), bookUpdates);
+        });
+
+        // 3. Recalculate all Entries in this business
+        const entriesSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'entries'));
+        for (const entryDoc of entriesSnap.docs) {
+          const entryData = entryDoc.data() as BookEntry;
+          const currentAmount = Number(entryData.amount || 0);
+
+          let newAmount: number;
+          let newExchangeRate = rate;
+          const origCurrency = entryData.originalCurrency || oldCurrency;
+          const origAmount = entryData.originalAmount !== undefined ? entryData.originalAmount : currentAmount;
+
+          if (origCurrency.toUpperCase() === newCurrency) {
+            newAmount = origAmount;
+            newExchangeRate = 1.0;
+          } else if (entryData.originalAmount !== undefined && entryData.originalCurrency) {
+            const origRate = await CurrencyService.getExchangeRate(entryData.originalCurrency, newCurrency);
+            newAmount = Math.round(origAmount * origRate * 100) / 100;
+            newExchangeRate = origRate;
+          } else {
+            newAmount = Math.round(currentAmount * rate * 100) / 100;
+          }
+
+          queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'entries', entryDoc.id), {
+            amount: newAmount,
+            exchangeRate: newExchangeRate,
+            originalCurrency: origCurrency,
+            originalAmount: origAmount,
+          });
+        }
+
+        // 4. Recalculate all Parties in this business
+        const partiesSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'parties'));
+        partiesSnap.forEach((partyDoc) => {
+          const partyData = partyDoc.data() as Party;
+          const oldBal = Number(partyData.balance || 0);
+          const oldIn = Number(partyData.totalCashIn || 0);
+          const oldOut = Number(partyData.totalCashOut || 0);
+
+          queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'parties', partyDoc.id), {
+            balance: Math.round(oldBal * rate * 100) / 100,
+            totalCashIn: Math.round(oldIn * rate * 100) / 100,
+            totalCashOut: Math.round(oldOut * rate * 100) / 100,
+          });
+        });
+
+        // 5. Recalculate all Recurring Rules in this business
+        const rulesSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'recurringRules'));
+        rulesSnap.forEach((ruleDoc) => {
+          const ruleData = ruleDoc.data() as RecurringRule;
+          const oldAmount = Number(ruleData.amount || 0);
+          queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'recurringRules', ruleDoc.id), {
+            amount: Math.round(oldAmount * rate * 100) / 100,
+          });
+        });
+
+        // Commit all batches
+        if (opCount > 0) {
+          batchList.push(currentBatch);
+        }
+        for (const b of batchList) {
+          await b.commit();
+        }
+
+        // Record audit activity log
+        try {
+          const activityRef = doc(collection(firestore, 'activityLogs'));
+          await setDoc(activityRef, {
+            businessId: currentBusiness.id,
+            entityType: 'business',
+            entityId: currentBusiness.id,
+            userId: user.id || user.uid,
+            action: `Recalculated ledger currency from ${oldCurrency} to ${newCurrency} (Rate: ${rate})`,
+            timestamp: new Date().toISOString(),
+          });
+        } catch {}
+      }
+
+      // Update business document
+      await updateDoc(doc(firestore, 'businesses', currentBusiness.id), updates);
 
       // Notify team members about business update
-      // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
-      const businessSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
+      const businessSnap = await getDoc(doc(firestore, 'businesses', currentBusiness.id));
       const liveMemberIds: string[] = businessSnap.exists() ? (businessSnap.data().memberIds || []) : [];
       const teamMemberIds = liveMemberIds.filter((id: string) => id !== user.id);
 
-      if (teamMemberIds.length > 0 && db) {
-        const batch = writeBatch(db);
+      if (teamMemberIds.length > 0) {
+        const batch = writeBatch(firestore);
+        const notifTitle = isCurrencyChanging ? '💱 Currency Recalculated' : 'Business Updated';
+        const notifMessage = isCurrencyChanging
+          ? `${user.displayName || user.name || user.email} changed currency for "${currentBusiness.name}" from ${oldCurrency} to ${newCurrency}. All balances have been recalculated.`
+          : `${user.displayName || user.name || user.email} updated settings for "${currentBusiness.name}"`;
+
         teamMemberIds.forEach((memberId: string) => {
-          const notifRef = doc(collection(db!, 'notifications'));
+          const notifRef = doc(collection(firestore, 'notifications'));
           batch.set(notifRef, {
             userId: memberId,
-            title: 'Business Updated',
-            message: `${user.displayName || user.name || user.email} updated settings for "${currentBusiness.name}"`,
+            title: notifTitle,
+            message: notifMessage,
             read: false,
             createdAt: new Date().toISOString(),
             type: 'business_updated',
@@ -369,17 +499,25 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             metadata: {
               businessId: currentBusiness.id,
               businessName: currentBusiness.name,
-              updatedBy: user.displayName || user.name || user.email
-            }
+              updatedBy: user.displayName || user.name || user.email,
+              oldCurrency,
+              newCurrency,
+            },
           });
         });
         await batch.commit();
+
+        PushNotificationService.sendToUsers(teamMemberIds, {
+          title: notifTitle,
+          body: notifMessage,
+          data: { businessId: currentBusiness.id },
+        }).catch(() => {});
       }
     } catch (error) {
       console.error("Error updating business:", error);
       throw error;
     }
-  }, [currentBusiness, db, hasPermission]);
+  }, [currentBusiness, db, hasPermission, user]);
 
   const updateBusinessFont = useCallback(async (fontId: string) => {
     if (!currentBusiness) return;

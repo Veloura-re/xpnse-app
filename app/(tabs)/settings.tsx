@@ -827,11 +827,24 @@ export default function SettingsScreen() {
                       { borderBottomColor: isDark ? '#2C3333' : '#e2e8f0' },
                       currentBusiness?.currency === currency.code && [styles.currencyOptionSelected, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0f9ff' }]
                     ]}
-                    onPress={() => {
+                    onPress={async () => {
                       if (currentBusiness) {
-                        updateBusiness({ currency: currency.code });
+                        const newCode = currency.code;
+                        const oldCode = currentBusiness.currency || 'USD';
                         setShowCurrencyModal(false);
                         setCurrencySearchQuery('');
+
+                        if (newCode === oldCode) return;
+
+                        try {
+                          await updateBusiness({ currency: newCode });
+                          Alert.alert(
+                            'Currency Converted',
+                            `Primary currency changed to ${newCode}. All book balances, entries, and parties have been automatically recalculated.`
+                          );
+                        } catch (err: any) {
+                          Alert.alert('Update Failed', err.message || 'Could not update currency');
+                        }
                       }
                     }}
                   >
