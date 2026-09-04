@@ -7,14 +7,24 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Firebase configuration - Read from process.env (dev) or Constants.expoConfig.extra (production builds)
+// Default production fallback for client-side web builds
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD65DFf80JpbowSZQu6w2a6FYGxZnSJSMk",
+  authDomain: "cashiee.firebaseapp.com",
+  projectId: "cashiee",
+  storageBucket: "cashiee.firebasestorage.app",
+  messagingSenderId: "572518473431",
+  appId: "1:572518473431:android:342a9725a05b2fa48c5a92",
+};
+
+// Firebase configuration - Read from process.env (dev), Constants.expoConfig.extra, or defaults
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || Constants.expoConfig?.extra?.firebaseApiKey,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || Constants.expoConfig?.extra?.firebaseAuthDomain,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || Constants.expoConfig?.extra?.firebaseProjectId,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || Constants.expoConfig?.extra?.firebaseStorageBucket,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || Constants.expoConfig?.extra?.firebaseMessagingSenderId,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || Constants.expoConfig?.extra?.firebaseAppId,
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || Constants.expoConfig?.extra?.firebaseApiKey || DEFAULT_FIREBASE_CONFIG.apiKey,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || Constants.expoConfig?.extra?.firebaseAuthDomain || DEFAULT_FIREBASE_CONFIG.authDomain,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || Constants.expoConfig?.extra?.firebaseProjectId || DEFAULT_FIREBASE_CONFIG.projectId,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || Constants.expoConfig?.extra?.firebaseStorageBucket || DEFAULT_FIREBASE_CONFIG.storageBucket,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || Constants.expoConfig?.extra?.firebaseMessagingSenderId || DEFAULT_FIREBASE_CONFIG.messagingSenderId,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || Constants.expoConfig?.extra?.firebaseAppId || DEFAULT_FIREBASE_CONFIG.appId,
   databaseURL: process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL || Constants.expoConfig?.extra?.firebaseDatabaseURL,
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || Constants.expoConfig?.extra?.firebaseMeasurementId,
 };
