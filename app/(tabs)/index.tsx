@@ -104,7 +104,7 @@ const BookCard = React.memo(
   }) => {
     const { colors, isDark, deviceFont } = useTheme();
     const { currentBusiness } = useBusiness();
-    const bookCurrency = item.currency || item.settings?.currency || currentBusiness?.currency || 'USD';
+    const bookCurrency = item.settings?.enableMultiCurrency && item.currency ? item.currency : (currentBusiness?.currency || item.currency || 'USD');
 
     return (
       <View

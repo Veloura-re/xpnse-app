@@ -340,7 +340,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
   const updateBusiness = useCallback(async (
     updates: Partial<Business>,
-    options?: { recalculateRates?: boolean; customRate?: number }
+    options?: { recalculateRates?: boolean; customRate?: number; forceRecalculate?: boolean }
   ) => {
     if (!currentBusiness || !db || !user) return;
     const firestore = db;
@@ -349,15 +349,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       throw new Error('Only owners and partners can update business settings');
     }
 
-    const oldCurrency = (currentBusiness.currency || 'USD').toUpperCase();
-    const newCurrency = updates.currency ? updates.currency.toUpperCase() : oldCurrency;
-    const isCurrencyChanging = Boolean(updates.currency && newCurrency !== oldCurrency);
+    const currentBizCurrency = (currentBusiness.currency || 'USD').toUpperCase();
+    const newCurrency = updates.currency ? updates.currency.toUpperCase() : currentBizCurrency;
+    const isCurrencyProvided = Boolean(updates.currency);
 
     try {
-      if (isCurrencyChanging) {
-        // 1. Determine exchange rate between old currency and new currency
-        const rate = options?.customRate || (await CurrencyService.getExchangeRate(oldCurrency, newCurrency));
-        console.log(`💱 Recalculating business financial ledger from ${oldCurrency} to ${newCurrency} at exchange rate ${rate}`);
+      if (isCurrencyProvided) {
+        console.log(`💱 Recalculating and synchronizing all books & entries to currency: ${newCurrency}`);
 
         const batchList: any[] = [];
         let currentBatch = writeBatch(firestore);
@@ -373,47 +371,62 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           }
         };
 
-        // 2. Recalculate all Books in this business
+        // Cache for exchange rates to prevent redundant network calls
+        const rateCache: Record<string, number> = {};
+        const getRate = async (from: string, to: string): Promise<number> => {
+          const key = `${from}_${to}`;
+          if (rateCache[key] !== undefined) return rateCache[key];
+          const r = await CurrencyService.getExchangeRate(from, to);
+          rateCache[key] = r;
+          return r;
+        };
+
+        // 1. Recalculate all Books in this business
         const booksSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'books'));
-        booksSnap.forEach((bookDoc) => {
+        const bookCurrencyMap: Record<string, string> = {};
+
+        for (const bookDoc of booksSnap.docs) {
           const bookData = bookDoc.data() as Book;
+          const fromCurrency = (bookData.currency || bookData.settings?.currency || currentBizCurrency || 'USD').toUpperCase();
+          bookCurrencyMap[bookDoc.id] = fromCurrency;
+
+          const rate = options?.customRate || (await getRate(fromCurrency, newCurrency));
           const oldNet = Number(bookData.netBalance || 0);
           const oldIn = Number(bookData.totalCashIn || 0);
           const oldOut = Number(bookData.totalCashOut || 0);
 
           const bookUpdates: Record<string, any> = {
-            netBalance: Math.round(oldNet * rate * 100) / 100,
-            totalCashIn: Math.round(oldIn * rate * 100) / 100,
-            totalCashOut: Math.round(oldOut * rate * 100) / 100,
+            currency: newCurrency,
+            'settings.currency': newCurrency,
           };
 
-          if (!bookData.currency || bookData.currency.toUpperCase() === oldCurrency) {
-            bookUpdates.currency = newCurrency;
+          if (fromCurrency !== newCurrency || options?.forceRecalculate) {
+            bookUpdates.netBalance = Math.round(oldNet * rate * 100) / 100;
+            bookUpdates.totalCashIn = Math.round(oldIn * rate * 100) / 100;
+            bookUpdates.totalCashOut = Math.round(oldOut * rate * 100) / 100;
           }
 
           queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'books', bookDoc.id), bookUpdates);
-        });
+        }
 
-        // 3. Recalculate all Entries in this business
+        // 2. Recalculate all Entries in this business
         const entriesSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'entries'));
         for (const entryDoc of entriesSnap.docs) {
           const entryData = entryDoc.data() as BookEntry;
-          const currentAmount = Number(entryData.amount || 0);
+          const bookBase = bookCurrencyMap[entryData.bookId] || currentBizCurrency;
+          const origCurrency = (entryData.originalCurrency || bookBase || 'USD').toUpperCase();
+          const origAmount = entryData.originalAmount !== undefined ? Number(entryData.originalAmount) : Number(entryData.amount || 0);
 
           let newAmount: number;
-          let newExchangeRate = rate;
-          const origCurrency = entryData.originalCurrency || oldCurrency;
-          const origAmount = entryData.originalAmount !== undefined ? entryData.originalAmount : currentAmount;
+          let newExchangeRate = 1.0;
 
-          if (origCurrency.toUpperCase() === newCurrency) {
+          if (origCurrency === newCurrency) {
             newAmount = origAmount;
             newExchangeRate = 1.0;
-          } else if (entryData.originalAmount !== undefined && entryData.originalCurrency) {
-            const origRate = await CurrencyService.getExchangeRate(entryData.originalCurrency, newCurrency);
-            newAmount = Math.round(origAmount * origRate * 100) / 100;
-            newExchangeRate = origRate;
           } else {
-            newAmount = Math.round(currentAmount * rate * 100) / 100;
+            const entryRate = await getRate(origCurrency, newCurrency);
+            newAmount = Math.round(origAmount * entryRate * 100) / 100;
+            newExchangeRate = entryRate;
           }
 
           queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'entries', entryDoc.id), {
@@ -424,30 +437,37 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           });
         }
 
-        // 4. Recalculate all Parties in this business
+        // 3. Recalculate all Parties in this business
         const partiesSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'parties'));
-        partiesSnap.forEach((partyDoc) => {
+        for (const partyDoc of partiesSnap.docs) {
           const partyData = partyDoc.data() as Party;
+          const partyRate = await getRate(currentBizCurrency, newCurrency);
           const oldBal = Number(partyData.balance || 0);
           const oldIn = Number(partyData.totalCashIn || 0);
           const oldOut = Number(partyData.totalCashOut || 0);
 
           queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'parties', partyDoc.id), {
-            balance: Math.round(oldBal * rate * 100) / 100,
-            totalCashIn: Math.round(oldIn * rate * 100) / 100,
-            totalCashOut: Math.round(oldOut * rate * 100) / 100,
+            balance: Math.round(oldBal * partyRate * 100) / 100,
+            totalCashIn: Math.round(oldIn * partyRate * 100) / 100,
+            totalCashOut: Math.round(oldOut * partyRate * 100) / 100,
           });
-        });
+        }
 
-        // 5. Recalculate all Recurring Rules in this business
+        // 4. Recalculate all Recurring Rules in this business
         const rulesSnap = await getDocs(collection(firestore, 'businesses', currentBusiness.id, 'recurringRules'));
-        rulesSnap.forEach((ruleDoc) => {
+        for (const ruleDoc of rulesSnap.docs) {
           const ruleData = ruleDoc.data() as RecurringRule;
-          const oldAmount = Number(ruleData.amount || 0);
+          const ruleOrigCurrency = (ruleData.originalCurrency || currentBizCurrency).toUpperCase();
+          const ruleOrigAmount = ruleData.originalAmount !== undefined ? Number(ruleData.originalAmount) : Number(ruleData.amount || 0);
+          const ruleRate = await getRate(ruleOrigCurrency, newCurrency);
+
           queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'recurringRules', ruleDoc.id), {
-            amount: Math.round(oldAmount * rate * 100) / 100,
+            amount: Math.round(ruleOrigAmount * ruleRate * 100) / 100,
+            exchangeRate: ruleRate,
+            originalCurrency: ruleOrigCurrency,
+            originalAmount: ruleOrigAmount,
           });
-        });
+        }
 
         // Commit all batches
         if (opCount > 0) {
@@ -465,7 +485,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             entityType: 'business',
             entityId: currentBusiness.id,
             userId: user.id || user.uid,
-            action: `Recalculated ledger currency from ${oldCurrency} to ${newCurrency} (Rate: ${rate})`,
+            action: `Converted primary currency to ${newCurrency}`,
             timestamp: new Date().toISOString(),
           });
         } catch {}
@@ -481,9 +501,9 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       if (teamMemberIds.length > 0) {
         const batch = writeBatch(firestore);
-        const notifTitle = isCurrencyChanging ? '💱 Currency Recalculated' : 'Business Updated';
-        const notifMessage = isCurrencyChanging
-          ? `${user.displayName || user.name || user.email} changed currency for "${currentBusiness.name}" from ${oldCurrency} to ${newCurrency}. All balances have been recalculated.`
+        const notifTitle = isCurrencyProvided ? '💱 Currency Recalculated' : 'Business Updated';
+        const notifMessage = isCurrencyProvided
+          ? `${user.displayName || user.name || user.email} changed currency for "${currentBusiness.name}" to ${newCurrency}. All balances have been recalculated.`
           : `${user.displayName || user.name || user.email} updated settings for "${currentBusiness.name}"`;
 
         teamMemberIds.forEach((memberId: string) => {
@@ -500,7 +520,6 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
               businessId: currentBusiness.id,
               businessName: currentBusiness.name,
               updatedBy: user.displayName || user.name || user.email,
-              oldCurrency,
               newCurrency,
             },
           });
