@@ -6,13 +6,13 @@ import {
     Modal,
     TextInput,
     TouchableOpacity,
+    Pressable,
     Switch,
     Alert,
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
     Keyboard,
-    TouchableWithoutFeedback,
     ScrollView,
     Dimensions,
 } from 'react-native';
@@ -228,9 +228,7 @@ export const BookEditModal = React.memo(function BookEditModal({
                     style={styles.keyboardView}
                     pointerEvents="box-none"
                 >
-                    <TouchableWithoutFeedback onPress={handleClose}>
-                        <View style={StyleSheet.absoluteFill} />
-                    </TouchableWithoutFeedback>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
                     <Animated.View
                         entering={FadeInDown.duration(80)}

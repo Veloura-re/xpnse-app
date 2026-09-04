@@ -173,6 +173,7 @@ export interface RecurringRule {
 
 export interface ActivityLog {
   id: string;
+  businessId?: string;
   entityType: 'business' | 'book' | 'entry' | 'recurring_rule';
   entityId: string;
   userId: string;

@@ -87,7 +87,7 @@ export default function BookDetailScreen() {
   const userRole = getUserRole();
   const insets = useSafeAreaInsets();
   const book = useMemo(() => books.find((b) => b.id === id), [books, id]);
-  const bookCurrency = book?.settings?.enableMultiCurrency && book?.currency ? book.currency : (currentBusiness?.currency || book?.currency || 'USD');
+  const bookCurrency = book?.currency || book?.settings?.currency || currentBusiness?.currency || 'USD';
 
   // Use paginated entries
   const {

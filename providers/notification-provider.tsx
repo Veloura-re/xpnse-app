@@ -93,22 +93,24 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
             }
         });
 
-        // Listen for notifications received while app is foregrounded
-        notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-            // Notification received
-        });
+        if (Platform.OS !== 'web') {
+            // Listen for notifications received while app is foregrounded
+            notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
+                // Notification received
+            });
 
-        // Listen for user interactions with notifications
-        responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-            const data = response.notification.request.content.data;
-            if (data && data.bookId) {
-                // Navigate to the book
-                router.push(`/book/${data.bookId}`);
-            } else if (data && data.path) {
-                // Generic path navigation support
-                router.push(data.path as any);
-            }
-        });
+            // Listen for user interactions with notifications
+            responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+                const data = response.notification.request.content.data;
+                if (data && data.bookId) {
+                    // Navigate to the book
+                    router.push(`/book/${data.bookId}`);
+                } else if (data && data.path) {
+                    // Generic path navigation support
+                    router.push(data.path as any);
+                }
+            });
+        }
 
         return () => {
             if (notificationListener.current) {
@@ -335,6 +337,10 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
 });
 
 async function registerForPushNotificationsAsync() {
+    if (Platform.OS === 'web') {
+        return null;
+    }
+
     let token;
 
     if (Platform.OS === 'android') {

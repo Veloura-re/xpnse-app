@@ -104,7 +104,7 @@ const BookCard = React.memo(
   }) => {
     const { colors, isDark, deviceFont } = useTheme();
     const { currentBusiness } = useBusiness();
-    const bookCurrency = item.settings?.enableMultiCurrency && item.currency ? item.currency : (currentBusiness?.currency || item.currency || 'USD');
+    const bookCurrency = item.currency || item.settings?.currency || currentBusiness?.currency || 'USD';
 
     return (
       <View
@@ -389,11 +389,15 @@ export default function BooksScreen() {
   }, []);
 
   const handleSaveBook = useCallback(
-    (bookId: string | null, data: any) => {
-      if (bookId) {
-        updateBook(bookId, data);
-      } else {
-        createBook(data.name, data.settings);
+    async (bookId: string | null, data: any) => {
+      try {
+        if (bookId) {
+          await updateBook(bookId, data);
+        } else {
+          await createBook(data.name, data.settings, data.currency);
+        }
+      } catch (e) {
+        console.error('Failed to save book:', e);
       }
       setEditModalVisible(false);
       setSelectedBook(null);

@@ -690,7 +690,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
   }, [currentBusiness, db]);
 
-  const createBook = useCallback(async (name: string, settings?: any, currency?: string) => {
+  const createBook = useCallback(async (name: string, settingsOrCurrency?: any, maybeCurrency?: string) => {
     if (!user || !currentBusiness || !db) return;
 
     if (!hasPermission('partner')) {
@@ -698,7 +698,18 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       return;
     }
 
-    const selectedCurrency = currency || settings?.currency || currentBusiness.currency || 'USD';
+    let settings: any = {};
+    let currency: string | undefined;
+
+    if (typeof settingsOrCurrency === 'string') {
+      currency = settingsOrCurrency;
+      settings = typeof maybeCurrency === 'object' ? maybeCurrency : {};
+    } else if (typeof settingsOrCurrency === 'object' && settingsOrCurrency !== null) {
+      settings = settingsOrCurrency;
+      currency = maybeCurrency || settings.currency;
+    }
+
+    const selectedCurrency = (currency || settings?.currency || currentBusiness.currency || 'USD').toUpperCase();
 
     const newBook: Book = {
       id: uuidv4(),
@@ -710,11 +721,12 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       totalCashIn: 0,
       totalCashOut: 0,
       netBalance: 0,
-      settings: settings || {
+      settings: {
         showPaymentMode: true,
         showCategory: true,
         showAttachments: true,
         currency: selectedCurrency,
+        ...(settings || {}),
       },
     };
 
@@ -741,6 +753,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Log activity for book creation
       const newActivity: ActivityLog = {
         id: uuidv4(),
+        businessId: currentBusiness.id,
         entityType: 'book',
         entityId: currentBusiness.id,
         userId: user.id!,
@@ -748,7 +761,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         timestamp: new Date().toISOString(),
         metadata: {
           bookName: name,
-          bookId: newBook.id
+          bookId: newBook.id,
+          currency: selectedCurrency,
         },
         user: {
           id: user.id || '',
@@ -811,6 +825,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
   const updateBook = useCallback(async (bookId: string, updates: Partial<Book>) => {
     if (!user || !currentBusiness || !db) return;
+    const firestore = db;
 
     if (!hasPermission('partner')) {
       console.warn('Only owners and partners can update books');
@@ -818,12 +833,119 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
 
     try {
-      await updateDoc(doc(db, 'businesses', currentBusiness.id, 'books', bookId), updates);
+      const existingBook = books.find((b: Book) => b.id === bookId);
+      const oldCurrency = (existingBook?.currency || existingBook?.settings?.currency || currentBusiness.currency || 'USD').toUpperCase();
+      const rawNewCurrency = updates.currency || updates.settings?.currency;
+      const newCurrency = (rawNewCurrency || oldCurrency).toUpperCase();
+
+      const finalSettings = {
+        ...(existingBook?.settings || {}),
+        ...(updates.settings || {}),
+        currency: newCurrency,
+      };
+
+      const finalUpdates: any = {
+        ...updates,
+        currency: newCurrency,
+        settings: finalSettings,
+      };
+
+      if (rawNewCurrency && newCurrency !== oldCurrency) {
+        console.log(`💱 Recalculating book entries from ${oldCurrency} to ${newCurrency} for book ${bookId}`);
+
+        // Fetch all entries for this book
+        const entriesQuery = query(
+          collection(firestore, 'businesses', currentBusiness.id, 'entries'),
+          where('bookId', '==', bookId)
+        );
+        const entriesSnapshot = await getDocs(entriesQuery);
+
+        const batchList: any[] = [];
+        let currentBatch = writeBatch(firestore);
+        let opCount = 0;
+
+        const queueBatchUpdate = (docRef: any, data: any) => {
+          currentBatch.update(docRef, data);
+          opCount++;
+          if (opCount >= 400) {
+            batchList.push(currentBatch);
+            currentBatch = writeBatch(firestore);
+            opCount = 0;
+          }
+        };
+
+        const rateCache: Record<string, number> = {};
+        const getRate = async (from: string, to: string): Promise<number> => {
+          const key = `${from}_${to}`;
+          if (rateCache[key] !== undefined) return rateCache[key];
+          const r = await CurrencyService.getExchangeRate(from, to);
+          rateCache[key] = r;
+          return r;
+        };
+
+        let calculatedCashIn = 0;
+        let calculatedCashOut = 0;
+
+        for (const entryDoc of entriesSnapshot.docs) {
+          const entryData = entryDoc.data() as BookEntry;
+          const origCurrency = (entryData.originalCurrency || oldCurrency).toUpperCase();
+          const origAmount = entryData.originalAmount !== undefined ? Number(entryData.originalAmount) : Number(entryData.amount || 0);
+
+          let newAmount: number;
+          let newExchangeRate = 1.0;
+
+          if (origCurrency === newCurrency) {
+            newAmount = origAmount;
+            newExchangeRate = 1.0;
+          } else {
+            const entryRate = await getRate(origCurrency, newCurrency);
+            newAmount = Math.round(origAmount * entryRate * 100) / 100;
+            newExchangeRate = entryRate;
+          }
+
+          if (entryData.type === 'cash_in') {
+            calculatedCashIn += newAmount;
+          } else {
+            calculatedCashOut += newAmount;
+          }
+
+          queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'entries', entryDoc.id), {
+            amount: newAmount,
+            exchangeRate: newExchangeRate,
+            originalCurrency: origCurrency,
+            originalAmount: origAmount,
+          });
+        }
+
+        calculatedCashIn = Math.round(calculatedCashIn * 100) / 100;
+        calculatedCashOut = Math.round(calculatedCashOut * 100) / 100;
+        const calculatedNet = Math.round((calculatedCashIn - calculatedCashOut) * 100) / 100;
+
+        finalUpdates.totalCashIn = calculatedCashIn;
+        finalUpdates.totalCashOut = calculatedCashOut;
+        finalUpdates.netBalance = calculatedNet;
+
+        queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'books', bookId), finalUpdates);
+        if (opCount > 0) {
+          batchList.push(currentBatch);
+        }
+
+        for (const b of batchList) {
+          await b.commit();
+        }
+      } else {
+        await updateDoc(doc(firestore, 'businesses', currentBusiness.id, 'books', bookId), finalUpdates);
+      }
+
+      // Optimistically update books state immediately
+      setBooks((prev: Book[]) =>
+        prev.map((b: Book) => (b.id === bookId ? { ...b, ...finalUpdates } : b))
+      );
     } catch (error) {
       console.error("Error updating book:", error);
       throw error;
     }
-  }, [user, currentBusiness, hasPermission, db]);
+  }, [user, currentBusiness, hasPermission, db, books]);
 
   const deleteBook = useCallback(async (bookId: string) => {
     if (!user || !currentBusiness || !db) return;
@@ -1509,6 +1631,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       const newActivity: ActivityLog = {
         id: uuidv4(),
+        businessId: currentBusiness.id,
         entityType: 'business',
         entityId: currentBusiness.id,
         userId: user.id!,
@@ -1626,6 +1749,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         const newActivityId = uuidv4();
         const newActivity: ActivityLog = {
           id: newActivityId,
+          businessId: currentBusiness.id,
           entityType: 'business',
           entityId: currentBusiness.id,
           userId: user.id!,
@@ -1771,6 +1895,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         const newActivityId = uuidv4();
         const newActivity: ActivityLog = {
           id: newActivityId,
+          businessId: currentBusiness.id,
           entityType: 'business',
           entityId: currentBusiness.id,
           userId: user.id!,
