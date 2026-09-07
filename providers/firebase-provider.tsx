@@ -22,6 +22,9 @@ import {
   UserMetadata,
   MultiFactorUser,
   confirmPasswordReset as firebaseConfirmPasswordReset,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithCredential,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayRemove, serverTimestamp, collection, query, where, getDocs, writeBatch, arrayUnion } from 'firebase/firestore';
 import { db, auth, firebaseInitialized, firebaseError } from '@/config/firebase';
@@ -39,6 +42,7 @@ interface FirebaseContextType {
   // Authentication - Unified return type
   signUp: (email: string, password: string, profileData: Partial<Profile>) => Promise<{ data: User | null; error: any }>;
   signIn: (email: string, password: string) => Promise<{ data: User | null; error: any }>;
+  signInWithGoogle: (idToken?: string) => Promise<{ data: User | null; error: any }>;
   signOut: (pushToken?: string | null) => Promise<{ data: null; error: any }>;
   resetPassword: (email: string) => Promise<{ data: null; error: any }>;
   confirmPasswordReset: (oobCode: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -414,6 +418,84 @@ export const [FirebaseProvider, useFirebase] = createContextHook((): FirebaseCon
           message
         }
       };
+    }
+  }, []);
+
+  const signInWithGoogle = useCallback(async (idToken?: string) => {
+    if (!firebaseInitialized || !auth || !db) {
+      return {
+        data: null,
+        error: {
+          code: 'firebase/not-initialized',
+          message: 'Firebase is not configured. Please check your environment variables.'
+        }
+      };
+    }
+
+    try {
+      let userCredential: UserCredential;
+
+      if (Platform.OS === 'web') {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        userCredential = await signInWithPopup(auth, provider);
+      } else {
+        if (!idToken) {
+          return {
+            data: null,
+            error: {
+              code: 'auth/missing-id-token',
+              message: 'Google authentication token is missing.',
+            },
+          };
+        }
+        const credential = GoogleAuthProvider.credential(idToken);
+        userCredential = await signInWithCredential(auth, credential);
+      }
+
+      const firebaseUser = userCredential.user;
+
+      // Check if user profile already exists in Firestore
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const userDoc = await getDoc(userRef);
+
+      const isDevAdmin = isDeveloperAdminUser({ email: firebaseUser.email });
+
+      if (!userDoc.exists()) {
+        const names = (firebaseUser.displayName || '').trim().split(' ');
+        const firstName = names[0] || '';
+        const lastName = names.slice(1).join(' ') || '';
+
+        const userProfile: Profile = {
+          firstName,
+          lastName,
+          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          phoneNumber: firebaseUser.phoneNumber || '',
+          photoURL: firebaseUser.photoURL || '',
+          isDeveloperAdmin: isDevAdmin,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        await setDoc(userRef, {
+          ...userProfile,
+          email: firebaseUser.email?.toLowerCase() || '',
+          uid: firebaseUser.uid,
+          isDeveloperAdmin: isDevAdmin,
+        });
+      } else if (isDevAdmin && !userDoc.data()?.isDeveloperAdmin) {
+        await setDoc(userRef, { isDeveloperAdmin: true }, { merge: true }).catch(() => null);
+      }
+
+      const mappedUser = await mapFirebaseUser(firebaseUser);
+      if (mappedUser) {
+        setUser(mappedUser);
+      }
+
+      return { data: mappedUser, error: null };
+    } catch (err: any) {
+      console.error('[Auth] Google sign in error:', err?.code, err?.message);
+      return { data: null, error: err };
     }
   }, []);
 
@@ -867,6 +949,7 @@ export const [FirebaseProvider, useFirebase] = createContextHook((): FirebaseCon
     isLoading,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     resetPassword,
     confirmPasswordReset,
@@ -886,6 +969,7 @@ export const [FirebaseProvider, useFirebase] = createContextHook((): FirebaseCon
     isLoading,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     resetPassword,
     confirmPasswordReset,

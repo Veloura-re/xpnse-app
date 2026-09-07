@@ -9,6 +9,7 @@ interface AuthState {
   isDeveloperAdmin: boolean;
   // Backward-compatible high-level auth actions used by screens
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: (idToken?: string) => Promise<{ success: boolean; error?: string }>;
   register: (
     email: string,
     password: string,
@@ -48,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user: firebaseUser,
     isLoading: firebaseLoading,
     signIn,
+    signInWithGoogle: firebaseSignInWithGoogle,
     signUp,
     signOut: firebaseSignOut,
     resetPassword: firebaseResetPassword,
@@ -123,6 +125,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Allow login regardless of email verification status; verification can be completed later
     return { success: true };
   }, [signIn]);
+
+  const signInWithGoogle = useCallback(async (idToken?: string) => {
+    try {
+      const result = await firebaseSignInWithGoogle(idToken);
+      if (result.error) {
+        let msg = result.error?.message || 'Failed to sign in with Google.';
+        if (result.error?.code === 'auth/popup-closed-by-user') {
+          msg = 'Google sign-in window was closed before completion.';
+        } else if (result.error?.code === 'auth/cancelled-popup-request') {
+          msg = 'Google sign-in was cancelled.';
+        }
+        return { success: false, error: msg };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Google sign-in failed.' };
+    }
+  }, [firebaseSignInWithGoogle]);
 
   const register = useCallback(async (
     email: string,
@@ -351,6 +371,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     error,
     isDeveloperAdmin,
     login,
+    signInWithGoogle,
     register,
     logout,
     signIn,
@@ -369,6 +390,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     error,
     isDeveloperAdmin,
     login,
+    signInWithGoogle,
     register,
     logout,
     signIn,

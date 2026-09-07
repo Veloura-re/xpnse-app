@@ -9,12 +9,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Default production fallback for client-side web builds
 const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD65DFf80JpbowSZQu6w2a6FYGxZnSJSMk",
+  apiKey: "AIzaSyBiHhZSXzofvhXV8yDItqaeAFbN3mIVh_I",
   authDomain: "cashiee.firebaseapp.com",
+  databaseURL: "https://cashiee-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "cashiee",
   storageBucket: "cashiee.firebasestorage.app",
   messagingSenderId: "572518473431",
-  appId: "1:572518473431:android:342a9725a05b2fa48c5a92",
+  appId: "1:572518473431:web:f065f466641c2fd98c5a92",
+  measurementId: "G-ZRXGQXTXPL",
 };
 
 // Firebase configuration - Read from process.env (dev), Constants.expoConfig.extra, or defaults
