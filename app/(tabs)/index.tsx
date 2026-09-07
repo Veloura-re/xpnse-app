@@ -50,6 +50,7 @@ import { BackgroundDecor } from '@/components/ui/background-decor';
 import { getFontFamily } from '@/config/font-config';
 import { useTheme } from '@/providers/theme-provider';
 import { BUSINESS_ICONS } from '@/constants/logos';
+import { SavingsDashboard } from '@/components/savings/savings-dashboard';
 
 type SortOption =
   | 'name-asc'
@@ -602,7 +603,9 @@ export default function BooksScreen() {
           </View>
         </View>
 
-        <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Books</Text>
+        <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>
+          {currentBusiness?.type === 'savings_group' ? 'Savings & Vaults' : 'Books'}
+        </Text>
 
         {currentBusiness && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -636,29 +639,41 @@ export default function BooksScreen() {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.headerIconButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
-                  onPress={() => {
-                    LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
-                    setIsSearchExpanded(true);
-                  }}
-                >
-                  <Search size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
+                {currentBusiness.type === 'savings_group' ? (
+                  <TouchableOpacity
+                    style={[styles.headerIconButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
+                    onPress={() => router.push('/savings-activity')}
+                    activeOpacity={0.7}
+                  >
+                    <FileText size={19} color={colors.primary} />
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.headerIconButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
+                      onPress={() => {
+                        LayoutAnimation.configureNext({ duration: 100, update: { type: LayoutAnimation.Types.easeInEaseOut } });
+                        setIsSearchExpanded(true);
+                      }}
+                    >
+                      <Search size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.headerIconButton,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                    selectedSort !== 'date-desc' && [
-                      styles.filterButtonActive,
-                      { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', borderColor: '#10b981' },
-                    ],
-                  ]}
-                  onPress={() => setSortModalVisible(true)}
-                >
-                  <SlidersHorizontal size={20} color={selectedSort !== 'date-desc' ? '#10b981' : colors.textSecondary} />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.headerIconButton,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        selectedSort !== 'date-desc' && [
+                          styles.filterButtonActive,
+                          { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', borderColor: '#10b981' },
+                        ],
+                      ]}
+                      onPress={() => setSortModalVisible(true)}
+                    >
+                      <SlidersHorizontal size={20} color={selectedSort !== 'date-desc' ? '#10b981' : colors.textSecondary} />
+                    </TouchableOpacity>
+                  </>
+                )}
               </>
             ) : (
               <View
@@ -720,43 +735,50 @@ export default function BooksScreen() {
           </View>
         )}
 
-        {/* Books List Content */}
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading books...</Text>
-          </View>
+        {/* Dynamic Business Content: Savings Group vs Standard Cashbook */}
+        {currentBusiness?.type === 'savings_group' ? (
+          <SavingsDashboard business={currentBusiness} />
         ) : (
-          <FlatList
-            data={filteredAndSortedBooks}
-            renderItem={renderBookCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 120 }]}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews={Platform.OS === 'android'}
-            maxToRenderPerBatch={8}
-            updateCellsBatchingPeriod={40}
-            initialNumToRender={8}
-            windowSize={5}
-            ListEmptyComponent={
-              <View style={styles.emptyList}>
-                <View style={[styles.emptyListIconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-                  <BookOpen size={36} color={colors.textSecondary} />
-                </View>
-                <Text style={[styles.emptyListTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                  No books found
-                </Text>
-                <Text style={[styles.emptyListText, { color: colors.textSecondary }]}>
-                  {searchQuery ? `No results for "${searchQuery}"` : 'Create a book to start tracking.'}
-                </Text>
+          <>
+            {/* Books List Content */}
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading books...</Text>
               </View>
-            }
-          />
+            ) : (
+              <FlatList
+                data={filteredAndSortedBooks}
+                renderItem={renderBookCard}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 120 }]}
+                showsVerticalScrollIndicator={false}
+                removeClippedSubviews={Platform.OS === 'android'}
+                maxToRenderPerBatch={8}
+                updateCellsBatchingPeriod={40}
+                initialNumToRender={8}
+                windowSize={5}
+                ListEmptyComponent={
+                  <View style={styles.emptyList}>
+                    <View style={[styles.emptyListIconBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                      <BookOpen size={36} color={colors.textSecondary} />
+                    </View>
+                    <Text style={[styles.emptyListTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      No books found
+                    </Text>
+                    <Text style={[styles.emptyListText, { color: colors.textSecondary }]}>
+                      {searchQuery ? `No results for "${searchQuery}"` : 'Create a book to start tracking.'}
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </>
         )}
       </View>
 
-      {/* FAB Add Button */}
-      {(userRole === 'owner' || userRole === 'partner') && (
+      {/* FAB Add Button for Standard Cashbook */}
+      {currentBusiness?.type !== 'savings_group' && (userRole === 'owner' || userRole === 'partner') && (
         <TouchableOpacity
           style={[styles.fab, { bottom: insets.bottom + 105 }]}
           onPress={() => {

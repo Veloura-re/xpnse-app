@@ -1,6 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Business, Book, BookEntry, ActivityLog, UserRole, BusinessMember, User, Party, RecurringRule, RecurrenceFrequency } from '@/types';
+import { Business, BusinessType, Book, BookEntry, ActivityLog, UserRole, BusinessMember, User, Party, RecurringRule, RecurrenceFrequency } from '@/types';
 import { calculateNextDueDate, getTodayString, isRuleDue, buildEntryFromRecurringRule } from '@/utils/recurring-engine';
 import { mockBusinesses, mockBooks, mockEntries, mockActivityLogs, mockUsers } from '@/mocks/data';
 import { useAuth } from './auth-provider';
@@ -12,6 +12,7 @@ import { collection, query, where, getDocs, getDoc, limit, onSnapshot, doc, setD
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 import { PushNotificationService } from '@/services/push-notification-service';
 import { CurrencyService } from '@/services/currency-service';
+import { getOrCreateMemberAccount } from '@/services/savings-service';
 
 interface BusinessState {
   // Existing state
@@ -24,7 +25,7 @@ interface BusinessState {
 
   // Business management
   switchBusiness: (businessId: string) => void;
-  createBusiness: (name: string, currency?: string, icon?: string, color?: string, photoUrl?: string) => Promise<void>;
+  createBusiness: (name: string, currency?: string, icon?: string, color?: string, photoUrl?: string, type?: BusinessType) => Promise<void>;
   updateBusiness: (updates: Partial<Business>, options?: { recalculateRates?: boolean; customRate?: number }) => Promise<void>;
   updateBusinessFont: (fontId: string) => Promise<void>;
   updateBusinessLogo: (icon: string, color: string) => Promise<void>;
@@ -280,7 +281,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
   }, [businesses, storage, user]);
 
-  const createBusiness = useCallback(async (name: string, currency: string = 'USD', icon?: string, color?: string, photoUrl?: string) => {
+  const createBusiness = useCallback(async (name: string, currency: string = 'USD', icon?: string, color?: string, photoUrl?: string, type: BusinessType = 'standard') => {
     if (!user || !db) return;
 
     const newBusinessId = uuidv4();
@@ -289,7 +290,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       name,
       ownerId: user.id!,
       currency,
-
+      type: type || 'standard',
+      groupPoolBalance: 0,
       icon,
       color,
       photoUrl,
@@ -330,6 +332,15 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       const cleanBusinessDoc = filterUndefined(businessDoc);
 
       await setDoc(doc(db, 'businesses', newBusinessId), cleanBusinessDoc);
+
+      if (type === 'savings_group') {
+        try {
+          await getOrCreateMemberAccount(newBusinessId, user.id!, currency);
+        } catch (accountErr) {
+          console.warn('[Savings] Error initializing owner wallet account:', accountErr);
+        }
+      }
+
       // No need to set state manually, the onSnapshot listener will pick it up
       setCurrentBusiness(newBusiness);
       await storage.setItem(`currentBusinessId_${user.id}`, newBusinessId);

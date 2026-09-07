@@ -70,10 +70,13 @@ export interface User {
   avatar?: string;
 }
 
+export type BusinessType = 'standard' | 'savings_group';
+
 export interface Business {
   id: string;
   name: string;
   ownerId: string;
+  type?: BusinessType;
   createdAt: string;
   members: BusinessMember[];
   memberIds?: string[];
@@ -83,7 +86,59 @@ export interface Business {
   icon?: string;
   color?: string;
   photoUrl?: string; // Optional uploaded photo replacing the icon
+  groupPoolBalance?: number; // Total collective pool balance
   lastActiveAt?: string;
+}
+
+export interface MemberAccount {
+  id: string;
+  businessId: string;
+  userId: string;
+  mainBalance: number; // Spendable balance
+  lockedSavingsBalance: number; // In vaults
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavingsVault {
+  id: string;
+  businessId: string;
+  userId: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  currency: string;
+  isLocked: boolean;
+  lockUntilDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WalletTransactionType =
+  | 'deposit'
+  | 'withdrawal'
+  | 'transfer_sent'
+  | 'transfer_recv'
+  | 'vault_deposit'
+  | 'vault_withdraw'
+  | 'pool_contribution';
+
+export interface WalletTransaction {
+  id: string;
+  businessId: string;
+  userId: string;
+  type: WalletTransactionType;
+  amount: number;
+  currency: string;
+  counterpartyId?: string;
+  counterpartyName?: string;
+  vaultId?: string;
+  vaultName?: string;
+  status: 'pending' | 'completed' | 'failed';
+  paymentIntentId?: string;
+  note?: string;
+  createdAt: string;
 }
 
 export interface BusinessMember {

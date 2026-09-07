@@ -19,8 +19,8 @@ import { Stack, router } from 'expo-router';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Business } from '@/types';
-import { Building2, Plus, Search, X, Check, SlidersHorizontal, MoreHorizontal, ArrowRight, Camera } from 'lucide-react-native';
+import { Business, BusinessType } from '@/types';
+import { Building2, Plus, Search, X, Check, SlidersHorizontal, MoreHorizontal, ArrowRight, Camera, Wallet, BookOpen } from 'lucide-react-native';
 import { RoleBadge } from '@/components/role-badge';
 import { BackgroundDecor } from '@/components/ui/background-decor';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -57,6 +57,7 @@ export default function BusinessSwitcherScreen() {
   const insets = useSafeAreaInsets();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newBusinessName, setNewBusinessName] = useState('');
+  const [businessType, setBusinessType] = useState<BusinessType>('standard');
   const [newBusinessPhotoUrl, setNewBusinessPhotoUrl] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -169,11 +170,13 @@ export default function BusinessSwitcherScreen() {
         'USD',
         selectedLogo?.icon || 'store',
         selectedLogo?.color || colors.primary,
-        newBusinessPhotoUrl || undefined
+        newBusinessPhotoUrl || undefined,
+        businessType
       );
       setNewBusinessName('');
       setSelectedLogoId('1');
       setNewBusinessPhotoUrl(null);
+      setBusinessType('standard');
       setShowCreateForm(false);
       setShowSuccessModal(true);
     } catch (error) {
@@ -256,6 +259,11 @@ export default function BusinessSwitcherScreen() {
             </Text>
             <View style={styles.businessMeta}>
               <RoleBadge role={userRole} size="small" />
+              {item.type === 'savings_group' && (
+                <View style={{ backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.12)', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.35)', marginLeft: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>Savings Group</Text>
+                </View>
+              )}
               <Text style={[styles.businessMembers, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                 {memberCount} member{memberCount !== 1 ? 's' : ''}
               </Text>
@@ -508,8 +516,60 @@ export default function BusinessSwitcherScreen() {
                 </View>
               </View>
 
+              {/* Business Model Selector */}
+              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 8, marginTop: 18, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
+                BUSINESS MODEL
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setBusinessType('standard')}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: businessType === 'standard' ? colors.primary : colors.border,
+                    backgroundColor: businessType === 'standard' ? (isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)') : colors.inputBackground,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 6 }}>
+                    <BookOpen size={16} color={businessType === 'standard' ? colors.primary : colors.textSecondary} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: businessType === 'standard' ? colors.primary : colors.text, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                      Cashbook
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 14, fontFamily: 'SpaceGrotesk_400Regular' }}>
+                    Standard bookkeeping, multiple books, income and expenses
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setBusinessType('savings_group')}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: businessType === 'savings_group' ? colors.primary : colors.border,
+                    backgroundColor: businessType === 'savings_group' ? (isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)') : colors.inputBackground,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 6 }}>
+                    <Wallet size={16} color={businessType === 'savings_group' ? colors.primary : colors.textSecondary} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: businessType === 'savings_group' ? colors.primary : colors.text, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                      Savings Group
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 14, fontFamily: 'SpaceGrotesk_400Regular' }}>
+                    Digital wallet, locked vaults, member transfers, community pool
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Business Name Input */}
-              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 8, marginTop: 20, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
+              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 8, marginTop: 4, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                 BUSINESS NAME
               </Text>
               <TextInput

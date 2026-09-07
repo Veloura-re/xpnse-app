@@ -47,6 +47,10 @@ service cloud.firestore {
                           ) ||
                           (
                             request.auth.uid in resource.data.memberIds && 
+                            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['groupPoolBalance'])
+                          ) ||
+                          (
+                            request.auth.uid in resource.data.memberIds && 
                             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberIds']) &&
                             !(request.auth.uid in request.resource.data.memberIds)
                           )
@@ -74,6 +78,21 @@ service cloud.firestore {
     
     // Recurring Rules subcollection (Strictly scoped to current business)
     match /businesses/{businessId}/recurringRules/{ruleId} {
+      allow read, write: if isMember(businessId);
+    }
+
+    // Member Accounts subcollection (Savings & Microfinance)
+    match /businesses/{businessId}/accounts/{accountId} {
+      allow read, write: if isMember(businessId);
+    }
+
+    // Savings Vaults subcollection
+    match /businesses/{businessId}/vaults/{vaultId} {
+      allow read, write: if isMember(businessId);
+    }
+
+    // Wallet Transactions subcollection
+    match /businesses/{businessId}/wallet_transactions/{txId} {
       allow read, write: if isMember(businessId);
     }
     

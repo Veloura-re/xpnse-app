@@ -128,6 +128,7 @@ function RootLayoutNav() {
         <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
         <Stack.Screen name="terms-of-service" options={{ headerShown: false }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
+        <Stack.Screen name="savings-activity" options={{ headerShown: false }} />
       </Stack>
     </>
   );
