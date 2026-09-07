@@ -75,7 +75,7 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
       const destinationTitle =
         method === 'bank'
           ? `${bankName} (${accountNumber})`
-          : 'Instant Card Payout (•••• 4242)';
+          : 'Instant Card Payout (Discover •••• 1117)';
 
       const res = await cashOutFromWallet({
         businessId,
@@ -83,7 +83,7 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
         amount: numericAmount,
         currency,
         destinationType: method,
-        destinationDetails: method === 'bank' ? accountNumber : '•••• 4242',
+        destinationDetails: method === 'bank' ? accountNumber : 'Discover •••• 1117',
         destinationTitle,
       });
 
@@ -336,11 +336,11 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
                 <View style={styles.instantCardBadge}>
                   <CheckCircle2 size={16} color={colors.primary} />
                   <Text style={[styles.instantCardTitle, { color: colors.text }]}>
-                    Verified Debit Card on File (•••• 4242)
+                    Verified Discover Card on File (•••• 1117)
                   </Text>
                 </View>
                 <Text style={[styles.instantCardSub, { color: colors.textSecondary }]}>
-                  Funds will be pushed directly to your linked card account within seconds.
+                  Funds will be pushed directly to your linked Discover card account within seconds.
                 </Text>
               </View>
             )}
