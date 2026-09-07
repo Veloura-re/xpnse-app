@@ -41,7 +41,7 @@
       "bundler": "metro",
       "config": {
         "notification": {
-          "vapidPublicKey": "BFV_REPLACE_WITH_YOUR_ACTUAL_VAPID_PUBLIC_KEY_FROM_FIREBASE_CONSOLE"
+          "vapidPublicKey": "BBZy_2M-PK_ED56_eaCKx5rwbJ2F1YXWhvNvA0nz9T1d9LSivTxIKQn_EXTwkZvxT1lcCmu5FHxO0EZV8AeU1qk"
         }
       }
     },
