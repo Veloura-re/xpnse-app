@@ -191,10 +191,10 @@ export default function InviteTeamMemberForm({ onSuccess }: InviteTeamMemberForm
                   <UserIcon size={20} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.userName, { color: colors.text, fontSize: 15, fontWeight: '700' }]} numberOfLines={1}>
+                  <Text style={[styles.userName, { color: colors.text, fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold' }]} numberOfLines={1}>
                     {searchResult.user.name || searchResult.user.displayName}
                   </Text>
-                  <Text style={[styles.userEmail, { color: colors.textSecondary, fontSize: 13 }]} numberOfLines={1}>
+                  <Text style={[styles.userEmail, { color: colors.textSecondary, fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
                     {searchResult.user.email}
                   </Text>
                 </View>
@@ -204,8 +204,8 @@ export default function InviteTeamMemberForm({ onSuccess }: InviteTeamMemberForm
               <>
                 <XCircle size={20} color={colors.error} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ color: colors.error, fontSize: 14, fontWeight: '600' }}>User Not Found</Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12 }} numberOfLines={1}>
+                  <Text style={{ color: colors.error, fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold' }}>User Not Found</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular' }} numberOfLines={1}>
                     {searchResult.message || 'Email not registered'}
                   </Text>
                 </View>
@@ -225,29 +225,34 @@ export default function InviteTeamMemberForm({ onSuccess }: InviteTeamMemberForm
                 style={[
                   styles.roleCard,
                   {
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                    backgroundColor: selectedRole === role.value ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5') : (isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'),
                     borderColor: selectedRole === role.value ? colors.primary : (isDark ? '#2C3333' : '#e2e8f0'),
-                  },
-                  selectedRole === role.value && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }
+                  }
                 ]}
                 onPress={() => setSelectedRole(role.value)}
                 disabled={isLoading}
               >
                 <View style={styles.roleCardHeader}>
-                  <Text style={[styles.roleLabel, { color: selectedRole === role.value ? colors.primary : colors.text }]}>
+                  <Text style={[
+                    styles.roleLabel,
+                    {
+                      color: selectedRole === role.value ? colors.primary : colors.text,
+                      fontFamily: 'SpaceGrotesk_700Bold',
+                    }
+                  ]}>
                     {role.label}
                   </Text>
                   <View style={[
                     styles.roleRadio,
                     {
-                      borderColor: selectedRole === role.value ? colors.primary : colors.textSecondary,
+                      borderColor: selectedRole === role.value ? colors.primary : (isDark ? '#4B5563' : '#cbd5e1'),
                       backgroundColor: selectedRole === role.value ? colors.primary : 'transparent',
                     }
                   ]}>
                     {selectedRole === role.value && <Check size={12} color="#fff" />}
                   </View>
                 </View>
-                <Text style={[styles.roleDescription, { color: colors.textSecondary }]}>
+                <Text style={[styles.roleDescription, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                   {role.description}
                 </Text>
               </TouchableOpacity>
@@ -270,7 +275,7 @@ export default function InviteTeamMemberForm({ onSuccess }: InviteTeamMemberForm
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={[styles.submitButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>
+            <Text style={[styles.submitButtonText, { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>
               Add to Team
             </Text>
           )}
@@ -289,11 +294,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    fontWeight: '800',
     marginBottom: 6,
     marginLeft: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -309,6 +314,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 15,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   searchResult: {
     marginTop: 12,
@@ -319,10 +325,11 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   userEmail: {
     marginTop: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   roleGrid: {
     gap: 10,
@@ -340,7 +347,7 @@ const styles = StyleSheet.create({
   },
   roleLabel: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   roleRadio: {
     width: 18,
@@ -353,9 +360,10 @@ const styles = StyleSheet.create({
   roleDescription: {
     fontSize: 11,
     lineHeight: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   submitButtonText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

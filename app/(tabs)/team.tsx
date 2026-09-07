@@ -143,8 +143,8 @@ export default function TeamManagementScreen() {
                             <User size={24} color={colors.primary} />
                         </View>
                         <View style={styles.memberDetails}>
-                            <Text style={[styles.memberName, { color: colors.text }]}>{item.user.name || item.user.displayName}</Text>
-                            <Text style={[styles.memberEmail, { color: colors.textSecondary }]}>{item.user.email}</Text>
+                            <Text style={[styles.memberName, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>{item.user.name || item.user.displayName}</Text>
+                            <Text style={[styles.memberEmail, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>{item.user.email}</Text>
                         </View>
                     </View>
                     <View style={styles.memberActions}>
@@ -261,7 +261,7 @@ export default function TeamManagementScreen() {
                     </View>
                 </View>
                 <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Team</Text>
-                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                     {currentBusiness.name} · {members.length} {members.length === 1 ? 'member' : 'members'}
                 </Text>
             </View>
@@ -269,9 +269,9 @@ export default function TeamManagementScreen() {
             <View style={{ flex: 1 }}>
                 {/* Search Bar */}
                 <View style={[styles.searchContainer, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}>
-                    <Search size={20} color={colors.textSecondary} />
+                    <Search size={18} color={colors.textSecondary} />
                     <TextInput
-                        style={[styles.searchInput, { color: colors.text }]}
+                        style={[styles.searchInput, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}
                         placeholder="Search team members..."
                         placeholderTextColor={colors.textSecondary}
                         value={searchQuery}
@@ -667,10 +667,9 @@ const styles = StyleSheet.create({
     },
     appName: {
         fontSize: 14,
-        fontWeight: '700',
         color: '#10b981',
-        textTransform: 'uppercase',
-        letterSpacing: 1.5,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        letterSpacing: 0.5,
         marginBottom: 8,
     },
     headerTitle: {
@@ -678,10 +677,14 @@ const styles = StyleSheet.create({
         fontSize: 32,
         color: '#0f172a',
         marginBottom: 8,
+        letterSpacing: -0.5,
     },
     headerSubtitle: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#64748b',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
+        marginTop: 2,
+        letterSpacing: -0.2,
     },
     searchContainer: {
         flexDirection: 'row',
@@ -702,9 +705,11 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
+        fontSize: 15,
         color: '#0f172a',
         marginLeft: 12,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
+        letterSpacing: -0.2,
     },
     listContainer: {
         paddingHorizontal: 16,
@@ -751,13 +756,15 @@ const styles = StyleSheet.create({
     },
     memberName: {
         fontSize: 14,
-        fontWeight: '700',
         color: '#0f172a',
+        fontFamily: 'SpaceGrotesk_700Bold',
+        letterSpacing: -0.2,
         marginBottom: 1,
     },
     memberEmail: {
         fontSize: 12,
         color: '#64748b',
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     memberActions: {
         flexDirection: 'row',
@@ -770,12 +777,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8fafc',
     },
     expandedTitle: {
-        fontSize: 14,
-        fontWeight: '700',
+        fontSize: 13,
         color: '#64748b',
-        marginBottom: 16,
+        marginBottom: 14,
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 0.8,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     roleOptions: {
         flexDirection: 'row',
@@ -799,12 +806,12 @@ const styles = StyleSheet.create({
     },
     roleOptionText: {
         fontSize: 15,
-        fontWeight: '600',
         color: '#64748b',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     roleOptionTextSelected: {
         color: '#10b981',
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     removeButton: {
         flexDirection: 'row',
@@ -818,9 +825,9 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     removeButtonText: {
-        fontSize: 15,
-        fontWeight: '600',
+        fontSize: 14,
         color: '#ef4444',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     emptyContainer: {
         flex: 1,
@@ -833,17 +840,18 @@ const styles = StyleSheet.create({
         paddingVertical: 60,
     },
     emptyTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 18,
         color: '#0f172a',
-        marginTop: 24,
-        marginBottom: 8,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        marginTop: 20,
+        marginBottom: 6,
     },
     emptyDescription: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#64748b',
         textAlign: 'center',
-        lineHeight: 24,
+        lineHeight: 20,
+        fontFamily: 'SpaceGrotesk_400Regular',
         paddingHorizontal: 20,
     },
     fab: {
@@ -898,7 +906,7 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         letterSpacing: -0.5,
     },
     closeButton: {
@@ -929,6 +937,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#059669',
         lineHeight: 20,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     emailInputRow: {
         flexDirection: 'row',
@@ -944,21 +953,23 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#0f172a',
         backgroundColor: '#f8fafc',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     inviteDescription: {
         fontSize: 16,
         color: '#64748b',
         marginBottom: 32,
         lineHeight: 24,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     formGroup: {
         marginBottom: 24,
     },
     label: {
         fontSize: 14,
-        fontWeight: '700',
         color: '#0f172a',
         marginBottom: 12,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     input: {
         borderWidth: 1,
@@ -969,6 +980,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#0f172a',
         backgroundColor: '#f8fafc',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     searchButtonWrapper: {
         borderRadius: 12,
@@ -985,7 +997,7 @@ const styles = StyleSheet.create({
     searchButtonText: {
         color: '#fff',
         fontSize: 15,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     userFoundCard: {
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -1010,13 +1022,14 @@ const styles = StyleSheet.create({
     },
     userFoundName: {
         fontSize: 18,
-        fontWeight: '700',
         color: '#0f172a',
         marginBottom: 4,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     userFoundEmail: {
         fontSize: 15,
         color: '#64748b',
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     userFoundBadge: {
         backgroundColor: '#10b981',
@@ -1027,7 +1040,7 @@ const styles = StyleSheet.create({
     userFoundBadgeText: {
         color: '#fff',
         fontSize: 13,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     roleOptionsContainer: {
         gap: 12,
@@ -1080,8 +1093,8 @@ const styles = StyleSheet.create({
     },
     roleCardLabel: {
         fontSize: 16,
-        fontWeight: '600',
         color: '#374151',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     roleCardLabelSelected: {
         color: '#10b981',
@@ -1090,6 +1103,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#64748b',
         marginLeft: 32,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     sendInviteButtonWrapper: {
         borderRadius: 12,
@@ -1105,7 +1119,7 @@ const styles = StyleSheet.create({
     sendInviteButtonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     userNotFoundCard: {
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -1121,15 +1135,16 @@ const styles = StyleSheet.create({
     },
     userNotFoundTitle: {
         fontSize: 18,
-        fontWeight: '700',
         color: '#b91c1c',
         marginBottom: 8,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     userNotFoundText: {
         fontSize: 15,
         color: '#dc2626',
         textAlign: 'center',
         lineHeight: 22,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     inviteSentCard: {
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -1153,13 +1168,14 @@ const styles = StyleSheet.create({
     },
     inviteSentTitle: {
         fontSize: 22,
-        fontWeight: '700',
         color: '#10b981',
         marginBottom: 8,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     inviteSentText: {
         fontSize: 16,
         color: '#047857',
         textAlign: 'center',
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
 });

@@ -33,24 +33,46 @@ if ((TextInput as any).defaultProps == null) {
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   try {
     const existingStyle = document.getElementById('spndy-global-font-style');
-    if (!existingStyle) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Pacifico&display=swap';
-      document.head.appendChild(link);
-
-      const style = document.createElement('style');
-      style.id = 'spndy-global-font-style';
-      style.textContent = `
-        * {
-          font-family: 'SpaceGrotesk_400Regular', 'SpaceGrotesk_500Medium', 'SpaceGrotesk_600SemiBold', 'SpaceGrotesk_700Bold', 'Space Grotesk', system-ui, -apple-system, sans-serif;
-        }
-        .pacifico-font, [data-font="pacifico"], .font-logo {
-          font-family: 'Pacifico_400Regular', 'Pacifico', cursive !important;
-        }
-      `;
-      document.head.appendChild(style);
+    if (existingStyle) {
+      existingStyle.remove();
     }
+
+    const preconnect1 = document.createElement('link');
+    preconnect1.rel = 'preconnect';
+    preconnect1.href = 'https://fonts.googleapis.com';
+    document.head.appendChild(preconnect1);
+
+    const preconnect2 = document.createElement('link');
+    preconnect2.rel = 'preconnect';
+    preconnect2.href = 'https://fonts.gstatic.com';
+    preconnect2.crossOrigin = 'anonymous';
+    document.head.appendChild(preconnect2);
+
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Pacifico&family=Space+Grotesk:wght@300;400;500;600;700&display=swap';
+    document.head.appendChild(link);
+
+    const style = document.createElement('style');
+    style.id = 'spndy-global-font-style';
+    style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Pacifico&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+      * {
+        font-family: 'Space Grotesk', 'SpaceGrotesk_500Medium', 'SpaceGrotesk_600SemiBold', 'SpaceGrotesk_700Bold', 'SpaceGrotesk_400Regular', system-ui, -apple-system, sans-serif;
+      }
+      input, textarea, button, select {
+        font-family: 'Space Grotesk', 'SpaceGrotesk_500Medium', 'SpaceGrotesk_600SemiBold', 'SpaceGrotesk_700Bold', 'SpaceGrotesk_400Regular', system-ui, -apple-system, sans-serif !important;
+      }
+      input::placeholder, textarea::placeholder {
+        font-family: 'Space Grotesk', 'SpaceGrotesk_500Medium', 'SpaceGrotesk_600SemiBold', 'SpaceGrotesk_700Bold', 'SpaceGrotesk_400Regular', system-ui, -apple-system, sans-serif !important;
+        opacity: 0.75;
+      }
+      .pacifico-font, [data-font="pacifico"], .font-logo {
+        font-family: 'Pacifico_400Regular', 'Pacifico', cursive !important;
+      }
+    `;
+    document.head.appendChild(style);
   } catch (e) {
     // Ignore in SSR
   }
