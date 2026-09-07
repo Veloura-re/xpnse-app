@@ -163,7 +163,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         />
       }
     >
-      {/* Spendable Personal Wallet Card */}
+      {/* 1. Spendable Personal Wallet Card (Hero at Top) */}
       <WalletCard
         account={account}
         currency={currency}
@@ -172,21 +172,21 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         onCashOut={() => setShowCashOut(true)}
       />
 
-      {/* Community / Group Savings Pool Card */}
-      <GroupPoolCard
-        business={business}
+      {/* 2. Goal-Oriented Savings Vaults (Allocated from Wallet) */}
+      <VaultsList
+        vaults={vaults}
+        businessId={business.id}
         userId={userId}
-        userName={user?.displayName || user?.name || user?.email || 'Member'}
         spendableBalance={account?.mainBalance || 0}
         currency={currency}
         onRefresh={onRefresh}
       />
 
-      {/* Goal-Oriented Savings Vaults */}
-      <VaultsList
-        vaults={vaults}
-        businessId={business.id}
+      {/* 3. Community / Group Savings Pool Card */}
+      <GroupPoolCard
+        business={business}
         userId={userId}
+        userName={user?.displayName || user?.name || user?.email || 'Member'}
         spendableBalance={account?.mainBalance || 0}
         currency={currency}
         onRefresh={onRefresh}
@@ -334,7 +334,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingTop: 2,
+    paddingBottom: 100,
   },
   activitySection: {
     paddingHorizontal: 16,
@@ -348,8 +349,7 @@ const styles = StyleSheet.create({
   },
   activitySectionTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   seeAllBtn: {
@@ -359,7 +359,6 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: 12,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   emptyActivityBox: {
@@ -401,7 +400,6 @@ const styles = StyleSheet.create({
   },
   txTitle: {
     fontSize: 14,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   txDate: {
@@ -411,5 +409,6 @@ const styles = StyleSheet.create({
   },
   txAmount: {
     fontSize: 15,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

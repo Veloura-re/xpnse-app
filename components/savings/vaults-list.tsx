@@ -12,6 +12,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Lock,
   Unlock,
@@ -186,10 +187,17 @@ export const VaultsList: React.FC<VaultsListProps> = ({
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => setShowCreateModal(true)}
-          style={[styles.addVaultBtn, { backgroundColor: colors.primary }]}
+          style={styles.addVaultBtnWrapper}
         >
-          <Plus size={14} color="#ffffff" />
-          <Text style={styles.addVaultBtnText}>New Goal</Text>
+          <LinearGradient
+            colors={['#10B981', '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.addVaultBtn}
+          >
+            <Plus size={13} color="#ffffff" />
+            <Text style={styles.addVaultBtnText}>New Goal</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -199,8 +207,8 @@ export const VaultsList: React.FC<VaultsListProps> = ({
           style={[
             styles.emptyCard,
             {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : colors.card,
+              borderColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.border,
             },
           ]}
         >
@@ -233,6 +241,7 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                     Math.round((vault.currentAmount / vault.targetAmount) * 100)
                   )
                 : 0;
+            const remaining = Math.max(0, vault.targetAmount - vault.currentAmount);
 
             return (
               <View
@@ -240,68 +249,95 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                 style={[
                   styles.vaultCard,
                   {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? '#141c18' : colors.card,
+                    borderColor: isDark ? 'rgba(52, 211, 153, 0.2)' : colors.border,
                   },
                 ]}
               >
                 <View style={styles.vaultTopRow}>
                   <View style={styles.vaultTitleGroup}>
-                    <Text style={[styles.vaultName, { color: colors.text }]}>
-                      {vault.name}
-                    </Text>
                     <View
                       style={[
-                        styles.lockBadge,
+                        styles.vaultIconBubble,
                         {
-                          backgroundColor: vault.isLocked
-                            ? isDark
-                              ? 'rgba(16, 185, 129, 0.15)'
-                              : '#ecfdf5'
-                            : isDark
-                            ? 'rgba(255, 255, 255, 0.06)'
-                            : '#f4f4f5',
+                          backgroundColor: isDark
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : '#ecfdf5',
                         },
                       ]}
                     >
-                      {vault.isLocked ? (
-                        <Lock size={10} color={colors.primary} />
-                      ) : (
-                        <Unlock size={10} color={colors.textSecondary} />
-                      )}
-                      <Text
+                      <Target size={16} color={colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.vaultName, { color: colors.text }]}>
+                        {vault.name}
+                      </Text>
+                      <View
                         style={[
-                          styles.lockBadgeText,
+                          styles.lockBadge,
                           {
-                            color: vault.isLocked
-                              ? colors.primary
-                              : colors.textSecondary,
+                            backgroundColor: vault.isLocked
+                              ? isDark
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : '#ecfdf5'
+                              : isDark
+                              ? 'rgba(255, 255, 255, 0.06)'
+                              : '#f4f4f5',
+                            borderColor: vault.isLocked
+                              ? 'rgba(16, 185, 129, 0.25)'
+                              : 'rgba(255, 255, 255, 0.1)',
                           },
                         ]}
                       >
-                        {vault.isLocked ? 'Protected' : 'Flexible'}
-                      </Text>
+                        <View
+                          style={[
+                            styles.lockBadgeDot,
+                            { backgroundColor: vault.isLocked ? '#10B981' : '#9CA3AF' },
+                          ]}
+                        />
+                        {vault.isLocked ? (
+                          <Lock size={10} color={colors.primary} />
+                        ) : (
+                          <Unlock size={10} color={colors.textSecondary} />
+                        )}
+                        <Text
+                          style={[
+                            styles.lockBadgeText,
+                            {
+                              color: vault.isLocked
+                                ? colors.primary
+                                : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {vault.isLocked ? 'Protected' : 'Flexible'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
-                  <Text style={[styles.vaultPercent, { color: colors.primary }]}>
-                    {progress}%
-                  </Text>
+                  <View style={styles.percentBadge}>
+                    <Text style={[styles.vaultPercent, { color: colors.primary }]}>
+                      {progress}%
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Progress Bar */}
                 <View
                   style={[
                     styles.progressBarTrack,
-                    { backgroundColor: isDark ? '#27272a' : '#e4e4e7' },
+                    { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e4e4e7' },
                   ]}
                 >
-                  <View
+                  <LinearGradient
+                    colors={['#10B981', '#34D399']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
                     style={[
                       styles.progressBarFill,
                       {
-                        width: `${progress}%`,
-                        backgroundColor: colors.primary,
+                        width: `${Math.max(progress > 0 ? 5 : 0, progress)}%`,
                       },
                     ]}
                   />
@@ -314,6 +350,7 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                   </Text>
                   <Text style={[styles.vaultTargetAmt, { color: colors.textSecondary }]}>
                     Goal: {formatCurrency(vault.targetAmount, currency)}
+                    {remaining > 0 ? ` • ${formatCurrency(remaining, currency)} left` : ' • Completed'}
                   </Text>
                 </View>
 
@@ -329,15 +366,15 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                       styles.vaultActionBtn,
                       {
                         backgroundColor: isDark
-                          ? 'rgba(16, 185, 129, 0.12)'
+                          ? 'rgba(16, 185, 129, 0.15)'
                           : '#ecfdf5',
                         borderColor: isDark
-                          ? 'rgba(16, 185, 129, 0.25)'
-                          : 'rgba(16, 185, 129, 0.2)',
+                          ? 'rgba(16, 185, 129, 0.3)'
+                          : 'rgba(16, 185, 129, 0.25)',
                       },
                     ]}
                   >
-                    <ArrowDownRight size={13} color={colors.primary} />
+                    <ArrowDownRight size={14} color={colors.primary} />
                     <Text
                       style={[styles.vaultActionBtnText, { color: colors.primary }]}
                     >
@@ -355,13 +392,15 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                       styles.vaultActionBtn,
                       {
                         backgroundColor: isDark
-                          ? 'rgba(255, 255, 255, 0.05)'
+                          ? 'rgba(255, 255, 255, 0.06)'
                           : '#f4f4f5',
-                        borderColor: colors.border,
+                        borderColor: isDark
+                          ? 'rgba(255, 255, 255, 0.1)'
+                          : colors.border,
                       },
                     ]}
                   >
-                    <ArrowUpLeft size={13} color={colors.textSecondary} />
+                    <ArrowUpLeft size={14} color={colors.textSecondary} />
                     <Text
                       style={[
                         styles.vaultActionBtnText,
@@ -608,8 +647,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   sectionSubtitle: {
@@ -617,38 +655,40 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontFamily: 'SpaceGrotesk_400Regular',
   },
+  addVaultBtnWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   addVaultBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   addVaultBtnText: {
     fontSize: 12,
-    fontWeight: '700',
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   emptyCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 24,
+    borderStyle: 'dashed',
+    padding: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
     fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 4,
   },
@@ -663,46 +703,66 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   vaultCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
+    padding: 18,
   },
   vaultTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   vaultTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
+  },
+  vaultIconBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vaultName: {
     fontSize: 15,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 3,
   },
   lockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
+    gap: 5,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    borderWidth: 0.8,
+  },
+  lockBadgeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   lockBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.2,
+  },
+  percentBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
   vaultPercent: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   progressBarTrack: {
-    height: 7,
+    height: 8,
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 10,
@@ -718,9 +778,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   vaultCurrentAmt: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
   },
   vaultTargetAmt: {
     fontSize: 12,
@@ -736,14 +796,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
   },
   vaultActionBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 12.5,
     fontFamily: 'SpaceGrotesk_600SemiBold',
+    letterSpacing: -0.2,
   },
   modalBackdrop: {
     flex: 1,
@@ -767,7 +827,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   closeBtn: {
@@ -775,7 +834,6 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 11,
-    fontWeight: '700',
     letterSpacing: 0.8,
     marginBottom: 6,
     fontFamily: 'SpaceGrotesk_700Bold',
@@ -800,7 +858,6 @@ const styles = StyleSheet.create({
   },
   switchTitle: {
     fontSize: 13,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   switchSub: {
@@ -820,13 +877,11 @@ const styles = StyleSheet.create({
   },
   currencyPrefix: {
     fontSize: 28,
-    fontWeight: '700',
     marginRight: 6,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalAmountInput: {
     fontSize: 32,
-    fontWeight: '800',
     minWidth: 80,
     textAlign: 'center',
     fontFamily: 'SpaceGrotesk_700Bold',
@@ -839,7 +894,6 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     fontSize: 15,
-    fontWeight: '700',
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
   },

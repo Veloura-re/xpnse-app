@@ -321,7 +321,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 14,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   cardSub: {
@@ -333,13 +332,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   contributeBtnText: {
     fontSize: 12,
-    fontWeight: '700',
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
@@ -356,8 +354,8 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     fontSize: 24,
-    fontWeight: '800',
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.5,
   },
   modalBackdrop: {
     flex: 1,
@@ -381,7 +379,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   closeBtn: {
@@ -389,7 +386,6 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 11,
-    fontWeight: '700',
     letterSpacing: 0.8,
     marginBottom: 6,
     fontFamily: 'SpaceGrotesk_700Bold',
@@ -406,13 +402,11 @@ const styles = StyleSheet.create({
   },
   currencyPrefix: {
     fontSize: 28,
-    fontWeight: '700',
     marginRight: 6,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   amountInput: {
     fontSize: 32,
-    fontWeight: '800',
     minWidth: 80,
     textAlign: 'center',
     fontFamily: 'SpaceGrotesk_700Bold',
@@ -433,6 +427,7 @@ const styles = StyleSheet.create({
   },
   presetChipText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   noteInput: {
     borderRadius: 12,
@@ -451,7 +446,6 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     fontSize: 15,
-    fontWeight: '700',
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
