@@ -697,10 +697,17 @@ export function subscribeToWalletTransactions(
   }
 
   const txCol = collection(db, 'businesses', businessId, 'wallet_transactions');
-  const q = query(txCol, where('userId', '==', userId), orderBy('createdAt', 'desc'));
 
-  return onSnapshot(
-    q,
+  // Attempt the optimal query that requires a composite index (userId ASC + createdAt DESC).
+  // During the window before that index finishes building in the Firebase Console, Firestore
+  // returns failed-precondition. The error handler falls back to a simpler filter-only query
+  // and performs the sort client-side so the UI is never blocked.
+  const indexedQuery = query(txCol, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+
+  let fallbackUnsub: Unsubscribe | null = null;
+
+  const unsub = onSnapshot(
+    indexedQuery,
     (snapshot) => {
       const txList: WalletTransaction[] = [];
       snapshot.forEach((docSnap) => {
@@ -708,9 +715,39 @@ export function subscribeToWalletTransactions(
       });
       callback(txList.slice(0, maxItems));
     },
-    (err) => {
-      console.warn('[Savings] Transactions subscription error:', err);
-      callback([]);
+    (err: any) => {
+      // failed-precondition means the composite index is missing or still building.
+      // Fall back to a filter-only query and sort in memory.
+      if (err?.code === 'failed-precondition') {
+        console.warn('[Savings] Composite index not ready; using client-side sort fallback.');
+        const fallbackQuery = query(txCol, where('userId', '==', userId));
+        fallbackUnsub = onSnapshot(
+          fallbackQuery,
+          (snap) => {
+            const txList: WalletTransaction[] = [];
+            snap.forEach((docSnap) => {
+              txList.push(docSnap.data() as WalletTransaction);
+            });
+            txList.sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+            callback(txList.slice(0, maxItems));
+          },
+          (fallbackErr) => {
+            console.warn('[Savings] Transactions fallback subscription error:', fallbackErr);
+            callback([]);
+          }
+        );
+      } else {
+        console.warn('[Savings] Transactions subscription error:', err);
+        callback([]);
+      }
     }
   );
+
+  // Return a composite unsubscribe that tears down whichever listener is active.
+  return () => {
+    unsub();
+    if (fallbackUnsub) fallbackUnsub();
+  };
 }
