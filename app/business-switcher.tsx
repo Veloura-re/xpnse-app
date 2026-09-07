@@ -12,13 +12,15 @@ import {
   ActivityIndicator,
   LayoutAnimation,
   ScrollView,
+  Image,
+  Alert,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Business } from '@/types';
-import { Building2, Plus, Search, X, Check, SlidersHorizontal, MoreHorizontal, ArrowRight } from 'lucide-react-native';
+import { Building2, Plus, Search, X, Check, SlidersHorizontal, MoreHorizontal, ArrowRight, Camera } from 'lucide-react-native';
 import { RoleBadge } from '@/components/role-badge';
 import { BackgroundDecor } from '@/components/ui/background-decor';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +28,7 @@ import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { NeumorphView } from '@/components/neumorphism';
 import { getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
+import { pickImage, uploadImage } from '@/utils/imageUpload';
 
 type SortOption = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc' | 'activity-desc' | 'today' | 'week' | 'month' | 'year' | 'all';
 
@@ -54,6 +57,8 @@ export default function BusinessSwitcherScreen() {
   const insets = useSafeAreaInsets();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newBusinessName, setNewBusinessName] = useState('');
+  const [newBusinessPhotoUrl, setNewBusinessPhotoUrl] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -131,6 +136,24 @@ export default function BusinessSwitcherScreen() {
     router.back();
   };
 
+  const handleUploadPhoto = async () => {
+    try {
+      setIsUploadingPhoto(true);
+      const localUri = await pickImage();
+      if (!localUri) return;
+      const url = await uploadImage(localUri, 'businesses/logos');
+      if (url) {
+        setNewBusinessPhotoUrl(url);
+        setShowLogoPicker(false);
+      }
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      Alert.alert('Error', 'Could not upload photo.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleCreateBusiness = async () => {
     if (!newBusinessName.trim()) {
       setErrorMessage('Please enter a business name');
@@ -145,10 +168,12 @@ export default function BusinessSwitcherScreen() {
         newBusinessName.trim(),
         'USD',
         selectedLogo?.icon || 'store',
-        selectedLogo?.color || colors.primary
+        selectedLogo?.color || colors.primary,
+        newBusinessPhotoUrl || undefined
       );
       setNewBusinessName('');
       setSelectedLogoId('1');
+      setNewBusinessPhotoUrl(null);
       setShowCreateForm(false);
       setShowSuccessModal(true);
     } catch (error) {
@@ -161,6 +186,7 @@ export default function BusinessSwitcherScreen() {
   };
   const handleSelectLogo = () => {
     setIsSelectingLogo(true);
+    setNewBusinessPhotoUrl(null);
     // Dismiss quickly
     setTimeout(() => {
       setShowLogoPicker(false);
@@ -203,10 +229,19 @@ export default function BusinessSwitcherScreen() {
             styles.businessIcon,
             {
               backgroundColor: isSelected ? (isDark ? 'rgba(33, 201, 141, 0.12)' : 'rgba(16, 185, 129, 0.1)') : (isDark ? '#262624' : '#F4F0E8'),
-              borderRadius: 16
+              borderRadius: 16,
+              overflow: 'hidden',
             }
           ]}>
-            <BusinessIcon size={24} color={isSelected ? (item.color || colors.primary) : (item.color || colors.textSecondary)} />
+            {item.photoUrl ? (
+              <Image
+                source={{ uri: item.photoUrl }}
+                style={{ width: '100%', height: '100%', borderRadius: 16 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <BusinessIcon size={24} color={isSelected ? (item.color || colors.primary) : (item.color || colors.textSecondary)} />
+            )}
           </View>
           <View style={styles.businessContent}>
             <Text style={[
@@ -338,7 +373,7 @@ export default function BusinessSwitcherScreen() {
                   borderColor: colors.borderGlass,
                   borderWidth: 1,
                   borderRadius: 24,
-                  padding: 20,
+                  padding: 24,
                   width: '100%',
                   maxWidth: 380,
                   shadowColor: '#000',
@@ -346,7 +381,7 @@ export default function BusinessSwitcherScreen() {
                   shadowOpacity: 0.25,
                   shadowRadius: 24,
                   elevation: 12,
-                  overflow: 'hidden',
+                  overflow: 'visible',
                 }
               ]}
             >
@@ -360,26 +395,123 @@ export default function BusinessSwitcherScreen() {
                   height: 1,
                   backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
                   zIndex: 10,
+                  borderRadius: 24,
                 }}
               />
-              <View style={styles.modalHeader}>
-                <View style={[
-                  styles.modalIconContainer,
-                  {
-                    backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#f0fdf4',
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    marginBottom: 12
-                  }
-                ]}>
-                  <Building2 size={24} color={colors.primary} />
+
+              {/* Modal Title */}
+              <Text style={[styles.createFormTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text, textAlign: 'center', marginBottom: 4 }]}>
+                Create Business
+              </Text>
+              <Text style={[styles.createFormSubtitle, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular', textAlign: 'center', marginBottom: 24 }]}>
+                Start tracking finances for your new entity
+              </Text>
+
+              {/* Avatar — centered, Instagram profile setup style */}
+              <View style={{ alignItems: 'center', marginBottom: 8 }}>
+                {/* Outer wrapper: no overflow so badge can bleed out */}
+                <View style={{ position: 'relative', width: 88, height: 88 }}>
+                  {/* Inner clipped circle */}
+                  <View style={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: 44,
+                    overflow: 'hidden',
+                    borderWidth: 2,
+                    borderColor: (() => {
+                      if (newBusinessPhotoUrl) return isDark ? 'rgba(255,255,255,0.12)' : '#e2e8f0';
+                      const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
+                      return l ? (isDark ? l.darkColor : l.color) : colors.border;
+                    })(),
+                    backgroundColor: newBusinessPhotoUrl
+                      ? 'transparent'
+                      : (() => {
+                          const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
+                          return l ? (isDark ? l.darkColor + '25' : l.color + '18') : (isDark ? '#2C3333' : '#f1f5f9');
+                        })(),
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {newBusinessPhotoUrl ? (
+                      <Image
+                        source={{ uri: newBusinessPhotoUrl }}
+                        style={{ width: '100%', height: '100%', borderRadius: 44 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      (() => {
+                        const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
+                        const Icon = l ? (BUSINESS_ICONS[l.icon] || Building2) : Building2;
+                        return <Icon size={34} color={l ? (isDark ? l.darkColor : l.color) : colors.textSecondary} />;
+                      })()
+                    )}
+                  </View>
+                  {/* Camera badge — outside clip */}
+                  <View style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
+                    backgroundColor: isDark ? 'rgba(99,102,241,0.9)' : '#6366f1',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: isDark ? colors.surfaceGlass : '#ffffff',
+                    zIndex: 10,
+                    elevation: 10,
+                  }}>
+                    {isUploadingPhoto
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Camera size={13} color="#fff" />
+                    }
+                  </View>
                 </View>
-                <Text style={[styles.createFormTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Create Business</Text>
-                <Text style={[styles.createFormSubtitle, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>Start tracking finances for your new entity</Text>
+
+                {/* Action links directly beneath the avatar */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 }}>
+                  <TouchableOpacity
+                    onPress={() => setShowLogoPicker(true)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, fontFamily: 'SpaceGrotesk_600SemiBold' }}>
+                      Choose Icon
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={{ width: 1, height: 14, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
+                  <TouchableOpacity
+                    onPress={handleUploadPhoto}
+                    disabled={isUploadingPhoto}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#6366f1', fontFamily: 'SpaceGrotesk_600SemiBold' }}>
+                      {newBusinessPhotoUrl ? 'Change Photo' : '+ Add Photo'}
+                    </Text>
+                  </TouchableOpacity>
+                  {newBusinessPhotoUrl && (
+                    <>
+                      <View style={{ width: 1, height: 14, backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
+                      <TouchableOpacity
+                        onPress={() => setNewBusinessPhotoUrl(null)}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#ef4444', fontFamily: 'SpaceGrotesk_600SemiBold' }}>
+                          Remove
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
               </View>
 
-              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 12, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>BUSINESS NAME</Text>
+              {/* Business Name Input */}
+              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 8, marginTop: 20, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
+                BUSINESS NAME
+              </Text>
               <TextInput
                 style={[
                   styles.createFormInput,
@@ -392,7 +524,8 @@ export default function BusinessSwitcherScreen() {
                     padding: 14,
                     fontSize: 15,
                     fontFamily: 'SpaceGrotesk_400Regular',
-                    fontWeight: '500'
+                    fontWeight: '500',
+                    marginBottom: 20,
                   }
                 ]}
                 value={newBusinessName}
@@ -403,60 +536,7 @@ export default function BusinessSwitcherScreen() {
                 autoCapitalize="words"
               />
 
-              <Text style={[styles.inputLabel, { color: colors.text, marginLeft: 4, marginBottom: 6, marginTop: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>CHOOSE LOGO</Text>
-
-              <View style={{ marginBottom: 20, alignItems: 'center' }}>
-                <TouchableOpacity
-                  onPress={() => setShowLogoPicker(true)}
-                  activeOpacity={0.8}
-                  style={{
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexDirection: 'row',
-                    gap: 12,
-                    width: '100%',
-                    backgroundColor: colors.inputBackground,
-                    padding: 12,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <View style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 14,
-                    backgroundColor: (() => {
-                      const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
-                      return l ? (isDark ? l.darkColor + '20' : l.color + '10') : (isDark ? '#2C3333' : '#f1f5f9');
-                    })(),
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1.5,
-                    borderColor: (() => {
-                      const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
-                      return l ? (isDark ? l.darkColor : l.color) : colors.border;
-                    })(),
-                    borderStyle: selectedLogoId ? 'solid' : 'dashed'
-                  }}>
-                    {(() => {
-                      const l = LOGO_OPTIONS.find(opt => opt.id === selectedLogoId);
-                      const Icon = l ? (BUSINESS_ICONS[l.icon] || Building2) : Plus;
-                      return <Icon size={22} color={l ? (isDark ? l.darkColor : l.color) : colors.textSecondary} />;
-                    })()}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }}>
-                      {LOGO_OPTIONS.find(l => l.id === selectedLogoId)?.label || 'Select Logo'}
-                    </Text>
-                    <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500', marginTop: 1, fontFamily: 'SpaceGrotesk_400Regular' }}>
-                      Tap to change icon
-                    </Text>
-                  </View>
-                  <ArrowRight size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
+              {/* Cancel / Create buttons */}
               <View style={[styles.createFormButtons, { gap: 10 }]}>
                 <TouchableOpacity
                   style={[styles.cancelButton, {
@@ -470,6 +550,7 @@ export default function BusinessSwitcherScreen() {
                   onPress={() => {
                     setShowCreateForm(false);
                     setNewBusinessName('');
+                    setNewBusinessPhotoUrl(null);
                   }}
                 >
                   <Text style={[styles.cancelButtonText, { color: isDark ? colors.text : '#64748b', fontSize: 15, fontWeight: '600', fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
@@ -499,7 +580,7 @@ export default function BusinessSwitcherScreen() {
                     {isCreating ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={[styles.createButtonText, { fontSize: 15, fontWeight: '700', color: '#fff', fontFamily: 'SpaceGrotesk_700Bold' }]} numberOfLines={1}>Create</Text>
+                      <Text style={[styles.createButtonText, { fontSize: 15, fontWeight: '700', color: '#fff', fontFamily: 'SpaceGrotesk_700Bold' }]} numberOfLines={1}>Create Business</Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -608,12 +689,47 @@ export default function BusinessSwitcherScreen() {
               </View>
 
               {/* Title Row */}
-              <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 24 }}>
+              <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16 }}>
                 <View style={{ alignItems: 'center' }}>
                   <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 28, color: colors.text, textAlign: 'center' }}>Choose Logo</Text>
-                  <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 4, textAlign: 'center', fontFamily: 'SpaceGrotesk_400Regular' }}>Select an icon for your business</Text>
+                  <Text style={{ fontSize: 15, color: colors.textSecondary, marginTop: 4, textAlign: 'center', fontFamily: 'SpaceGrotesk_400Regular' }}>Select an icon or upload a custom logo</Text>
                 </View>
               </View>
+
+              {/* Use a Photo Tile */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginHorizontal: 24,
+                  marginBottom: 16,
+                  padding: 14,
+                  borderRadius: 16,
+                  backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : '#eef2ff',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(99,102,241,0.3)' : '#c7d2fe',
+                }}
+                onPress={handleUploadPhoto}
+                disabled={isUploadingPhoto}
+                activeOpacity={0.8}
+              >
+                {isUploadingPhoto
+                  ? <ActivityIndicator size="small" color="#6366f1" />
+                  : <Camera size={20} color="#6366f1" />
+                }
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#6366f1', fontFamily: 'SpaceGrotesk_600SemiBold' }}>Upload Logo Photo</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2, fontFamily: 'SpaceGrotesk_400Regular' }}>Pick an image from your gallery</Text>
+                </View>
+                {newBusinessPhotoUrl && (
+                  <Image
+                    source={{ uri: newBusinessPhotoUrl }}
+                    style={{ width: 40, height: 40, borderRadius: 10 }}
+                    resizeMode="cover"
+                  />
+                )}
+              </TouchableOpacity>
 
               {/* Selected Preview Card */}
               <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>

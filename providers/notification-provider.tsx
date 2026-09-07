@@ -43,7 +43,14 @@ interface NotificationState {
     markAsRead: (notificationId: string) => Promise<void>;
     markAllAsRead: () => Promise<void>;
     expoPushToken: string | null;
-    sendLocalNotification: (title: string, body: string, data?: any, color?: string) => Promise<void>;
+    sendLocalNotification: (
+        title: string, 
+        body: string, 
+        data?: any, 
+        color?: string,
+        channelId?: string,
+        subtitle?: string
+    ) => Promise<void>;
     createNotification: (notifData: {
         userId?: string;
         title: string;
@@ -72,9 +79,9 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
 
     const clearToast = () => setToastNotification(null);
 
-    // Register for push notifications when user logs in
+    // Register for push notifications when user logs in (Native only)
     useEffect(() => {
-        if (!user) return;
+        if (!user || Platform.OS === 'web') return;
 
         registerForPushNotificationsAsync().then(async (token) => {
             if (token && db && user.id) {
@@ -93,24 +100,34 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
             }
         });
 
-        if (Platform.OS !== 'web') {
-            // Listen for notifications received while app is foregrounded
-            notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-                // Notification received
-            });
-
-            // Listen for user interactions with notifications
-            responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+        // Handle cold-start notification response if the app was launched from a notification
+        Notifications.getLastNotificationResponseAsync().then((response) => {
+            if (response) {
                 const data = response.notification.request.content.data;
                 if (data && data.bookId) {
-                    // Navigate to the book
                     router.push(`/book/${data.bookId}`);
                 } else if (data && data.path) {
-                    // Generic path navigation support
                     router.push(data.path as any);
                 }
-            });
-        }
+            }
+        });
+
+        // Listen for notifications received while app is foregrounded
+        notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
+            // Notification received
+        });
+
+        // Listen for user interactions with notifications
+        responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+            const data = response.notification.request.content.data;
+            if (data && data.bookId) {
+                // Navigate to the book
+                router.push(`/book/${data.bookId}`);
+            } else if (data && data.path) {
+                // Generic path navigation support
+                router.push(data.path as any);
+            }
+        });
 
         return () => {
             if (notificationListener.current) {
@@ -169,7 +186,14 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         setTimeout(() => setIsLoading(false), 100);
     };
 
-    const sendLocalNotification = async (title: string, body: string, data?: any, color?: string) => {
+    const sendLocalNotification = async (
+        title: string, 
+        body: string, 
+        data?: any, 
+        color?: string,
+        channelId?: string,
+        subtitle?: string
+    ) => {
         // Trigger Dynamic Island toast immediately
         setToastNotification({
             id: Date.now().toString(),
@@ -183,7 +207,6 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         });
 
         if (Platform.OS === 'web') {
-            console.log('🔔 Web Notification:', { title, body, color });
             return;
         }
 
@@ -191,13 +214,16 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
             await Notifications.scheduleNotificationAsync({
                 content: {
                     title,
+                    subtitle,
                     body,
-                    data,
-                    sound: true,
+                    data: data || {},
+                    sound: 'default',
                     color: color || '#10b981',
                     priority: Notifications.AndroidNotificationPriority.MAX,
+                    vibrate: [0, 250, 250, 250],
+                    badge: 1,
                 },
-                trigger: null, // Send immediately
+                trigger: channelId ? ({ channelId } as any) : null,
             });
         } catch (e) {
             console.warn('Could not schedule native notification:', e);
@@ -344,8 +370,40 @@ async function registerForPushNotificationsAsync() {
     let token;
 
     if (Platform.OS === 'android') {
+        // Dedicated high-priority channel for financial transactions
+        await Notifications.setNotificationChannelAsync('transactions', {
+            name: 'Transactions',
+            description: 'Alerts for cash in, cash out, and balance updates',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#10b981',
+            showBadge: true,
+            sound: 'default',
+            enableVibrate: true,
+            enableLights: true,
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+            bypassDnd: false,
+        });
+
+        // Channel for workspace, book, and team management updates
+        await Notifications.setNotificationChannelAsync('business_updates', {
+            name: 'Workspace & Books',
+            description: 'Updates when books, team members, or businesses change',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 200, 150, 200],
+            lightColor: '#10b981',
+            showBadge: true,
+            sound: 'default',
+            enableVibrate: true,
+            enableLights: true,
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+            bypassDnd: false,
+        });
+
+        // Fallback general channel
         await Notifications.setNotificationChannelAsync('default', {
-            name: 'Transactions & Alerts',
+            name: 'General Alerts',
+            description: 'General notifications and updates',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#10b981',

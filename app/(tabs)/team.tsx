@@ -258,13 +258,6 @@ export default function TeamManagementScreen() {
                         >
                             <FileText size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
-                            onPress={() => router.push('/notifications')}
-                            activeOpacity={0.7}
-                        >
-                            <Bell size={22} color={colors.textSecondary} />
-                        </TouchableOpacity>
                     </View>
                 </View>
                 <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>Team</Text>

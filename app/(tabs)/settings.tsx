@@ -13,6 +13,7 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Business } from '@/types';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
@@ -24,9 +25,9 @@ import {
   Trash2,
   MessageSquare,
   Shield,
+  ShieldAlert,
   Mail,
   Globe,
-  CreditCard,
   ArrowRightLeft,
   Edit3,
   Search,
@@ -43,6 +44,7 @@ import {
   Repeat,
   Sun,
   Moon,
+  Camera,
 } from 'lucide-react-native';
 import { useAuth } from '@/providers/auth-provider';
 import { useBusiness } from '@/providers/business-provider';
@@ -52,15 +54,14 @@ import { RoleBadge } from '@/components/role-badge';
 import { BackgroundDecor } from '@/components/ui/background-decor';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { CURRENCIES } from '@/constants/currencies';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CurrencyConverterCard } from '@/components/currency/currency-converter-card';
 
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
 import { FlatList } from 'react-native';
 import { exportToPDF } from '@/utils/exportUtils';
 import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
+import { pickImage, uploadImage } from '@/utils/imageUpload';
 
 const ANALYTICS_SORT_OPTIONS = [
   { label: 'Top Books (Balance)', value: 'balance-desc', group: 'Sort By' },
@@ -78,7 +79,7 @@ const ANALYTICS_SORT_OPTIONS = [
 type ExpandedSection = 'feedback' | 'privacy' | null;
 
 export default function SettingsScreen() {
-  const { user, logout, updateProfile, deleteAccount, reauthenticate } = useAuth();
+  const { user, logout, updateProfile, deleteAccount, reauthenticate, isDeveloperAdmin } = useAuth();
   const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont, books, addEntry } = useBusiness();
   const { expoPushToken } = useNotifications();
   const { colors, deviceFont, setDeviceFont, isDark, theme, setTheme } = useTheme();
@@ -93,21 +94,51 @@ export default function SettingsScreen() {
   // Business name editing state
   const [showEditBusinessNameModal, setShowEditBusinessNameModal] = useState(false);
   const [editBusinessName, setEditBusinessName] = useState('');
-  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [selectedLogoId, setSelectedLogoId] = useState<string>('1');
   const [logoSearchQuery, setLogoSearchQuery] = useState('');
 
-  // Currency Search State
-  const [currencySearchQuery, setCurrencySearchQuery] = useState('');
+  // Photo upload state
+  const [isUploadingUserPhoto, setIsUploadingUserPhoto] = useState(false);
+  const [isUploadingBusinessPhoto, setIsUploadingBusinessPhoto] = useState(false);
+
+  const handleUploadUserPhoto = async () => {
+    try {
+      setIsUploadingUserPhoto(true);
+      const localUri = await pickImage();
+      if (!localUri) return;
+      const url = await uploadImage(localUri, `users/${user?.uid}/profile`);
+      if (url) {
+        await updateProfile({ photoURL: url });
+      }
+    } catch (err) {
+      console.error('User photo upload error:', err);
+      Alert.alert('Error', 'Could not upload profile photo.');
+    } finally {
+      setIsUploadingUserPhoto(false);
+    }
+  };
+
+  const handleUploadBusinessPhoto = async () => {
+    try {
+      setIsUploadingBusinessPhoto(true);
+      const localUri = await pickImage();
+      if (!localUri || !currentBusiness) return;
+      const url = await uploadImage(localUri, `businesses/${currentBusiness.id}/logo`);
+      if (url) {
+        await updateBusiness({ photoUrl: url });
+        setShowLogoModal(false);
+      }
+    } catch (err) {
+      console.error('Business photo upload error:', err);
+      Alert.alert('Error', 'Could not upload business photo.');
+    } finally {
+      setIsUploadingBusinessPhoto(false);
+    }
+  };
+
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-
-  const filteredCurrencies = CURRENCIES.filter(c =>
-    c.name.toLowerCase().includes(currencySearchQuery.toLowerCase()) ||
-    c.code.toLowerCase().includes(currencySearchQuery.toLowerCase()) ||
-    c.symbol.toLowerCase().includes(currencySearchQuery.toLowerCase())
-  );
 
   const [isDeletingBusiness, setIsDeletingBusiness] = useState(false);
 
@@ -245,13 +276,6 @@ export default function SettingsScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
-                onPress={() => router.push('/notes')}
-                activeOpacity={0.7}
-              >
-                <FileText size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.notificationButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }]}
                 onPress={() => router.push('/notifications')}
                 activeOpacity={0.7}
               >
@@ -270,14 +294,42 @@ export default function SettingsScreen() {
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.profileHeader}>
-              <View style={styles.avatarContainer}>
-                <LinearGradient
-                  colors={['#10b981', '#059669']}
-                  style={StyleSheet.absoluteFill}
-                />
-                <Text style={styles.avatarText}>
-                  {user?.name?.substring(0, 2).toUpperCase() || user?.displayName?.substring(0, 2).toUpperCase() || user?.email?.substring(0, 2).toUpperCase() || 'US'}
-                </Text>
+              {/* User avatar — outer wrapper allows badge to overflow */}
+              <View style={styles.avatarWrapper}>
+                <TouchableOpacity
+                  style={styles.avatarContainer}
+                  onPress={handleUploadUserPhoto}
+                  activeOpacity={0.8}
+                  disabled={isUploadingUserPhoto}
+                >
+                  {user?.photoURL ? (
+                    <Image
+                      source={{ uri: user.photoURL }}
+                      style={{ width: '100%', height: '100%', borderRadius: 24 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <>
+                      <LinearGradient
+                        colors={['#10b981', '#059669']}
+                        style={StyleSheet.absoluteFill}
+                      />
+                      <Text style={styles.avatarText}>
+                        {user?.name?.substring(0, 2).toUpperCase() || user?.displayName?.substring(0, 2).toUpperCase() || user?.email?.substring(0, 2).toUpperCase() || 'US'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                {/* Camera badge sits outside the clipped circle */}
+                <View style={[
+                  styles.avatarCameraBadge,
+                  { backgroundColor: colors.primary, borderColor: isDark ? '#1a1a1a' : '#ffffff' }
+                ]}>
+                  {isUploadingUserPhoto
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Camera size={10} color="#fff" />
+                  }
+                </View>
               </View>
               <View style={styles.profileInfo}>
                 <Text style={[styles.profileName, { color: colors.text }]}>{user?.name || user?.displayName || 'User'}</Text>
@@ -292,29 +344,96 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {/* Developer Admin Section */}
+          {isDeveloperAdmin && (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => router.push('/admin')}
+              style={{
+                marginBottom: 20,
+                borderRadius: 20,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.25)',
+                backgroundColor: isDark ? 'rgba(99, 102, 241, 0.08)' : '#eef2ff',
+              }}
+            >
+              <View style={{ padding: 18, flexDirection: 'row', alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 14,
+                    backgroundColor: isDark ? 'rgba(99, 102, 241, 0.2)' : '#e0e7ff',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 14,
+                  }}
+                >
+                  <ShieldAlert size={24} color="#6366f1" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginRight: 8 }}>
+                      Developer Admin Console
+                    </Text>
+                    <View
+                      style={{
+                        paddingHorizontal: 7,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                        backgroundColor: '#6366f1',
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: '#ffffff', letterSpacing: 0.5 }}>
+                        ADMIN
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                    Attack defense, system health, and runtime diagnostics
+                  </Text>
+                </View>
+                <ChevronRight size={20} color={colors.textSecondary} />
+              </View>
+            </TouchableOpacity>
+          )}
+
           {/* Business Section */}
           {currentBusiness && (
             <>
               <SectionHeader title="Business" />
               <SettingsCard>
                 <View style={[styles.businessCardHeader, { backgroundColor: isDark ? colors.surface : 'transparent' }]}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      const currentLogo = LOGO_OPTIONS.find(l => l.icon === currentBusiness.icon && (l.color === currentBusiness.color || l.darkColor === currentBusiness.color));
-                      setSelectedLogoId(currentLogo?.id || '1');
-                      setShowLogoModal(true);
-                    }}
-                    activeOpacity={0.7}
-                    style={[styles.businessIcon, { backgroundColor: currentBusiness.color || colors.primary }]}
-                  >
-                    {(() => {
-                      const Icon = currentBusiness.icon && BUSINESS_ICONS[currentBusiness.icon] ? BUSINESS_ICONS[currentBusiness.icon] : Building2;
-                      return <Icon size={24} color="#fff" />;
-                    })()}
-                    <View style={styles.editIconBadge}>
-                      <Plus size={10} color="#fff" />
+                  {/* Business icon outer wrapper — badge overflows this, not the clipped inner */}
+                  <View style={styles.businessIconWrapper}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const currentLogo = LOGO_OPTIONS.find(l => l.icon === currentBusiness.icon && (l.color === currentBusiness.color || l.darkColor === currentBusiness.color));
+                        setSelectedLogoId(currentLogo?.id || '1');
+                        setShowLogoModal(true);
+                      }}
+                      activeOpacity={0.7}
+                      style={[styles.businessIcon, { backgroundColor: currentBusiness.photoUrl ? 'transparent' : (currentBusiness.color || colors.primary), padding: 0, overflow: 'hidden' }]}
+                    >
+                      {currentBusiness.photoUrl ? (
+                        <Image
+                          source={{ uri: currentBusiness.photoUrl }}
+                          style={{ width: '100%', height: '100%', borderRadius: 14 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        (() => {
+                          const Icon = currentBusiness.icon && BUSINESS_ICONS[currentBusiness.icon] ? BUSINESS_ICONS[currentBusiness.icon] : Building2;
+                          return <Icon size={24} color="#fff" />;
+                        })()
+                      )}
+                    </TouchableOpacity>
+                    {/* Edit badge sits outside the clipped icon */}
+                    <View style={[styles.editIconBadge, { borderColor: isDark ? '#1a1a1a' : '#ffffff' }]}>
+                      <Camera size={9} color="#fff" />
                     </View>
-                  </TouchableOpacity>
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.businessName, { color: colors.text }]}>{currentBusiness.name}</Text>
                     <View style={styles.roleContainer}>
@@ -331,25 +450,16 @@ export default function SettingsScreen() {
                   useGrayBackground={true}
                 />
                 {(userRole === 'owner' || userRole === 'partner') && (
-                  <>
-                    <SettingsRow
-                      icon={Edit3}
-                      label="Edit Business Name"
-                      onPress={() => {
-                        setEditBusinessName(currentBusiness.name);
-                        setShowEditBusinessNameModal(true);
-                      }}
-                      color={isDark ? "#10b981" : "#059669"}
-                      useGrayBackground={true}
-                    />
-                    <SettingsRow
-                      icon={CreditCard}
-                      label="Currency"
-                      subLabel={currentBusiness.currency || 'USD ($)'}
-                      onPress={() => setShowCurrencyModal(true)}
-                      color="#10b981"
-                    />
-                  </>
+                  <SettingsRow
+                    icon={Edit3}
+                    label="Edit Business Name"
+                    onPress={() => {
+                      setEditBusinessName(currentBusiness.name);
+                      setShowEditBusinessNameModal(true);
+                    }}
+                    color={isDark ? "#10b981" : "#059669"}
+                    useGrayBackground={true}
+                  />
                 )}
                 {userRole === 'owner' && (
                   <SettingsRow
@@ -392,11 +502,7 @@ export default function SettingsScreen() {
             />
           </SettingsCard>
 
-          <SectionHeader title="Currency & FX Rates" />
-          <CurrencyConverterCard
-            initialBaseCurrency={currentBusiness?.currency || 'USD'}
-            initialTargetCurrency={currentBusiness?.currency === 'EUR' ? 'USD' : 'EUR'}
-          />
+
 
           <SectionHeader title="Support" />
           <SettingsCard>
@@ -418,7 +524,14 @@ export default function SettingsScreen() {
             <SettingsRow
               icon={Shield}
               label="Privacy Policy"
-              onPress={() => setShowPrivacyModal(true)}
+              onPress={() => router.push('/privacy-policy')}
+              color="#6366f1"
+            />
+
+            <SettingsRow
+              icon={FileText}
+              label="Terms of Service"
+              onPress={() => router.push('/terms-of-service')}
               color="#6366f1"
               isLast
             />
@@ -596,23 +709,30 @@ export default function SettingsScreen() {
                   <Text style={[styles.modalCancelText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={{ flex: 1, borderRadius: 16, overflow: 'hidden', opacity: deleteBusinessConfirm === businessToDelete?.name ? 1 : 0.5 }}
+                  style={{
+                    flex: 1,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    opacity: (deleteBusinessConfirm.trim().toLowerCase() === (businessToDelete?.name || '').trim().toLowerCase()) ? 1 : 0.5
+                  }}
                   onPress={async () => {
-                    if (deleteBusinessConfirm === businessToDelete?.name && businessToDelete) {
+                    const isMatched = deleteBusinessConfirm.trim().toLowerCase() === (businessToDelete?.name || '').trim().toLowerCase();
+                    if (isMatched && businessToDelete) {
                       try {
                         setIsDeletingBusiness(true);
-                        await new Promise(resolve => setTimeout(resolve, 100));
                         await deleteBusiness(businessToDelete.id);
                         setShowDeleteBusinessModal(false);
-                      } catch (error) {
-                        Alert.alert('Error', 'Failed to delete business');
+                        setBusinessToDelete(null);
+                        setDeleteBusinessConfirm('');
+                        router.replace('/(tabs)');
+                      } catch (error: any) {
+                        Alert.alert('Error', error?.message || 'Failed to delete business');
                       } finally {
                         setIsDeletingBusiness(false);
-                        setBusinessToDelete(null);
                       }
                     }
                   }}
-                  disabled={deleteBusinessConfirm !== businessToDelete?.name || isDeletingBusiness}
+                  disabled={deleteBusinessConfirm.trim().toLowerCase() !== (businessToDelete?.name || '').trim().toLowerCase() || isDeletingBusiness}
                   activeOpacity={0.9}
                 >
                   <LinearGradient colors={['#ef4444', '#dc2626']} style={[styles.modalSaveButton, { height: 56, justifyContent: 'center' }]}>
@@ -733,142 +853,7 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* Currency Selection Modal */}
-      <Modal visible={showCurrencyModal} transparent animationType="fade" onRequestClose={() => setShowCurrencyModal(false)} statusBarTranslucent={true}>
-        <View style={styles.modalOverlay}>
-          <GlassBackdrop isDark={isDark} onPress={() => setShowCurrencyModal(false)} />
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20} style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <View
-              style={[
-                styles.modalContent,
-                {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.borderGlass,
-                  borderWidth: 1,
-                  borderRadius: 32,
-                  padding: 0,
-                  width: '100%',
-                  maxWidth: 400,
-                  height: 600,
-                  maxHeight: '85%',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 20 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 40,
-                  elevation: 20,
-                  overflow: 'hidden'
-                }
-              ]}
-            >
-              {/* Top Sheen */}
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 24,
-                  right: 24,
-                  height: 1,
-                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
-                  zIndex: 10,
-                }}
-              />
-              <View style={[styles.modalHeader, { borderBottomColor: isDark ? '#2C3333' : '#e2e8f0', padding: 20 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: isDark ? 'rgba(33, 201, 141, 0.15)' : '#EFF6FF',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
-                    <CreditCard size={20} color={isDark ? colors.primary : '#10b981'} />
-                  </View>
-                  <View>
-                    <Text style={[styles.modalTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Select Currency</Text>
-                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Choose your business currency</Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={[styles.closeButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9' }]}
-                  onPress={() => {
-                    setShowCurrencyModal(false);
-                    setCurrencySearchQuery('');
-                  }}
-                >
-                  <X size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
 
-              <View style={{ paddingHorizontal: 20, paddingBottom: 12, paddingTop: 12 }}>
-                <View style={[styles.currencySearchContainer, { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: isDark ? '#333' : '#e2e8f0', borderRadius: 12 }]}>
-                  <Search size={20} color={colors.textSecondary} />
-                  <TextInput
-                    style={[styles.currencySearchInput, { color: colors.text }]}
-                    placeholder="Search currency..."
-                    placeholderTextColor={colors.textSecondary}
-                    value={currencySearchQuery}
-                    onChangeText={setCurrencySearchQuery}
-                  />
-                  {currencySearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setCurrencySearchQuery('')}>
-                      <X size={20} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-                {filteredCurrencies.map((currency) => (
-                  <TouchableOpacity
-                    key={currency.code}
-                    style={[
-                      styles.currencyOption,
-                      { borderBottomColor: isDark ? '#2C3333' : '#e2e8f0' },
-                      currentBusiness?.currency === currency.code && [styles.currencyOptionSelected, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0f9ff' }]
-                    ]}
-                    onPress={async () => {
-                      if (currentBusiness) {
-                        const newCode = currency.code;
-                        const oldCode = currentBusiness.currency || 'USD';
-                        setShowCurrencyModal(false);
-                        setCurrencySearchQuery('');
-
-                        if (newCode === oldCode) return;
-
-                        try {
-                          await updateBusiness({ currency: newCode });
-                          Alert.alert(
-                            'Currency Converted',
-                            `Primary currency changed to ${newCode}. All book balances, entries, and parties have been automatically recalculated.`
-                          );
-                        } catch (err: any) {
-                          Alert.alert('Update Failed', err.message || 'Could not update currency');
-                        }
-                      }
-                    }}
-                  >
-                    <View style={styles.currencyInfo}>
-                      <Text style={[styles.currencySymbol, { color: colors.text, fontWeight: '700' }]}>{currency.symbol}</Text>
-                      <Text style={[styles.currencyName, { color: colors.textSecondary }]}>{currency.name} ({currency.code})</Text>
-                    </View>
-                    {currentBusiness?.currency === currency.code && (
-                      <View style={[styles.checkDot, { backgroundColor: isDark ? colors.primary : '#10b981', borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#f0fdf4' }]}>
-                        <Check size={12} color="#fff" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
-                {filteredCurrencies.length === 0 && (
-                  <View style={styles.emptyState}>
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No currency found</Text>
-                  </View>
-                )}
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
 
 
 
@@ -1006,10 +991,10 @@ export default function SettingsScreen() {
             </View>
 
             {/* Title and Close */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 }}>
               <View>
                 <Text style={{ fontFamily: getFontFamily(deviceFont), fontSize: 28, color: colors.text }}>Choose Logo</Text>
-                <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>Select an icon for your business</Text>
+                <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>Select an icon or upload a photo</Text>
               </View>
               <TouchableOpacity
                 style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? colors.surface : '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
@@ -1018,6 +1003,41 @@ export default function SettingsScreen() {
                 <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
+
+            {/* Use a Photo option */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                marginHorizontal: 20,
+                marginBottom: 14,
+                padding: 14,
+                borderRadius: 16,
+                backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : '#eef2ff',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(99,102,241,0.3)' : '#c7d2fe',
+              }}
+              onPress={handleUploadBusinessPhoto}
+              disabled={isUploadingBusinessPhoto}
+              activeOpacity={0.8}
+            >
+              {isUploadingBusinessPhoto
+                ? <ActivityIndicator size="small" color="#6366f1" />
+                : <Camera size={20} color="#6366f1" />
+              }
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: '#6366f1' }}>Use a Photo</Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Upload from your gallery</Text>
+              </View>
+              {currentBusiness?.photoUrl && (
+                <Image
+                  source={{ uri: currentBusiness.photoUrl }}
+                  style={{ width: 40, height: 40, borderRadius: 10 }}
+                  resizeMode="cover"
+                />
+              )}
+            </TouchableOpacity>
 
             {/* Current Selection Preview */}
             <View style={{
@@ -1253,7 +1273,7 @@ export default function SettingsScreen() {
                     <Mail size={28} color={colors.primary} />
                   </View>
                   <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
-                    spndy.feedback@gmail.com
+                    lucyosck21@gmail.com
                   </Text>
                   <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
                     Send us your questions, feedback, or just say hello!
@@ -1263,7 +1283,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                   style={{ borderRadius: 16, overflow: 'hidden' }}
                   onPress={() => {
-                    Linking.openURL('mailto:spndy.feedback@gmail.com');
+                    Linking.openURL('mailto:lucyosck21@gmail.com');
                     setShowFeedbackModal(false);
                   }}
                   activeOpacity={0.9}
@@ -1277,105 +1297,6 @@ export default function SettingsScreen() {
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Open Mail App</Text>
                   </LinearGradient>
                 </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      {/* Privacy Policy Modal */}
-      <Modal visible={showPrivacyModal} transparent animationType="fade" onRequestClose={() => setShowPrivacyModal(false)} statusBarTranslucent={true}>
-        <View
-          style={[styles.modalOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
-            style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <TouchableWithoutFeedback onPress={() => setShowPrivacyModal(false)}>
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-            </TouchableWithoutFeedback>
-
-            <View
-              style={[
-                styles.modalContent,
-                {
-                  backgroundColor: isDark ? '#0A0A0A' : '#ffffff',
-                  borderColor: isDark ? '#2C3333' : '#e2e8f0',
-                  borderWidth: 1,
-                  width: '90%',
-                  maxWidth: 400
-                }
-              ]}
-            >
-              <View style={[styles.modalHeader, { borderBottomColor: colors.border, padding: 20 }]}>
-                <View>
-                  <Text style={[styles.modalTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text }]}>Privacy Policy</Text>
-                  <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>Your data security is our priority.</Text>
-                </View>
-                <TouchableOpacity onPress={() => setShowPrivacyModal(false)} style={[styles.closeButton, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }]}>
-                  <X size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ padding: 24 }}>
-                <View style={{
-                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : '#f0fdf4',
-                  padding: 16,
-                  borderRadius: 16,
-                  marginBottom: 20,
-                  borderWidth: 1,
-                  borderColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7'
-                }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Shield size={24} color="#10b981" style={{ marginRight: 12 }} />
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#10b981' }}>Data Protection</Text>
-                  </View>
-                  <Text style={{ fontSize: 14, color: isDark ? '#10b981' : '#15803d', lineHeight: 20 }}>
-                    We use industry-standard encryption to protect your financial data. Your information is never shared with third parties without your consent.
-                  </Text>
-                </View>
-
-                <View style={{ gap: 12 }}>
-                  <TouchableOpacity
-                    style={{ borderRadius: 16, overflow: 'hidden' }}
-                    onPress={() => {
-                      Linking.openURL('https://spndy.app/privacy');
-                      setShowPrivacyModal(false);
-                    }}
-                    activeOpacity={0.9}
-                  >
-                    <LinearGradient
-                      colors={isDark ? [colors.primary, colors.primary] : ['#10b981', '#059669']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={{ padding: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-                    >
-                      <Globe size={18} color="#fff" />
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>View Full Policy</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={{ borderRadius: 16, overflow: 'hidden' }}
-                    onPress={() => {
-                      Linking.openURL('mailto:privacy@spndy.app');
-                      setShowPrivacyModal(false);
-                    }}
-                    activeOpacity={0.9}
-                  >
-                    <LinearGradient
-                      colors={isDark ? [colors.primary, colors.primary] : ['#10b981', '#059669']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={{ padding: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-                    >
-                      <Mail size={18} color="#fff" />
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>Contact Privacy Team</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -1484,19 +1405,37 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: 'transparent',
   },
+  avatarWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+    marginRight: 12,
+  },
   avatarContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: -3,
+    right: -3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    zIndex: 10,
+    elevation: 10,
   },
   avatarText: {
     color: '#fff',
@@ -1530,13 +1469,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 4,
   },
+  businessIconWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+    marginRight: 12,
+  },
   businessIcon: {
     width: 48,
     height: 48,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   businessName: {
     fontSize: 16,
@@ -1699,42 +1643,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  currencySearchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  currencySearchInput: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-  },
-  currencyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  currencyOptionSelected: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  currencyInfo: {
-    flex: 1,
-  },
-  currencySymbol: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  currencyName: {
-    fontSize: 14,
-  },
+
   checkDot: {
     width: 24,
     height: 24,
@@ -1849,15 +1758,16 @@ const styles = StyleSheet.create({
   },
   editIconBadge: {
     position: 'absolute',
-    bottom: -4,
-    right: -4,
+    bottom: -3,
+    right: -3,
     width: 18,
     height: 18,
     borderRadius: 9,
     backgroundColor: '#10b981',
     borderWidth: 2,
-    borderColor: '#0A0A0A',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
+    elevation: 10,
   },
 });

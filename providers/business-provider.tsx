@@ -24,7 +24,7 @@ interface BusinessState {
 
   // Business management
   switchBusiness: (businessId: string) => void;
-  createBusiness: (name: string, currency?: string, icon?: string, color?: string) => Promise<void>;
+  createBusiness: (name: string, currency?: string, icon?: string, color?: string, photoUrl?: string) => Promise<void>;
   updateBusiness: (updates: Partial<Business>, options?: { recalculateRates?: boolean; customRate?: number }) => Promise<void>;
   updateBusinessFont: (fontId: string) => Promise<void>;
   updateBusinessLogo: (icon: string, color: string) => Promise<void>;
@@ -280,7 +280,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     }
   }, [businesses, storage, user]);
 
-  const createBusiness = useCallback(async (name: string, currency: string = 'USD', icon?: string, color?: string) => {
+  const createBusiness = useCallback(async (name: string, currency: string = 'USD', icon?: string, color?: string, photoUrl?: string) => {
     if (!user || !db) return;
 
     const newBusinessId = uuidv4();
@@ -292,6 +292,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       icon,
       color,
+      photoUrl,
       createdAt: new Date().toISOString(),
       members: [{
         id: uuidv4(),
@@ -501,7 +502,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       if (teamMemberIds.length > 0) {
         const batch = writeBatch(firestore);
-        const notifTitle = isCurrencyProvided ? '💱 Currency Recalculated' : 'Business Updated';
+        const notifTitle = isCurrencyProvided ? `Currency Changed: ${newCurrency}` : `Workspace Updated: ${currentBusiness.name}`;
         const notifMessage = isCurrencyProvided
           ? `${user.displayName || user.name || user.email} changed currency for "${currentBusiness.name}" to ${newCurrency}. All balances have been recalculated.`
           : `${user.displayName || user.name || user.email} updated settings for "${currentBusiness.name}"`;
@@ -528,8 +529,11 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
         PushNotificationService.sendToUsers(teamMemberIds, {
           title: notifTitle,
+          subtitle: currentBusiness.name,
           body: notifMessage,
-          data: { businessId: currentBusiness.id },
+          channelId: 'business_updates',
+          color: '#10b981',
+          data: { businessId: currentBusiness.id, path: '/(tabs)/settings' },
         }).catch(() => {});
       }
     } catch (error) {
@@ -565,57 +569,136 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   const deleteBusiness = useCallback(async (businessId: string) => {
     if (!user || !db) return;
 
-    const business = businesses.find((b: Business) => b.id === businessId);
-    if (!business || business.ownerId !== user.id) {
-      return;
+    let business = businesses.find((b: Business) => b.id === businessId);
+    if (!business) {
+      try {
+        const busDoc = await getDoc(doc(db, 'businesses', businessId));
+        if (busDoc.exists()) {
+          business = { id: busDoc.id, ...busDoc.data() } as Business;
+        }
+      } catch (e) {
+        console.warn('Error fetching business for deletion:', e);
+      }
+    }
+
+    const currentUserId = user.id || user.uid;
+    const memberRole = business?.members?.find((m: BusinessMember) => m.userId === currentUserId || m.userId === user.id || m.userId === user.uid)?.role;
+    const isOwner = !business || business.ownerId === currentUserId || business.ownerId === user.id || business.ownerId === user.uid || memberRole === 'owner';
+    if (!isOwner) {
+      throw new Error('Only the business owner can delete this business');
     }
 
     try {
       // Notify team members BEFORE deletion
-      const teamMembers = (business.members || []).filter((m: BusinessMember) => m.userId !== user.id);
-      for (const member of teamMembers) {
-        try {
-          await addDoc(collection(db, 'notifications'), {
-            userId: member.userId,
-            title: 'Business Deleted',
-            message: `The business "${business.name}" has been deleted by ${user.displayName || user.name || user.email}`,
-            read: false,
-            createdAt: new Date().toISOString(),
-            type: 'business_deleted',
-            metadata: {
+      if (business) {
+        const teamMembers = (business.members || []).filter((m: BusinessMember) => m.userId !== currentUserId && m.userId !== user.id && m.userId !== user.uid);
+        for (const member of teamMembers) {
+          try {
+            await addDoc(collection(db, 'notifications'), {
+              userId: member.userId,
               businessId: businessId,
-              businessName: business.name,
-              deletedBy: user.displayName || user.name || user.email
-            }
-          });
-        } catch (notifError) {
-          console.error('Error sending deletion notification:', notifError);
+              title: 'Business Deleted',
+              message: `The business "${business.name}" has been deleted by ${user.displayName || user.name || user.email}`,
+              read: false,
+              createdAt: new Date().toISOString(),
+              type: 'business_deleted',
+              metadata: {
+                businessId: businessId,
+                businessName: business.name,
+                deletedBy: user.displayName || user.name || user.email
+              }
+            });
+          } catch (notifError) {
+            console.error('Error sending deletion notification:', notifError);
+          }
         }
       }
 
-      // 1. Delete all entries for this business (client-side best effort)
-      const entriesQuery = query(collection(db, 'businesses', businessId, 'entries'));
-      const entriesSnapshot = await getDocs(entriesQuery);
-      const batch = writeBatch(db);
+      const firestore = db;
+      // Safe chunked batch deletion helper (max 400 ops per batch)
+      const batchList: any[] = [];
+      let currentBatch = writeBatch(firestore);
+      let opCount = 0;
 
-      entriesSnapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+      const queueBatchDelete = (docRef: any) => {
+        currentBatch.delete(docRef);
+        opCount++;
+        if (opCount >= 400) {
+          batchList.push(currentBatch);
+          currentBatch = writeBatch(firestore);
+          opCount = 0;
+        }
+      };
+
+      // 1. Delete all entries
+      try {
+        const entriesQuery = query(collection(firestore, 'businesses', businessId, 'entries'));
+        const entriesSnapshot = await getDocs(entriesQuery);
+        entriesSnapshot.docs.forEach((d) => queueBatchDelete(d.ref));
+      } catch (e) {
+        console.warn('Error querying entries for deletion:', e);
+      }
 
       // 2. Delete all books
-      const booksQuery = query(collection(db, 'businesses', businessId, 'books'));
-      const booksSnapshot = await getDocs(booksQuery);
-      booksSnapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+      try {
+        const booksQuery = query(collection(firestore, 'businesses', businessId, 'books'));
+        const booksSnapshot = await getDocs(booksQuery);
+        booksSnapshot.docs.forEach((d) => queueBatchDelete(d.ref));
+      } catch (e) {
+        console.warn('Error querying books for deletion:', e);
+      }
 
-      // 3. Delete the business document
-      batch.delete(doc(db, 'businesses', businessId));
+      // 3. Delete all parties
+      try {
+        const partiesQuery = query(collection(firestore, 'businesses', businessId, 'parties'));
+        const partiesSnapshot = await getDocs(partiesQuery);
+        partiesSnapshot.docs.forEach((d) => queueBatchDelete(d.ref));
+      } catch (e) {
+        console.warn('Error querying parties for deletion:', e);
+      }
 
-      await batch.commit();
+      // 4. Delete all recurring rules
+      try {
+        const rulesQuery = query(collection(firestore, 'businesses', businessId, 'recurringRules'));
+        const rulesSnapshot = await getDocs(rulesQuery);
+        rulesSnapshot.docs.forEach((d) => queueBatchDelete(d.ref));
+      } catch (e) {
+        console.warn('Error querying recurring rules for deletion:', e);
+      }
+
+      // Commit subcollection batches first while the business document still exists
+      if (opCount > 0) {
+        batchList.push(currentBatch);
+      }
+
+      for (const b of batchList) {
+        try {
+          await b.commit();
+        } catch (batchErr) {
+          console.warn('Subcollection batch deletion warning:', batchErr);
+        }
+      }
+
+      // 5. Delete the business document itself
+      try {
+        await deleteDoc(doc(firestore, 'businesses', businessId));
+      } catch (deleteDocErr) {
+        console.error('Error deleting business document:', deleteDocErr);
+        throw deleteDocErr;
+      }
+
+      // Optimistically update local business state
+      const remainingBusinesses = businesses.filter((b: Business) => b.id !== businessId);
+      setBusinesses(remainingBusinesses);
 
       if (currentBusiness?.id === businessId) {
-        setCurrentBusiness(null);
+        if (remainingBusinesses.length > 0) {
+          setCurrentBusiness(remainingBusinesses[0]);
+          await storage.setItem(`currentBusinessId_${currentUserId}`, remainingBusinesses[0].id);
+        } else {
+          setCurrentBusiness(null);
+          await storage.removeItem(`currentBusinessId_${currentUserId}`);
+        }
         await storage.removeItem('currentBusinessId');
       }
     } catch (error) {
@@ -812,8 +895,11 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
         // Dispatch native push notification to partners
         PushNotificationService.sendToUsers(createBookMembersToNotify, {
-          title: 'New Book Created',
+          title: `New Book: ${name}`,
+          subtitle: currentBusiness.name,
           body: `${user.displayName || user.name || user.email} created "${name}" in ${currentBusiness.name}`,
+          channelId: 'business_updates',
+          color: '#10b981',
           data: { bookId: newBook.id, path: `/book/${newBook.id}` }
         }).catch(() => {});
       }
@@ -1064,8 +1150,11 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
         // Dispatch native push notification to partners
         PushNotificationService.sendToUsers(deleteBookMembersToNotify, {
-          title: 'Book Deleted',
-          body: `${user.displayName || user.name || user.email} deleted "${resolvedDeleteBookName}"`,
+          title: `Book Deleted: ${resolvedDeleteBookName}`,
+          subtitle: currentBusiness.name,
+          body: `${user.displayName || user.name || user.email} removed "${resolvedDeleteBookName}" from ${currentBusiness.name}`,
+          channelId: 'business_updates',
+          color: '#ef4444',
           data: { bookId: bookId }
         }).catch(() => {});
       }
@@ -1199,10 +1288,14 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         await notifBatch.commit();
 
         // Dispatch native push notification to partners (heads-up popup)
-        const entryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
+        const formattedAmount = formatCurrency(amount, currentBusiness.currency);
+        const addEntryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
         PushNotificationService.sendToUsers(memberIdsToNotify, {
-          title: entryData.type === 'cash_in' ? '💰 Money Received' : '💸 Money Paid',
-          body: `${user.displayName || user.name || user.email} added ${entryTypeName} of ${formatCurrency(amount, currentBusiness.currency)} for ${description} to "${resolvedBookName}"${balanceText}`,
+          title: entryData.type === 'cash_in' ? `Cash In: +${formattedAmount}` : `Cash Out: -${formattedAmount}`,
+          subtitle: currentBusiness.name,
+          body: `${user.displayName || user.name || user.email} recorded ${description ? `"${description}"` : addEntryTypeName} in ${resolvedBookName}${balanceText}`,
+          channelId: 'transactions',
+          color: entryData.type === 'cash_in' ? '#10b981' : '#ef4444',
           data: { bookId: entryData.bookId, entryId: newEntryId, path: `/book/${entryData.bookId}` }
         }).catch(() => {});
       }
@@ -1401,9 +1494,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         await notifBatch.commit();
 
         // Dispatch native push notification to partners
+        const formattedAmount = formatCurrency(Number(updates.amount !== undefined ? updates.amount : oldEntry.amount), currentBusiness.currency);
         PushNotificationService.sendToUsers(updateMemberIdsToNotify, {
-          title: '✏️ Entry Updated',
-          body: `${user.displayName || user.name || user.email} updated a ${entryTypeName} (${description}) in "${resolvedBookName}"${balanceText}`,
+          title: `Entry Updated: ${formattedAmount}`,
+          subtitle: currentBusiness.name,
+          body: `${user.displayName || user.name || user.email} updated ${description ? `"${description}"` : entryTypeName} in "${resolvedBookName}"${balanceText}`,
+          channelId: 'transactions',
+          color: '#10b981',
           data: { bookId: oldEntry.bookId, entryId: entryId, path: `/book/${oldEntry.bookId}` }
         }).catch(() => {});
       }
@@ -1510,9 +1607,14 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           await notifBatch.commit();
 
           // Dispatch native push notification to partners
+          const deleteEntryTypeName = entryData.type === 'cash_in' ? 'Cash In' : 'Cash Out';
+          const formattedAmount = formatCurrency(amount, currentBusiness.currency);
           PushNotificationService.sendToUsers(deleteMemberIdsToNotify, {
-            title: '🗑️ Entry Deleted',
-            body: `${user.displayName || user.name || user.email} deleted ${entryTypeName} (${description}) of ${formatCurrency(amount, currentBusiness.currency)} from "${resolvedDeleteBookName}"`,
+            title: `Entry Deleted: ${formattedAmount}`,
+            subtitle: currentBusiness.name,
+            body: `${user.displayName || user.name || user.email} deleted ${description ? `"${description}"` : deleteEntryTypeName} from "${resolvedDeleteBookName}"`,
+            channelId: 'transactions',
+            color: '#ef4444',
             data: { bookId: entryData.bookId, entryId: entryId }
           }).catch(() => {});
         }
@@ -1720,24 +1822,28 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         }
       }
 
-      // Notify the invited user specifically
-      try {
-        await addDoc(collection(db, 'notifications'), {
-          userId: invitedUser.id!,
-          title: 'Invited to Team',
-          message: `You have been invited by ${user.displayName || user.name || user.email} to join "${currentBusiness.name}" as ${role}`,
-          read: false,
-          createdAt: new Date().toISOString(),
-          type: 'team_invite',
-          metadata: {
-            businessId: currentBusiness.id,
-            businessName: currentBusiness.name,
-            invitedBy: user.displayName || user.name || user.email,
-            role: role
-          }
-        });
-      } catch (notifError) {
-        console.error('Error sending notification to invited user:', notifError);
+      // Dispatch push notification to invited user specifically
+      if (invitedUser.id) {
+        PushNotificationService.sendToUser(invitedUser.id, {
+          title: `Team Invitation: ${currentBusiness.name}`,
+          subtitle: currentBusiness.name,
+          body: `${user.displayName || user.name || user.email} invited you to join "${currentBusiness.name}" as ${role}`,
+          channelId: 'business_updates',
+          color: '#10b981',
+          data: { businessId: currentBusiness.id, path: '/(tabs)/team' }
+        }).catch(() => {});
+      }
+
+      // Dispatch push notification to existing team members
+      if (teamToNotify.length > 0) {
+        PushNotificationService.sendToUsers(teamToNotify.map((m: BusinessMember) => m.userId), {
+          title: `Team Member Invited: ${currentBusiness.name}`,
+          subtitle: currentBusiness.name,
+          body: `${user.displayName || user.name || user.email} invited ${invitedUser.displayName || invitedUser.name || email} to join as ${role}`,
+          channelId: 'business_updates',
+          color: '#10b981',
+          data: { businessId: currentBusiness.id, path: '/(tabs)/team' }
+        }).catch(() => {});
       }
 
       return { success: true, message: 'Team member invited successfully' };
@@ -2069,7 +2175,10 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Dispatch native push notification to partners
       PushNotificationService.sendToUsers(bulkMembersToNotify, {
         title: options.title,
+        subtitle: currentBusiness.name,
         body: options.message,
+        channelId: 'business_updates',
+        color: '#10b981',
         data: { ...(options.metadata || {}), path: '/(tabs)/team' }
       }).catch(() => {});
     } catch (error) {

@@ -16,6 +16,7 @@ import { DynamicIslandNotification } from "@/components/dynamic-island-notificat
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { useFonts } from 'expo-font';
 import { SpaceGrotesk_300Light, SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+import { Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 
 // Global default font family for all Text and TextInput components
 if ((Text as any).defaultProps == null) {
@@ -33,11 +34,19 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   try {
     const existingStyle = document.getElementById('spndy-global-font-style');
     if (!existingStyle) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Pacifico&display=swap';
+      document.head.appendChild(link);
+
       const style = document.createElement('style');
       style.id = 'spndy-global-font-style';
       style.textContent = `
         * {
-          font-family: 'SpaceGrotesk_400Regular', 'SpaceGrotesk_500Medium', 'SpaceGrotesk_600SemiBold', 'SpaceGrotesk_700Bold', 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
+          font-family: 'SpaceGrotesk_400Regular', 'SpaceGrotesk_500Medium', 'SpaceGrotesk_600SemiBold', 'SpaceGrotesk_700Bold', 'Space Grotesk', system-ui, -apple-system, sans-serif;
+        }
+        .pacifico-font, [data-font="pacifico"], .font-logo {
+          font-family: 'Pacifico_400Regular', 'Pacifico', cursive !important;
         }
       `;
       document.head.appendChild(style);
@@ -116,6 +125,9 @@ function RootLayoutNav() {
         <Stack.Screen name="business-settings" options={{ headerShown: false }} />
         <Stack.Screen name="security" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
+        <Stack.Screen name="terms-of-service" options={{ headerShown: false }} />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>
     </>
   );
@@ -156,6 +168,9 @@ function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void
 
 export default function RootLayout() {
   const [fontsLoaded, error] = useFonts({
+    Pacifico_400Regular,
+    Pacifico: Pacifico_400Regular,
+    'Pacifico-Regular': Pacifico_400Regular,
     SpaceGrotesk_300Light,
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,

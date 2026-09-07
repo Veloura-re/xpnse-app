@@ -12,16 +12,18 @@ import {
     Platform,
     FlatList,
     Alert,
+    Image,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Building2, ChevronLeft, Edit3, Save, X, Check, Search, ArrowRight } from 'lucide-react-native';
+import { Building2, ChevronLeft, Edit3, Save, X, Check, Search, ArrowRight, Camera } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
+import { pickImage, uploadImage } from '@/utils/imageUpload';
 
 export default function BusinessSettingsScreen() {
     const { currentBusiness, updateBusiness, updateBusinessLogo, getUserRole, hasPermission } = useBusiness();
@@ -39,6 +41,7 @@ export default function BusinessSettingsScreen() {
     const [showLogoPicker, setShowLogoPicker] = useState(false);
     const [logoSearchQuery, setLogoSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const searchInputRef = useRef<TextInput>(null);
 
     const canEdit = hasPermission('partner');
@@ -91,6 +94,24 @@ export default function BusinessSettingsScreen() {
         const currentLogo = LOGO_OPTIONS.find(l => l.icon === currentBusiness?.icon);
         setSelectedLogoId(currentLogo?.id || '1');
         setIsEditing(false);
+    };
+
+    const handleUploadPhoto = async () => {
+        try {
+            setIsUploadingPhoto(true);
+            const localUri = await pickImage();
+            if (!localUri || !currentBusiness) return;
+            const url = await uploadImage(localUri, `businesses/${currentBusiness.id}/logo`);
+            if (url) {
+                await updateBusiness({ photoUrl: url });
+                setShowLogoPicker(false);
+            }
+        } catch (err) {
+            console.error('Business photo upload error:', err);
+            Alert.alert('Error', 'Could not upload photo.');
+        } finally {
+            setIsUploadingPhoto(false);
+        }
     };
 
     const currentIcon = currentBusiness.icon && BUSINESS_ICONS[currentBusiness.icon] ? BUSINESS_ICONS[currentBusiness.icon] : Building2;
@@ -146,20 +167,29 @@ export default function BusinessSettingsScreen() {
                                 {
                                     backgroundColor: isEditing
                                         ? (selectedLogo ? (isDark ? selectedLogo.darkColor + '20' : selectedLogo.color + '10') : (isDark ? '#2C3333' : '#f1f5f9'))
-                                        : (isDark ? (currentBusiness.color || colors.primary) + '20' : (currentBusiness.color || colors.primary) + '10'),
+                                        : (currentBusiness.photoUrl ? 'transparent' : (isDark ? (currentBusiness.color || colors.primary) + '20' : (currentBusiness.color || colors.primary) + '10')),
                                     borderColor: isEditing
                                         ? (selectedLogo ? (isDark ? selectedLogo.darkColor : selectedLogo.color) : colors.border)
                                         : (currentBusiness.color || colors.primary),
+                                    overflow: 'hidden',
                                 }
                             ]}>
-                                {React.createElement(
-                                    isEditing && selectedLogo ? (BUSINESS_ICONS[selectedLogo.icon] || Building2) : currentIcon,
-                                    {
-                                        size: 32,
-                                        color: isEditing
-                                            ? (selectedLogo ? (isDark ? selectedLogo.darkColor : selectedLogo.color) : colors.textSecondary)
-                                            : (currentBusiness.color || colors.primary)
-                                    }
+                                {(!isEditing && currentBusiness.photoUrl) ? (
+                                    <Image
+                                        source={{ uri: currentBusiness.photoUrl }}
+                                        style={{ width: '100%', height: '100%', borderRadius: 16 }}
+                                        resizeMode="cover"
+                                    />
+                                ) : (
+                                    React.createElement(
+                                        isEditing && selectedLogo ? (BUSINESS_ICONS[selectedLogo.icon] || Building2) : currentIcon,
+                                        {
+                                            size: 32,
+                                            color: isEditing
+                                                ? (selectedLogo ? (isDark ? selectedLogo.darkColor : selectedLogo.color) : colors.textSecondary)
+                                                : (currentBusiness.color || colors.primary)
+                                        }
+                                    )
                                 )}
                             </View>
                             <View style={{ flex: 1 }}>
@@ -287,12 +317,47 @@ export default function BusinessSettingsScreen() {
                             </View>
 
                             {/* Title Row */}
-                            <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 24 }}>
+                            <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16 }}>
                                 <View style={{ alignItems: 'center' }}>
                                     <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 26, color: colors.text, textAlign: 'center' }}>Choose Logo</Text>
-                                    <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>Select an icon for your business</Text>
+                                    <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>Select an icon or upload a photo</Text>
                                 </View>
                             </View>
+
+                            {/* Use a Photo Tile */}
+                            <TouchableOpacity
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    marginHorizontal: 24,
+                                    marginBottom: 16,
+                                    padding: 14,
+                                    borderRadius: 16,
+                                    backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : '#eef2ff',
+                                    borderWidth: 1,
+                                    borderColor: isDark ? 'rgba(99,102,241,0.3)' : '#c7d2fe',
+                                }}
+                                onPress={handleUploadPhoto}
+                                disabled={isUploadingPhoto}
+                                activeOpacity={0.8}
+                            >
+                                {isUploadingPhoto
+                                    ? <ActivityIndicator size="small" color="#6366f1" />
+                                    : <Camera size={20} color="#6366f1" />
+                                }
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#6366f1' }}>Use a Photo</Text>
+                                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Upload from your gallery</Text>
+                                </View>
+                                {currentBusiness?.photoUrl && (
+                                    <Image
+                                        source={{ uri: currentBusiness.photoUrl }}
+                                        style={{ width: 40, height: 40, borderRadius: 10 }}
+                                        resizeMode="cover"
+                                    />
+                                )}
+                            </TouchableOpacity>
 
                             {/* Selected Preview Card */}
                             <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>

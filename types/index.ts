@@ -14,9 +14,25 @@ export interface Profile {
   notificationsEnabled?: boolean;
   emailNotifications?: boolean;
   pushNotifications?: boolean;
+  isDeveloperAdmin?: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+export const DEVELOPER_ADMIN_EMAILS: string[] = [
+  'lucyosck21@gmail.com',
+];
+
+export const isDeveloperAdminUser = (
+  user?: { email?: string | null; isDeveloperAdmin?: boolean } | null
+): boolean => {
+  if (!user) return false;
+  if (user.isDeveloperAdmin === true) return true;
+  if (user.email && DEVELOPER_ADMIN_EMAILS.includes(user.email.trim().toLowerCase())) {
+    return true;
+  }
+  return false;
+};
 
 export interface User {
   uid: string;
@@ -27,6 +43,7 @@ export interface User {
   photoURL?: string;
   displayName?: string;
   disabled: boolean;
+  isDeveloperAdmin?: boolean;
   metadata: {
     creationTime?: string;
     lastSignInTime?: string;
@@ -65,6 +82,7 @@ export interface Business {
   selectedFont?: string; // Font ID for display font customization
   icon?: string;
   color?: string;
+  photoUrl?: string; // Optional uploaded photo replacing the icon
   lastActiveAt?: string;
 }
 
@@ -126,7 +144,7 @@ export interface BookEntry {
   paymentMode?: string;
   category?: string;
   attachmentUrl?: string; // Deprecated, use attachments instead
-  attachments?: string[]; // Array of Firebase Storage URLs for images
+  attachments?: string[]; // Array of Cloudinary image URLs for entry attachments
   partyId?: string;
   memberIds?: string[];
   createdAt: string;

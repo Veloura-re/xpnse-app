@@ -28,12 +28,15 @@ import {
   AlignLeft,
   Send,
   Globe,
+  RefreshCw,
   ChevronDown,
   Paperclip,
   Camera,
   Trash2,
+  Plus,
+  Image as ImageIcon,
 } from 'lucide-react-native';
-import { getCurrencySymbol } from '@/utils/currency-utils';
+import { getCurrencySymbol, formatCurrency } from '@/utils/currency-utils';
 import { Book, BookEntry } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
 import { pickImage, takePhoto, uploadImage, deleteImage, generateImagePath } from '@/utils/imageUpload';
@@ -73,6 +76,8 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   // Multi-Currency states
   const [selectedCurrency, setSelectedCurrency] = useState(baseCurrency);
   const [exchangeRate, setExchangeRate] = useState(1.0);
+  const [customRateText, setCustomRateText] = useState('1.0');
+  const [isUserCustomRate, setIsUserCustomRate] = useState(false);
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
 
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -96,6 +101,18 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     setDisplayAmount(formatWithCommas(raw));
   };
 
+  const handleCustomRateChange = (text: string) => {
+    const sanitized = text.replace(/[^0-9.]/g, '');
+    const parts = sanitized.split('.');
+    const formatted = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : sanitized;
+    setCustomRateText(formatted);
+    const parsed = parseFloat(formatted);
+    if (!isNaN(parsed) && parsed > 0) {
+      setExchangeRate(parsed);
+      setIsUserCustomRate(true);
+    }
+  };
+
   const getTodayLocal = () => {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -111,13 +128,18 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
 
     if (upperSelected === upperBase) {
       setExchangeRate(1.0);
+      setCustomRateText('1.0');
+      setIsUserCustomRate(false);
     } else {
       const bookValuation = book?.settings?.customCurrencyValuations?.[upperSelected] ?? book?.settings?.customCurrencyValuations?.[selectedCurrency];
       if (bookValuation && bookValuation > 0) {
         setExchangeRate(bookValuation);
+        setCustomRateText(String(bookValuation));
+        setIsUserCustomRate(true);
       } else {
         CurrencyService.getExchangeRate(upperSelected, upperBase).then((rate) => {
           setExchangeRate(rate);
+          setCustomRateText(String(rate));
         });
       }
     }
@@ -131,7 +153,10 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       const origAmt = entry.originalAmount !== undefined ? entry.originalAmount.toString() : entry.amount.toString();
       setAmount(origAmt);
       setDisplayAmount(formatWithCommas(origAmt));
-      setExchangeRate(entry.exchangeRate || 1.0);
+      const entryRate = entry.exchangeRate || 1.0;
+      setExchangeRate(entryRate);
+      setCustomRateText(String(entryRate));
+      setIsUserCustomRate(Boolean(entry.isCustomRate));
       setDate(entry.date);
       setDescription(entry.description);
       setDescriptionError(false);
@@ -144,6 +169,9 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       setSelectedCurrency(baseCurrency);
       setAmount('');
       setDisplayAmount('');
+      setExchangeRate(1.0);
+      setCustomRateText('1.0');
+      setIsUserCustomRate(false);
       setDate(getTodayLocal());
       setDescription('');
       setDescriptionError(false);
@@ -197,6 +225,10 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleRemoveAttachment = (indexToRemove: number) => {
+    setAttachments(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleSave = async () => {
@@ -443,12 +475,84 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                       />
                     </View>
 
-                    {/* Converted Equivalent (If foreign currency) */}
+                    {/* Interactive FX Rate Multiplier Card (If foreign currency) */}
                     {selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() && (
-                      <View style={styles.convertedRow}>
-                        <Text style={[styles.convertedText, { color: colors.textSecondary }]}>
-                          ≈ {convertedBaseAmount.toFixed(2)} {baseCurrency} (@ {exchangeRate.toFixed(3)})
-                        </Text>
+                      <View style={[
+                        styles.fxRateCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC',
+                          borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
+                        }
+                      ]}>
+                        <View style={styles.fxRateHeader}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Globe size={13} color={colors.primary} />
+                            <Text style={[styles.fxRateTitle, { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') }]}>
+                              Exchange Rate Multiplier
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={async () => {
+                              try {
+                                const live = await CurrencyService.getExchangeRate(selectedCurrency, baseCurrency);
+                                setExchangeRate(live);
+                                setCustomRateText(live.toString());
+                                setIsUserCustomRate(false);
+                              } catch (e) {}
+                            }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={[
+                              styles.liveRateButton,
+                              {
+                                backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
+                                borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)',
+                              }
+                            ]}
+                          >
+                            <RefreshCw size={11} color={colors.primary} style={{ marginRight: 4 }} />
+                            <Text style={[styles.liveRateButtonText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                              Live Rate
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.fxRateInputRow}>
+                          <Text style={[styles.fxRateLabel, { color: colors.textSecondary }]}>
+                            1 {selectedCurrency} =
+                          </Text>
+                          <View style={[
+                            styles.fxRateInputWrapper,
+                            {
+                              backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+                              borderColor: focusedInput === 'rate' ? colors.primary : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#CBD5E1'),
+                            }
+                          ]}>
+                            <TextInput
+                              style={[styles.fxRateInputField, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}
+                              value={customRateText}
+                              onChangeText={handleCustomRateChange}
+                              onFocus={() => setFocusedInput('rate')}
+                              onBlur={() => setFocusedInput(null)}
+                              keyboardType="numeric"
+                              placeholder="1.0"
+                              placeholderTextColor={colors.textSecondary}
+                              selectTextOnFocus={true}
+                            />
+                            <Text style={[styles.fxRateSuffix, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                              {baseCurrency}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Calculated Ledger Converted Amount Preview */}
+                        <View style={[styles.fxCalculationRow, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#E2E8F0' }]}>
+                          <Text style={[styles.fxCalcText, { color: colors.textSecondary }]}>
+                            Converted Ledger Total:
+                          </Text>
+                          <Text style={[styles.fxCalcHighlight, { color: type === 'cash_in' ? '#10B981' : '#EF4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                            {formatCurrency(convertedBaseAmount, baseCurrency)}
+                          </Text>
+                        </View>
                       </View>
                     )}
                   </View>
@@ -640,6 +744,79 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                     </View>
                   )}
 
+                  {/* Attachments Section */}
+                  <View style={styles.inputGroup}>
+                    <View style={styles.labelRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Paperclip size={13} color={colors.text} />
+                        <Text style={[styles.inputLabel, { color: colors.text, marginBottom: 0 }]}>
+                          Attachments {attachments.length > 0 ? `(${attachments.length})` : ''}
+                        </Text>
+                      </View>
+                      {uploading && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <ActivityIndicator size="small" color={colors.primary} />
+                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>Uploading...</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Telegram-style Horizontal Media Reel: Camera & Add tiles beside Photos */}
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+                    >
+                      {/* Camera Tile (beside photos) */}
+                      <TouchableOpacity
+                        style={[
+                          styles.telegramTile,
+                          {
+                            backgroundColor: isDark ? 'rgba(99, 102, 241, 0.12)' : '#EEF2FF',
+                            borderColor: isDark ? 'rgba(99, 102, 241, 0.25)' : '#C7D2FE',
+                          }
+                        ]}
+                        onPress={handleTakePhoto}
+                        disabled={uploading}
+                        activeOpacity={0.7}
+                      >
+                        <Camera size={16} color="#6366F1" />
+                        <Text style={[styles.telegramTileText, { color: '#6366F1' }]}>Camera</Text>
+                      </TouchableOpacity>
+
+                      {/* Add Photo / Gallery Tile */}
+                      <TouchableOpacity
+                        style={[
+                          styles.telegramTile,
+                          {
+                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
+                            borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#A7F3D0',
+                          }
+                        ]}
+                        onPress={handlePickImage}
+                        disabled={uploading}
+                        activeOpacity={0.7}
+                      >
+                        <ImageIcon size={16} color="#10B981" />
+                        <Text style={[styles.telegramTileText, { color: '#10B981' }]}>Gallery</Text>
+                      </TouchableOpacity>
+
+                      {/* Attached Photo Thumbnails */}
+                      {attachments.map((url, idx) => (
+                        <View key={idx} style={styles.modalThumbWrap}>
+                          <Image source={{ uri: url }} style={styles.modalThumbImg} resizeMode="cover" />
+                          <TouchableOpacity
+                            style={styles.modalThumbDelete}
+                            onPress={() => handleRemoveAttachment(idx)}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          >
+                            <X size={10} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+
                   <View style={{ height: 16 }} />
                 </ScrollView>
 
@@ -808,13 +985,81 @@ const styles = StyleSheet.create({
     minWidth: 100,
     paddingVertical: 0,
   },
-  convertedRow: {
-    alignItems: 'center',
-    marginTop: 6,
+  fxRateCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  convertedText: {
+  fxRateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  fxRateTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  liveRateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  liveRateButtonText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  fxRateInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  fxRateLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  fxRateInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 38,
+  },
+  fxRateInputField: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    paddingVertical: 0,
+  },
+  fxRateSuffix: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  fxCalculationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    paddingTop: 8,
+    marginTop: 2,
+  },
+  fxCalcText: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  fxCalcHighlight: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   inputGroup: {
     marginBottom: 14,
@@ -875,5 +1120,37 @@ const styles = StyleSheet.create({
   submitText: {
     color: '#FFFFFF',
     fontSize: 14,
+  },
+  telegramTile: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  telegramTileText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  modalThumbWrap: {
+    position: 'relative',
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  modalThumbImg: {
+    width: 52,
+    height: 52,
+  },
+  modalThumbDelete: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 8,
+    padding: 2,
   },
 });

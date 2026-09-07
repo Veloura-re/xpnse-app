@@ -169,9 +169,26 @@ export function usePaginatedEntries(businessId: string | null, bookId?: string, 
                 count: (inSnapshot.data().count || 0) + (outSnapshot.data().count || 0)
             };
         } catch (err) {
-            console.error('Error fetching aggregate totals:', err);
-            // Return zeros so UI doesn't crash, but log the error
-            return { totalCashIn: 0, totalCashOut: 0, netBalance: 0, count: 0, error: err };
+            // Fallback to docs query aggregation if composite index for server-side aggregation is building
+            try {
+                const [inDocs, outDocs] = await Promise.all([
+                    getDocs(inQuery),
+                    getDocs(outQuery)
+                ]);
+                let totalCashIn = 0;
+                let totalCashOut = 0;
+                inDocs.forEach((d) => { totalCashIn += Number(d.data().amount || 0); });
+                outDocs.forEach((d) => { totalCashOut += Number(d.data().amount || 0); });
+                return {
+                    totalCashIn: Math.round(totalCashIn * 100) / 100,
+                    totalCashOut: Math.round(totalCashOut * 100) / 100,
+                    netBalance: Math.round((totalCashIn - totalCashOut) * 100) / 100,
+                    count: inDocs.size + outDocs.size
+                };
+            } catch (fallbackErr) {
+                console.warn('Fallback aggregation error:', fallbackErr);
+                return { totalCashIn: 0, totalCashOut: 0, netBalance: 0, count: 0, error: fallbackErr };
+            }
         }
     }, [businessId, bookId, startDate?.toISOString(), endDate?.toISOString()]);
 

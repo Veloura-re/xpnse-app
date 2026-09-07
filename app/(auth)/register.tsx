@@ -392,6 +392,27 @@ export default function RegisterScreen() {
                 )}
               </LinearGradient>
             </TouchableOpacity>
+            {/* Consent text */}
+            <View style={{ alignItems: 'center', marginTop: -4, marginBottom: 16, paddingHorizontal: 4 }}>
+              <Text style={[styles.bottomNavText, { color: colors.textSecondary, textAlign: 'center', fontSize: 12, lineHeight: 18 }]}>
+                By creating an account you agree to our{' '}
+                <Text
+                  style={[styles.bottomNavLink, { color: '#10B981', fontSize: 12 }]}
+                  onPress={() => router.push('/terms-of-service')}
+                >
+                  Terms of Service
+                </Text>
+                {' '}and{' '}
+                <Text
+                  style={[styles.bottomNavLink, { color: '#10B981', fontSize: 12 }]}
+                  onPress={() => router.push('/privacy-policy')}
+                >
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
+            </View>
+
           </View>
 
           {/* Bottom Switch to Sign In */}
@@ -411,6 +432,17 @@ export default function RegisterScreen() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text style={[styles.bottomNavLink, { color: '#10B981' }]}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Legal footer */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 10, marginBottom: 8 }}>
+            <TouchableOpacity onPress={() => router.push('/privacy-policy')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.bottomNavText, { color: colors.textSecondary, fontSize: 12 }]}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textSecondary, opacity: 0.4 }} />
+            <TouchableOpacity onPress={() => router.push('/terms-of-service')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.bottomNavText, { color: colors.textSecondary, fontSize: 12 }]}>Terms of Service</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -449,32 +481,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  brandBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 12,
-    gap: 6,
-  },
-  brandBadgeText: {
-    fontSize: 12,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  appName: {
-    fontSize: 30,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
   welcomeText: {
     fontSize: 32,
     fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
     marginBottom: 6,
     textAlign: 'center',
     letterSpacing: -0.8,

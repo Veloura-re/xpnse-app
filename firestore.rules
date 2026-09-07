@@ -23,7 +23,7 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAuthenticated() && (request.auth.uid == userId || request.auth.token.email == 'lucyosck21@gmail.com');
     }
     
     // Businesses collection

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   LayoutAnimation,
   Keyboard,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
@@ -240,6 +241,14 @@ export default function BooksScreen() {
   // Business Creation State
   const [createBusinessModalVisible, setCreateBusinessModalVisible] = useState(false);
   const [newBusinessName, setNewBusinessName] = useState('');
+  const [isCreatingBusiness, setIsCreatingBusiness] = useState(false);
+
+  // Auto-open create business modal if no businesses exist
+  useEffect(() => {
+    if (!isLoading && businesses.length === 0) {
+      setCreateBusinessModalVisible(true);
+    }
+  }, [isLoading, businesses.length]);
 
   // Guide & Verification State
   const [virtualGuideVisible, setVirtualGuideVisible] = useState(false);
@@ -461,13 +470,24 @@ export default function BooksScreen() {
 
         {/* Create Business Modal */}
         <Modal
-          visible={createBusinessModalVisible}
+          visible={createBusinessModalVisible || (!isLoading && businesses.length === 0)}
           transparent
           animationType="fade"
-          onRequestClose={() => setCreateBusinessModalVisible(false)}
+          onRequestClose={() => {
+            if (businesses.length > 0) {
+              setCreateBusinessModalVisible(false);
+            }
+          }}
         >
           <View style={styles.modalOverlay}>
-            <GlassBackdrop isDark={isDark} onPress={() => setCreateBusinessModalVisible(false)} />
+            <GlassBackdrop
+              isDark={isDark}
+              onPress={() => {
+                if (businesses.length > 0) {
+                  setCreateBusinessModalVisible(false);
+                }
+              }}
+            />
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
               keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 20}
@@ -486,8 +506,12 @@ export default function BooksScreen() {
                     zIndex: 10,
                   }}
                 />
-                <Text style={[styles.modalTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>Create Business</Text>
-                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>Give your business a name to get started.</Text>
+                <Text style={[styles.modalTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                  {businesses.length === 0 ? 'Create Business' : 'Create Business'}
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                  {businesses.length === 0 ? 'Create a business to start tracking cash flow and books.' : 'Give your business a name to get started.'}
+                </Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
                   placeholder="Business Name"
@@ -497,35 +521,48 @@ export default function BooksScreen() {
                   autoFocus
                 />
                 <View style={styles.modalActions}>
-                  <TouchableOpacity style={[styles.modalCancel, { backgroundColor: colors.card }]} onPress={() => setCreateBusinessModalVisible(false)}>
-                    <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
-                  </TouchableOpacity>
+                  {businesses.length > 0 && (
+                    <TouchableOpacity style={[styles.modalCancel, { backgroundColor: colors.card }]} onPress={() => setCreateBusinessModalVisible(false)}>
+                      <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
-                    style={styles.modalConfirmWrapper}
-                    disabled={!newBusinessName.trim()}
+                    style={[styles.modalConfirmWrapper, businesses.length === 0 && { flex: 1 }]}
+                    disabled={!newBusinessName.trim() || isCreatingBusiness}
                     onPress={async () => {
-                      if (newBusinessName.trim()) {
-                        const isFirstBusiness = businesses.length === 0;
-                        await createBusiness(newBusinessName.trim());
-                        setCreateBusinessModalVisible(false);
-                      setNewBusinessName('');
-                      if (isFirstBusiness) setShowGuideAfterBusinessCreation(true);
-                    }
-                  }}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={['#10b981', '#059669']}
-                    style={[styles.modalConfirm, !newBusinessName.trim() && styles.disabledButton]}
+                      if (newBusinessName.trim() && !isCreatingBusiness) {
+                        try {
+                          setIsCreatingBusiness(true);
+                          const isFirstBusiness = businesses.length === 0;
+                          await createBusiness(newBusinessName.trim());
+                          setCreateBusinessModalVisible(false);
+                          setNewBusinessName('');
+                          if (isFirstBusiness) setShowGuideAfterBusinessCreation(true);
+                        } catch (err: any) {
+                          console.error('Failed to create business:', err);
+                        } finally {
+                          setIsCreatingBusiness(false);
+                        }
+                      }
+                    }}
+                    activeOpacity={0.9}
                   >
-                    <Text style={styles.modalConfirmText}>Create</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <LinearGradient
+                      colors={['#10b981', '#059669']}
+                      style={[styles.modalConfirm, (!newBusinessName.trim() || isCreatingBusiness) && styles.disabledButton]}
+                    >
+                      {isCreatingBusiness ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.modalConfirmText}>Create</Text>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -576,7 +613,13 @@ export default function BooksScreen() {
                   onPress={() => router.push('/business-switcher')}
                   activeOpacity={0.7}
                 >
-                  {(() => {
+                  {currentBusiness.photoUrl ? (
+                    <Image
+                      source={{ uri: currentBusiness.photoUrl }}
+                      style={styles.businessPhotoIcon}
+                      resizeMode="cover"
+                    />
+                  ) : (() => {
                     const iconKey = currentBusiness.icon || 'store';
                     const BusinessIcon = BUSINESS_ICONS[iconKey] || Building2;
                     const businessColor = currentBusiness.color || colors.primary;
@@ -867,6 +910,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 8,
+  },
+  businessPhotoIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     marginRight: 8,
   },
   businessName: {

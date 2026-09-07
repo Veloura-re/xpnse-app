@@ -303,30 +303,6 @@ export default function AnalyticsScreen() {
             <View style={styles.header}>
                 <View style={styles.headerTopRow}>
                     <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>spndy</Text>
-                    <View style={styles.headerActions}>
-                        {/* Small Theme Toggle */}
-                        <TouchableOpacity
-                            style={[
-                                styles.headerIconButton,
-                                { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass }
-                            ]}
-                            onPress={() => setTheme(isDark ? 'light' : 'dark')}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                            {isDark ? <Sun size={16} color="#F59E0B" /> : <Moon size={16} color={colors.textSecondary} />}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[
-                                styles.headerIconButton, 
-                                { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass },
-                                isGlobal && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
-                            ]}
-                            onPress={() => setIsGlobal(!isGlobal)}
-                        >
-                            <BarChart3 size={16} color={isGlobal ? colors.primary : colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
                 </View>
                 {!isSearchExpanded ? (
                     <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>

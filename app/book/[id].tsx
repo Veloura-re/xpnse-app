@@ -24,6 +24,10 @@ import * as Haptics from 'expo-haptics';
 
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import {
+  Paperclip,
+  Image as ImageIcon,
+  Camera,
+  X as XClose,
   Plus,
   Minus,
   Edit3,
@@ -33,6 +37,7 @@ import {
   Copy,
   CopyPlus,
   FileDown,
+  Download,
   MoreVertical,
   SlidersHorizontal,
   ArrowLeft,
@@ -59,9 +64,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EntryEditModal } from '@/components/entry-edit-modal';
 import { BookEditModal } from '@/components/book-edit-modal';
 import { AdvancedBookModal } from '@/components/book/advanced-book-modal';
+import { CurrencyPickerModal } from '@/components/currency/currency-picker-modal';
+import { CurrencyService } from '@/services/currency-service';
 import { exportToExcel, exportToPDF, exportToCSV } from '@/utils/exportUtils';
 import * as Crypto from 'expo-crypto';
 import { BackgroundDecor } from '@/components/ui/background-decor';
+import { pickImage, takePhoto, uploadImage, generateImagePath } from '@/utils/imageUpload';
+import { Image } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 const uuidv4 = () => Crypto.randomUUID();
 import { getFontFamily } from '@/config/font-config';
 
@@ -133,6 +144,70 @@ export default function BookDetailScreen() {
   const [isBulkOperating, setIsBulkOperating] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
 
+  // Attachment state
+  const [attachmentEntry, setAttachmentEntry] = useState<BookEntry | null>(null);
+  const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  // Quick Net Balance Currency Conversion State
+  const [netConvertCurrency, setNetConvertCurrency] = useState<string | null>(null);
+  const [netCurrencyPickerVisible, setNetCurrencyPickerVisible] = useState(false);
+  const [netConvertRate, setNetConvertRate] = useState<number>(1);
+  const [isCalculatingRate, setIsCalculatingRate] = useState(false);
+
+  // Calculate live/custom FX rate for Net Balance preview
+  useEffect(() => {
+    if (!netConvertCurrency || netConvertCurrency.toUpperCase() === bookCurrency.toUpperCase()) {
+      setNetConvertRate(1);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchConversionRate = async () => {
+      setIsCalculatingRate(true);
+      try {
+        const fromCurr = bookCurrency.toUpperCase();
+        const toCurr = netConvertCurrency.toUpperCase();
+
+        const customVals = book?.settings?.customCurrencyValuations || {};
+
+        if (customVals[toCurr] && Number(customVals[toCurr]) > 0) {
+          if (isMounted) {
+            setNetConvertRate(1 / Number(customVals[toCurr]));
+            setIsCalculatingRate(false);
+          }
+          return;
+        }
+
+        if (toCurr === 'USD' && customVals[fromCurr] && Number(customVals[fromCurr]) > 0) {
+          if (isMounted) {
+            setNetConvertRate(Number(customVals[fromCurr]));
+            setIsCalculatingRate(false);
+          }
+          return;
+        }
+
+        const rate = await CurrencyService.getExchangeRate(fromCurr, toCurr);
+        if (isMounted) {
+          setNetConvertRate(rate);
+          setIsCalculatingRate(false);
+        }
+      } catch (err) {
+        console.warn('Error calculating net conversion rate:', err);
+        if (isMounted) {
+          setNetConvertRate(1);
+          setIsCalculatingRate(false);
+        }
+      }
+    };
+
+    fetchConversionRate();
+    return () => {
+      isMounted = false;
+    };
+  }, [netConvertCurrency, bookCurrency, JSON.stringify(book?.settings?.customCurrencyValuations)]);
+
   // Filters
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'year' | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'cash_in' | 'cash_out'>('all');
@@ -195,6 +270,50 @@ export default function BookDetailScreen() {
     setTargetBookId(otherBooks[0]?.id || null);
     setTransferModalVisible(true);
   }, [otherBooks]);
+
+  const handleOpenAttachments = useCallback((entry: BookEntry) => {
+    setAttachmentEntry(entry);
+    setAttachmentModalVisible(true);
+  }, []);
+
+  const handleUploadAttachment = useCallback(async (source: 'gallery' | 'camera') => {
+    if (!attachmentEntry || !currentBusiness) return;
+    try {
+      setIsUploadingAttachment(true);
+      const uri = source === 'gallery' ? await pickImage() : await takePhoto();
+      if (!uri) return;
+
+      const existingAttachments = attachmentEntry.attachments || [];
+      const folder = generateImagePath(currentBusiness.id, attachmentEntry.id, existingAttachments.length);
+      const url = await uploadImage(uri, folder);
+      if (!url) return;
+
+      const updatedAttachments = [...existingAttachments, url];
+      await updateEntry(attachmentEntry.id, { attachments: updatedAttachments });
+      setAttachmentEntry(prev => prev ? { ...prev, attachments: updatedAttachments } : prev);
+      refresh();
+    } catch (err) {
+      console.error('Attachment upload error:', err);
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  }, [attachmentEntry, currentBusiness, updateEntry, refresh]);
+
+  const handleDeleteAttachment = useCallback(async (url: string) => {
+    if (!attachmentEntry) return;
+    Alert.alert('Remove Attachment', 'Remove this image from the entry?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          const updated = (attachmentEntry.attachments || []).filter(u => u !== url);
+          await updateEntry(attachmentEntry.id, { attachments: updated });
+          setAttachmentEntry(prev => prev ? { ...prev, attachments: updated } : prev);
+          refresh();
+        }
+      }
+    ]);
+  }, [attachmentEntry, updateEntry, refresh]);
+
 
   const confirmTransfer = useCallback(async () => {
     if (!selectedEntry || !targetBookId) return;
@@ -655,14 +774,6 @@ export default function BookDetailScreen() {
               <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]} numberOfLines={1}>{book?.name}</Text>
             </View>
             <View style={styles.headerActions}>
-              {/* Small Theme Toggle */}
-              <TouchableOpacity
-                style={[styles.headerActionButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1 }]}
-                onPress={() => setTheme(isDark ? 'light' : 'dark')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                {isDark ? <Sun size={17} color="#F59E0B" /> : <Moon size={17} color={colors.textSecondary} />}
-              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.headerActionButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1 }]}
                 onPress={() => router.push('/notes')}
@@ -672,35 +783,8 @@ export default function BookDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.headerActionButton, { backgroundColor: colors.surfaceGlass, borderColor: colors.borderGlass, borderWidth: 1 }]}
-                onPress={() => router.push('/notifications')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Bell size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-
-              {(userRole === 'owner' || userRole === 'partner') && (
-                <TouchableOpacity
-                  style={[styles.headerActionButton, { backgroundColor: colors.card }]}
-                  onPress={() => setEditBookModalVisible(true)}
-                >
-                  <Edit3 size={20} color={colors.text} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.headerActionButton, { backgroundColor: colors.card }]}
-                onPress={() => setAdvancedBookModalVisible(true)}
-              >
-                <Globe size={20} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.headerActionButton, { backgroundColor: colors.card }]}
-                onPress={() => setFilterMenuOpen(true)}
-              >
-                <SlidersHorizontal size={20} color={colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.headerActionButton, { backgroundColor: colors.card }]}
                 onPress={() => setExportMenuOpen(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <MoreVertical size={20} color={colors.text} />
               </TouchableOpacity>
@@ -738,29 +822,103 @@ export default function BookDetailScreen() {
         {/* Main Balance Card */}
         <View style={styles.balanceSection}>
           <View style={[styles.balanceCard, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass }]}>
-            <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
-            <Text style={[styles.balanceValue, { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700', color: netBalance >= 0 ? '#10b981' : '#ef4444' }]}>
-              {formatCurrency(netBalance, bookCurrency)}
-            </Text>
+            <View style={{ flexDirection: 'row', width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
+              
+              <TouchableOpacity
+                style={[
+                  styles.currencyConvertButton,
+                  {
+                    backgroundColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
+                      ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5')
+                      : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
+                    borderColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
+                      ? colors.primary
+                      : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'),
+                  }
+                ]}
+                onPress={() => setNetCurrencyPickerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Globe size={11} color={netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary} />
+                <Text style={[
+                  styles.currencyConvertText,
+                  {
+                    color: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary,
+                    fontFamily: 'SpaceGrotesk_700Bold'
+                  }
+                ]}>
+                  {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? `${netConvertCurrency}` : 'Convert'}
+                </Text>
+                {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setNetConvertCurrency(null);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <X size={11} color={colors.primary} />
+                  </TouchableOpacity>
+                ) : (
+                  <ChevronDown size={11} color={colors.textSecondary} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              <Text style={[styles.balanceValue, { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700', marginBottom: 0, color: netBalance >= 0 ? '#10b981' : '#ef4444' }]}>
+                {formatCurrency(netBalance, bookCurrency)}
+              </Text>
+              {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                <View style={[
+                  styles.convertedNetPill,
+                  {
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.25)',
+                  }
+                ]}>
+                  <Text style={[
+                    styles.convertedNetText,
+                    {
+                      color: netBalance >= 0 ? '#10b981' : '#ef4444',
+                      fontFamily: 'SpaceGrotesk_700Bold'
+                    }
+                  ]}>
+                    ≈ {isCalculatingRate ? '...' : formatCurrency(netBalance * netConvertRate, netConvertCurrency)}
+                  </Text>
+                </View>
+              )}
+            </View>
 
             <View style={[styles.balanceStats, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc' }]}>
               <View style={styles.balanceStatItem}>
                 <View style={[styles.miniIcon, { backgroundColor: theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
                   <TrendingUp size={12} color="#10b981" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Cash In</Text>
                   <Text style={[styles.miniValue, { color: '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>{formatCurrency(totalCashIn, bookCurrency)}</Text>
+                  {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                    <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
+                      ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashIn * netConvertRate, netConvertCurrency)}
+                    </Text>
+                  )}
                 </View>
               </View>
-              <View style={styles.balanceStatDivider} />
+              <View style={[styles.balanceStatDivider, { alignSelf: 'stretch', marginHorizontal: 6, opacity: isDark ? 0.2 : 0.6 }]} />
               <View style={styles.balanceStatItem}>
                 <View style={[styles.miniIcon, { backgroundColor: theme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2' }]}>
                   <TrendingDown size={12} color="#ef4444" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Cash Out</Text>
                   <Text style={[styles.miniValue, { color: '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>{formatCurrency(totalCashOut, bookCurrency)}</Text>
+                  {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                    <Text style={{ fontSize: 11, color: '#ef4444', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
+                      ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashOut * netConvertRate, netConvertCurrency)}
+                    </Text>
+                  )}
                 </View>
               </View>
             </View>
@@ -802,6 +960,7 @@ export default function BookDetailScreen() {
             const isSelected = selectedEntries.has(item.id);
 
             return (
+              <View style={{ marginBottom: 0 }}>
               <TouchableOpacity
                 style={[
                   styles.entryItem,
@@ -905,11 +1064,18 @@ export default function BookDetailScreen() {
                       ]}>
                         {item.type === 'cash_out' ? '-' : '+'}{formatCurrency(item.amount, bookCurrency)}
                       </Text>
-                      {item.originalCurrency && item.originalCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
-                        <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 1 }}>
-                          ({item.originalCurrency} {item.originalAmount !== undefined ? item.originalAmount : item.amount})
-                        </Text>
-                      )}
+                      {item.originalCurrency && item.originalCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (() => {
+                        const origAmt = item.originalAmount !== undefined ? item.originalAmount : item.amount;
+                        const rate = item.exchangeRate !== undefined && item.exchangeRate > 0
+                          ? item.exchangeRate
+                          : (origAmt > 0 ? item.amount / origAmt : 1);
+                        const formattedRate = Number(rate.toFixed(4));
+                        return (
+                          <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 1 }}>
+                            ({formatCurrency(origAmt, item.originalCurrency)} × {formattedRate})
+                          </Text>
+                        );
+                      })()}
                     </View>
                   </View>
 
@@ -956,6 +1122,37 @@ export default function BookDetailScreen() {
                         </View>
                       )}
 
+                      {/* Attachment pill — inside card */}
+                      <TouchableOpacity
+                        style={[
+                          styles.attachmentPill,
+                          {
+                            backgroundColor: (item.attachments && item.attachments.length > 0)
+                              ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5')
+                              : (isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc'),
+                            borderColor: (item.attachments && item.attachments.length > 0)
+                              ? (isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0')
+                              : (isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'),
+                          }
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleOpenAttachments(item);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        activeOpacity={0.7}
+                      >
+                        <Paperclip
+                          size={11}
+                          color={(item.attachments && item.attachments.length > 0) ? colors.primary : colors.textSecondary}
+                        />
+                        {(item.attachments && item.attachments.length > 0) && (
+                          <Text style={[styles.attachmentPillText, { color: colors.primary }]}>
+                            {item.attachments.length}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+
                       {(userRole === 'owner' || userRole === 'partner') && (
                         <TouchableOpacity
                           style={styles.entryAction}
@@ -972,8 +1169,11 @@ export default function BookDetailScreen() {
                   </View>
                 </View>
               </TouchableOpacity>
+
+            </View>
             );
           }}
+
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={Platform.OS === 'android'}
@@ -1264,8 +1464,185 @@ export default function BookDetailScreen() {
         onClose={() => setAdvancedBookModalVisible(false)}
       />
 
+      <CurrencyPickerModal
+        visible={netCurrencyPickerVisible}
+        onClose={() => setNetCurrencyPickerVisible(false)}
+        selectedCurrency={netConvertCurrency || bookCurrency}
+        onSelect={(code) => {
+          setNetConvertCurrency(code);
+        }}
+        title="Convert Net Balance"
+        subtitle="Select a currency to preview the converted net total"
+      />
+
+      {/* ── Attachment Viewer / Uploader Modal ─────────────────────── */}
+      <Modal
+        visible={attachmentModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAttachmentModalVisible(false)}
+        statusBarTranslucent
+      >
+        <TouchableWithoutFeedback onPress={() => setAttachmentModalVisible(false)}>
+          <View style={styles.attachModalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.attachModalSheet, { backgroundColor: isDark ? '#1a1a2e' : '#ffffff' }]}>
+                {/* Handle */}
+                <View style={[styles.attachSheetHandle, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : '#d1d5db' }]} />
+
+                {/* Header */}
+                <View style={styles.attachSheetHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.attachSheetTitle, { color: colors.text }]}>
+                      Attachments {attachmentEntry?.attachments?.length ? `(${attachmentEntry.attachments.length})` : ''}
+                    </Text>
+                    <Text style={[styles.attachSheetSub, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {attachmentEntry?.description || 'Transaction Entry'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setAttachmentModalVisible(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <XClose size={22} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Telegram-style media grid: Camera & Gallery tiles beside photo thumbnails */}
+                <ScrollView contentContainerStyle={styles.attachGrid} showsVerticalScrollIndicator={false}>
+                  {(userRole === 'owner' || userRole === 'partner') && (
+                    <>
+                      {/* Camera Tile (beside photos) */}
+                      <TouchableOpacity
+                        style={[
+                          styles.attachMediaTile,
+                          {
+                            backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : '#eef2ff',
+                            borderColor: isDark ? 'rgba(99,102,241,0.3)' : '#c7d2fe',
+                          }
+                        ]}
+                        onPress={() => handleUploadAttachment('camera')}
+                        disabled={isUploadingAttachment}
+                        activeOpacity={0.7}
+                      >
+                        <Camera size={18} color="#6366f1" />
+                        <Text style={[styles.attachMediaTileText, { color: '#6366f1' }]}>Camera</Text>
+                      </TouchableOpacity>
+
+                      {/* Gallery Tile */}
+                      <TouchableOpacity
+                        style={[
+                          styles.attachMediaTile,
+                          {
+                            backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#ecfdf5',
+                            borderColor: isDark ? 'rgba(16,185,129,0.3)' : '#a7f3d0',
+                          }
+                        ]}
+                        onPress={() => handleUploadAttachment('gallery')}
+                        disabled={isUploadingAttachment}
+                        activeOpacity={0.7}
+                      >
+                        <ImageIcon size={18} color="#10b981" />
+                        <Text style={[styles.attachMediaTileText, { color: '#10b981' }]}>Gallery</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+
+                  {/* Photo Thumbnails */}
+                  {(attachmentEntry?.attachments || []).map((url, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.attachThumbWrap}
+                      activeOpacity={0.85}
+                      onPress={() => setPreviewImageUrl(url)}
+                    >
+                      <Image source={{ uri: url }} style={styles.attachThumbLarge} resizeMode="cover" />
+                      {(userRole === 'owner' || userRole === 'partner') && (
+                        <TouchableOpacity
+                          style={styles.attachThumbDelete}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAttachment(url);
+                          }}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <XClose size={11} color="#ffffff" />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {isUploadingAttachment && (
+                  <View style={{ paddingVertical: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.attachmentPillText, { color: colors.textSecondary, fontSize: 12 }]}>Uploading...</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ── Full-screen Image Preview Modal ──────────────────────────── */}
+      <Modal
+        visible={!!previewImageUrl}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewImageUrl(null)}
+        statusBarTranslucent
+      >
+        <View style={styles.imagePreviewOverlay}>
+          {/* Close button – top-left */}
+          <TouchableOpacity
+            style={styles.imagePreviewCloseBtn}
+            onPress={() => setPreviewImageUrl(null)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <XClose size={24} color="#ffffff" />
+          </TouchableOpacity>
+
+          {/* Download / Share button – top-right */}
+          <TouchableOpacity
+            style={styles.imagePreviewDownloadBtn}
+            onPress={async () => {
+              if (!previewImageUrl) return;
+              try {
+                const isAvailable = await Sharing.isAvailableAsync();
+                // Derive a local filename from the URL
+                const ext = previewImageUrl.split('?')[0].split('.').pop() || 'jpg';
+                const filename = `attachment_${Date.now()}.${ext}`;
+                const localUri = `${FileSystem.cacheDirectory}${filename}`;
+
+                // Download the remote file to the local cache
+                const { uri } = await FileSystem.downloadAsync(previewImageUrl, localUri);
+
+                if (isAvailable) {
+                  await Sharing.shareAsync(uri, { dialogTitle: 'Save or share attachment' });
+                } else {
+                  Alert.alert('Saved', `File saved to app cache:\n${uri}`);
+                }
+              } catch (err: any) {
+                console.error('Download error', err);
+                Alert.alert('Error', 'Could not download the attachment.');
+              }
+            }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Download size={24} color="#ffffff" />
+          </TouchableOpacity>
+
+          {previewImageUrl && (
+            <Image
+              source={{ uri: previewImageUrl }}
+              style={styles.imagePreviewFull}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
+
       <Modal
         visible={exportModalVisible}
+
         transparent
         animationType="fade"
         onRequestClose={() => setExportModalVisible(false)}
@@ -1431,48 +1808,78 @@ export default function BookDetailScreen() {
                   }}
                 />
                 <View style={[styles.bottomSheetHeader, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.bottomSheetTitle, { color: colors.text }]}>Export Book</Text>
+                  <Text style={[styles.bottomSheetTitle, { color: colors.text }]}>Book Options</Text>
                   <TouchableOpacity onPress={() => setExportMenuOpen(false)}>
-                    <X size={24} color={colors.textSecondary} />
+                    <X size={22} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.menuItem} onPress={() => handleExport('pdf')}>
-                  <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2' }]}>
-                    <FileDown size={20} color="#ef4444" />
-                  </View>
-                  <Text style={[styles.menuText, { color: colors.text }]}>Export as PDF</Text>
-                  <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem} onPress={() => handleExport('csv')}>
-                  <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
-                    <FileDown size={20} color="#10b981" />
-                  </View>
-                  <Text style={[styles.menuText, { color: colors.text }]}>Export as CSV</Text>
-                  <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem} onPress={() => handleExport('xlsx')}>
-                  <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#f0fdf4' }]}>
-                    <FileDown size={20} color={colors.primary} />
-                  </View>
-                  <Text style={[styles.menuText, { color: colors.text }]}>Export as Excel</Text>
-                  <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
-                </TouchableOpacity>
+                {(userRole === 'owner' || userRole === 'partner') && (
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => {
+                      setExportMenuOpen(false);
+                      setEditBookModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe' }]}>
+                      <Edit3 size={18} color="#3b82f6" />
+                    </View>
+                    <Text style={[styles.menuText, { color: colors.text }]}>Edit Book Details</Text>
+                    <ChevronDown size={18} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
-                  style={[styles.menuItem, { borderBottomWidth: 0, marginTop: 4 }]}
+                  style={styles.menuItem}
                   onPress={() => {
                     setExportMenuOpen(false);
                     setAdvancedBookModalVisible(true);
                   }}
                 >
                   <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
-                    <Globe size={20} color={colors.primary} />
+                    <Globe size={18} color={colors.primary} />
                   </View>
                   <Text style={[styles.menuText, { color: colors.text }]}>Advanced Book (Valuations & FX)</Text>
-                  <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                  <ChevronDown size={18} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setExportMenuOpen(false);
+                    setFilterMenuOpen(true);
+                  }}
+                >
+                  <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(168, 85, 247, 0.2)' : '#f3e8ff' }]}>
+                    <SlidersHorizontal size={18} color="#a855f7" />
+                  </View>
+                  <Text style={[styles.menuText, { color: colors.text }]}>Filters & Sorting</Text>
+                  <ChevronDown size={18} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem} onPress={() => handleExport('pdf')}>
+                  <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2' }]}>
+                    <FileDown size={18} color="#ef4444" />
+                  </View>
+                  <Text style={[styles.menuText, { color: colors.text }]}>Export as PDF</Text>
+                  <ChevronDown size={18} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem} onPress={() => handleExport('csv')}>
+                  <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7' }]}>
+                    <FileDown size={18} color="#10b981" />
+                  </View>
+                  <Text style={[styles.menuText, { color: colors.text }]}>Export as CSV</Text>
+                  <ChevronDown size={18} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => handleExport('xlsx')}>
+                  <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#f0fdf4' }]}>
+                    <FileDown size={18} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.menuText, { color: colors.text }]}>Export as Excel</Text>
+                  <ChevronDown size={18} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
@@ -2319,9 +2726,35 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#64748b',
-    marginBottom: 2,
+    marginBottom: 0,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  currencyConvertButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  currencyConvertText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  convertedNetPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  convertedNetText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   balanceValue: {
     fontSize: 20,
@@ -2504,6 +2937,148 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // Attachment pill (inline inside card footer)
+  attachmentPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  attachmentPillText: {
+    fontSize: 10,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+  },
+  attachEmptySub: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  imagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePreviewCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  imagePreviewDownloadBtn: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  imagePreviewFull: {
+    width: '92%',
+    height: '82%',
+  },
+
+  // Attachment bottom-sheet modal
+  attachModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  attachModalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 28,
+    maxHeight: '80%',
+  },
+  attachSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  attachSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128,128,128,0.15)',
+  },
+  attachSheetTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  attachSheetSub: {
+    fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    marginTop: 2,
+  },
+  attachGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 10,
+    minHeight: 70,
+  },
+  attachMediaTile: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  attachMediaTileText: {
+    fontSize: 10,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
+  },
+  attachThumbWrap: {
+    position: 'relative',
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  attachThumbLarge: {
+    width: 64,
+    height: 64,
+  },
+  attachThumbDelete: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 10,
+    padding: 3,
+  },
+  attachUploadBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  attachUploadBtnText: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 
   // FAB

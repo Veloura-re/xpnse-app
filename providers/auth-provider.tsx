@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { User, Profile } from '@/types';
+import { User, Profile, isDeveloperAdminUser } from '@/types';
 import { useFirebase } from './firebase-provider';
 
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  isDeveloperAdmin: boolean;
   // Backward-compatible high-level auth actions used by screens
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (
@@ -66,6 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(firebaseLoading);
 
     if (firebaseUser) {
+      const isDevAdmin = isDeveloperAdminUser(firebaseUser);
       // Convert Firebase user to our User type
       const appUser: User = {
         uid: firebaseUser.uid,
@@ -73,6 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         emailVerified: firebaseUser.emailVerified,
         isAnonymous: firebaseUser.isAnonymous,
         disabled: false,
+        isDeveloperAdmin: isDevAdmin,
         phoneNumber: firebaseUser.phoneNumber || undefined,
         photoURL: firebaseUser.photoURL || undefined,
         displayName: firebaseUser.displayName || undefined,
@@ -93,6 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
           phoneNumber: firebaseUser.phoneNumber || '',
           photoURL: firebaseUser.photoURL || '',
+          isDeveloperAdmin: isDevAdmin,
           createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
           updatedAt: firebaseUser.metadata.lastSignInTime || new Date().toISOString(),
         },
@@ -339,10 +343,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [firebaseUser, reloadCurrentUser]);
 
+  const isDeveloperAdmin = useMemo(() => isDeveloperAdminUser(user), [user]);
+
   const value = useMemo(() => ({
     user,
     isLoading,
     error,
+    isDeveloperAdmin,
     login,
     register,
     logout,
@@ -360,6 +367,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     isLoading,
     error,
+    isDeveloperAdmin,
     login,
     register,
     logout,

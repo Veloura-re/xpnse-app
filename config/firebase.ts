@@ -2,7 +2,7 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
-import { getStorage, FirebaseStorage } from 'firebase/storage';
+
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -65,7 +65,7 @@ if (missingKeys.length > 0) {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
-let storage: FirebaseStorage | null = null;
+
 let analytics: Analytics | null = null;
 let firebaseInitialized = false;
 let firebaseError: Error | null = null;
@@ -113,7 +113,7 @@ try {
     }
 
     db = getFirestore(app);
-    storage = getStorage(app);
+
 
     // Initialize Analytics if on web and measurementId is present
     if (Platform.OS === 'web' && firebaseConfig.measurementId) {
@@ -139,10 +139,10 @@ try {
   app = null;
   auth = null;
   db = null;
-  storage = null;
+
 }
 
 // Export with null checks - providers should check if these are null before using
-export { auth, db, storage, analytics, app };
+export { auth, db, analytics, app };
 export { firebaseInitialized, firebaseError };
 export default app;

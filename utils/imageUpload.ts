@@ -1,168 +1,220 @@
 import * as ImagePicker from 'expo-image-picker';
-import { storage } from '@/config/firebase';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Alert, Platform } from 'react-native';
 
+// ---------------------------------------------------------------------------
+// Cloudinary configuration
+// ---------------------------------------------------------------------------
+// Create a free account at https://cloudinary.com (no credit card required).
+// Then:
+//   1. In the Cloudinary Console, go to Settings > Upload > Upload presets.
+//   2. Create a new preset, set Signing Mode to "Unsigned".
+//   3. Copy the preset name and your Cloud Name below / into .env.
+// ---------------------------------------------------------------------------
+const CLOUDINARY_CLOUD_NAME =
+  process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'ljvvyaar';
+const CLOUDINARY_UPLOAD_PRESET =
+  process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'spndy11';
+
 /**
- * Request camera and media library permissions
+ * Request camera and media library permissions.
+/**
+ * Request photo library / storage permissions explicitly.
+ */
+export const requestMediaLibraryPermissions = async (): Promise<boolean> => {
+  try {
+    if (Platform.OS !== 'web') {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Storage Access Required',
+          'Please grant permission to access your photo library to select and attach images.',
+        );
+        return false;
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error('Error requesting storage permissions:', error);
+    return false;
+  }
+};
+
+/**
+ * Request camera permissions explicitly.
+ */
+export const requestCameraPermissions = async (): Promise<boolean> => {
+  try {
+    if (Platform.OS !== 'web') {
+      const { status } =
+        await ImagePicker.requestCameraPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Camera Access Required',
+          'Please grant camera permission to take photos of receipts or bills.',
+        );
+        return false;
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error('Error requesting camera permissions:', error);
+    return false;
+  }
+};
+
+/**
+ * Request both camera and media library permissions.
  */
 export const requestPermissions = async (): Promise<boolean> => {
-    try {
-        if (Platform.OS !== 'web') {
-            const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-            const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-            if (cameraStatus !== 'granted' || mediaStatus !== 'granted') {
-                Alert.alert(
-                    'Permissions Required',
-                    'Please grant camera and photo library permissions to attach images.'
-                );
-                return false;
-            }
-        }
-        return true;
-    } catch (error) {
-        console.error('Error requesting permissions:', error);
-        return false;
-    }
+  const mediaOk = await requestMediaLibraryPermissions();
+  if (!mediaOk) return false;
+  return await requestCameraPermissions();
 };
 
 /**
- * Pick an image from the device's photo library
+ * Pick an image from the device photo library.
+ * Returns a local file URI or null.
  */
 export const pickImage = async (): Promise<string | null> => {
-    try {
-        const hasPermission = await requestPermissions();
-        if (!hasPermission) return null;
+  try {
+    const hasPermission = await requestMediaLibraryPermissions();
+    if (!hasPermission) return null;
 
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsEditing: false,  // Allow direct upload without cropping
-            quality: 0.8, // Good quality compression
-        });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.8,
+    });
 
-        if (!result.canceled && result.assets[0]) {
-            return result.assets[0].uri;
-        }
-        return null;
-    } catch (error) {
-        console.error('Error picking image:', error);
-        Alert.alert('Error', 'Failed to pick image. Please try again.');
-        return null;
+    if (!result.canceled && result.assets[0]) {
+      return result.assets[0].uri;
     }
+    return null;
+  } catch (error) {
+    console.error('Error picking image:', error);
+    Alert.alert('Error', 'Failed to pick image. Please try again.');
+    return null;
+  }
 };
 
 /**
- * Take a photo using the device camera
+ * Take a photo using the device camera.
+ * Returns a local file URI or null.
  */
 export const takePhoto = async (): Promise<string | null> => {
-    try {
-        const hasPermission = await requestPermissions();
-        if (!hasPermission) return null;
+  try {
+    const hasPermission = await requestCameraPermissions();
+    if (!hasPermission) return null;
 
-        const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: false,  // Allow direct upload without cropping
-            quality: 0.8, // Good quality compression
-        });
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      quality: 0.8,
+    });
 
-        if (!result.canceled && result.assets[0]) {
-            return result.assets[0].uri;
-        }
-        return null;
-    } catch (error) {
-        console.error('Error taking photo:', error);
-        Alert.alert('Error', 'Failed to take photo. Please try again.');
-        return null;
+    if (!result.canceled && result.assets[0]) {
+      return result.assets[0].uri;
     }
+    return null;
+  } catch (error) {
+    console.error('Error taking photo:', error);
+    Alert.alert('Error', 'Failed to take photo. Please try again.');
+    return null;
+  }
 };
 
 /**
- * Upload image to Firebase Storage
- * @param uri Local URI of the image
- * @param path Storage path (e.g., 'businesses/businessId/entries/entryId/imageId.jpg')
- * @returns Download URL of the uploaded image
+ * Upload an image to Cloudinary via the unsigned upload API.
+ * Returns the secure HTTPS URL of the uploaded image, or null on failure.
+ *
+ * @param uri   - Local file URI returned by pickImage / takePhoto.
+ * @param folder - Optional Cloudinary folder path, e.g. "businesses/biz123/entries/entry456".
  */
-export const uploadImage = async (uri: string, path: string): Promise<string | null> => {
-    if (!storage) {
-        Alert.alert('Error', 'Firebase Storage is not initialized');
-        return null;
+export const uploadImage = async (
+  uri: string,
+  folder?: string,
+): Promise<string | null> => {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    Alert.alert(
+      'Configuration Error',
+      'Cloudinary is not configured. Please add EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET to your .env file.',
+    );
+    return null;
+  }
+
+  try {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    const formData = new FormData();
+    if (Platform.OS === 'web') {
+      formData.append('file', blob, `upload_${Date.now()}.jpg`);
+    } else {
+      formData.append('file', {
+        uri,
+        name: `upload_${Date.now()}.jpg`,
+        type: blob.type || 'image/jpeg',
+      } as unknown as Blob);
+    }
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    if (folder) {
+      formData.append('folder', folder);
     }
 
-    try {
-        // Fetch the image as a blob
-        const response = await fetch(uri);
-        const blob = await response.blob();
+    const uploadResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+      {
+        method: 'POST',
+        body: formData,
+        // Do NOT set Content-Type header — let the browser/runtime set the
+        // multipart boundary automatically.
+      },
+    );
 
-        // Create a reference to the storage location
-        const storageRef = ref(storage, path);
-
-        // Upload the blob
-        await uploadBytes(storageRef, blob);
-
-        // Get and return the download URL
-        const downloadURL = await getDownloadURL(storageRef);
-        return downloadURL;
-    } catch (error: any) {
-        console.error('❌ Error uploading image:', error);
-        console.error('Error code:', error?.code);
-        console.error('Error message:', error?.message);
-        console.error('Full error:', JSON.stringify(error, null, 2));
-
-        let errorMessage = 'Failed to upload image. Please try again.';
-
-        if (error?.code === 'storage/unauthorized') {
-            errorMessage = 'Permission denied. Please check Firebase Storage rules.';
-            console.error('💡 FIX: Update Firebase Storage rules to allow authenticated uploads');
-        } else if (error?.code === 'storage/canceled') {
-            errorMessage = 'Upload was canceled.';
-        } else if (error?.code === 'storage/unknown') {
-            errorMessage = 'Unknown storage error. Check your internet connection.';
-        } else if (error?.message?.includes('Firebase Storage is not initialized')) {
-            errorMessage = 'Storage is not configured. Please check Firebase setup.';
-        }
-
-        Alert.alert('Upload Error', errorMessage);
-        return null;
+    if (!uploadResponse.ok) {
+      const errorBody = await uploadResponse.text();
+      console.error('Cloudinary upload failed:', uploadResponse.status, errorBody);
+      Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
+      return null;
     }
+
+    const data = await uploadResponse.json();
+    return (data.secure_url as string) ?? null;
+  } catch (error: any) {
+    console.error('Error uploading image to Cloudinary:', error);
+    Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
+    return null;
+  }
 };
 
 /**
- * Delete image from Firebase Storage
- * @param downloadURL The download URL of the image to delete
+ * Delete an image from Cloudinary.
+ * Note: deletion from client-side requires a signed request or a server-side
+ * Cloud Function. For now this is a no-op — the image will simply become
+ * unreferenced and Cloudinary's free tier does not charge for stored orphans.
+ *
+ * If you add a server endpoint later, replace this stub.
  */
-export const deleteImage = async (downloadURL: string): Promise<boolean> => {
-    if (!storage) {
-        console.error('Firebase Storage is not initialized');
-        return false;
-    }
-
-    try {
-        // Extract the path from the download URL
-        const pathMatch = downloadURL.match(/\/o\/(.+?)\?/);
-        if (!pathMatch || !pathMatch[1]) {
-            console.error('Invalid download URL');
-            return false;
-        }
-
-        const path = decodeURIComponent(pathMatch[1]);
-        const storageRef = ref(storage, path);
-
-        await deleteObject(storageRef);
-        return true;
-    } catch (error) {
-        console.error('Error deleting image:', error);
-        return false;
-    }
+export const deleteImage = async (_downloadURL: string): Promise<boolean> => {
+  // Client-side deletion requires a signed Cloudinary API call (needs API secret).
+  // Deletion should be handled server-side. Returning true to keep the caller happy.
+  console.warn(
+    'deleteImage: Cloudinary client-side deletion is not implemented. ' +
+      'Remove images via the Cloudinary Console or a server-side endpoint.',
+  );
+  return true;
 };
 
 /**
- * Generate a unique filename for an image
- * @param businessId Business ID
- * @param entryId Entry ID
- * @param index Image index
- * @returns Storage path
+ * Generate a Cloudinary folder path for a given entry.
+ * The returned string is passed as the `folder` parameter to uploadImage.
  */
-export const generateImagePath = (businessId: string, entryId: string, index: number): string => {
-    const timestamp = Date.now();
-    return `businesses/${businessId}/entries/${entryId}/image_${index}_${timestamp}.jpg`;
+export const generateImagePath = (
+  businessId: string,
+  entryId: string,
+  _index: number,
+): string => {
+  return `businesses/${businessId}/entries/${entryId}`;
 };

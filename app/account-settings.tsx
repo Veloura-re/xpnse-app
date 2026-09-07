@@ -14,6 +14,7 @@ import {
     TouchableWithoutFeedback,
     Keyboard,
     Switch,
+    Image,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
@@ -38,12 +39,16 @@ import {
     Check,
     ChevronRight,
     ChevronLeft,
+    Camera,
+    Calendar,
+    Sparkles,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getFontFamily } from '@/config/font-config';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { BackgroundDecor } from '@/components/ui/background-decor';
+import { pickImage, uploadImage } from '@/utils/imageUpload';
 
 // ModalInput component defined outside main component to prevent re-creation on every render
 const ModalInput = ({
@@ -272,6 +277,24 @@ export default function AccountSettingsScreen() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [verificationMessage, setVerificationMessage] = useState('');
     const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+    const handleUploadPhoto = async () => {
+        try {
+            setIsUploadingPhoto(true);
+            const localUri = await pickImage();
+            if (!localUri) return;
+            const url = await uploadImage(localUri, `users/${user?.uid}/profile`);
+            if (url) {
+                await updateProfile({ photoURL: url });
+            }
+        } catch (err) {
+            console.error('Profile photo upload error:', err);
+            Alert.alert('Error', 'Could not upload profile photo.');
+        } finally {
+            setIsUploadingPhoto(false);
+        }
+    };
 
     const resetFormStates = () => {
         setActiveEditor(null);
@@ -415,54 +438,105 @@ export default function AccountSettingsScreen() {
                         styles.profileCard,
                         {
                             backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.8)',
-                            borderColor: colors.border,
-                            shadowColor: isDark ? 'transparent' : '#000',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+                            shadowColor: isDark ? '#000' : '#2A2015',
                             shadowOffset: { width: 0, height: 10 },
-                            shadowOpacity: 0.1,
+                            shadowOpacity: isDark ? 0.3 : 0.08,
                             shadowRadius: 20,
                             elevation: isDark ? 0 : 5,
                         }
                     ]}>
                         {isDark ? (
                             <LinearGradient
-                                colors={['rgba(33, 201, 141, 0.05)', 'transparent']}
+                                colors={['rgba(33, 201, 141, 0.08)', 'rgba(33, 201, 141, 0.01)', 'transparent']}
                                 style={StyleSheet.absoluteFill}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                             />
                         ) : (
                             <LinearGradient
-                                colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.5)']}
+                                colors={['rgba(255, 255, 255, 0.95)', 'rgba(240, 253, 244, 0.5)']}
                                 style={StyleSheet.absoluteFill}
                             />
                         )}
 
                         <View style={styles.avatarWrapper}>
-                            <View style={styles.avatarRing}>
-                                <LinearGradient
-                                    colors={['#10b981', '#059669', '#34d399']}
-                                    style={StyleSheet.absoluteFill}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                />
-                            </View>
-                            <View style={styles.avatarContainer}>
-                                <LinearGradient
-                                    colors={[colors.primary, customDarken(colors.primary, 20)]}
-                                    style={StyleSheet.absoluteFill}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                />
-                                <Text style={styles.avatarText}>
-                                    {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                onPress={handleUploadPhoto}
+                                disabled={isUploadingPhoto}
+                                style={{ alignItems: 'center', justifyContent: 'center' }}
+                            >
+                                <View style={styles.avatarRing}>
+                                    <LinearGradient
+                                        colors={['#10b981', '#059669', '#34d399']}
+                                        style={StyleSheet.absoluteFill}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                    />
+                                </View>
+                                <View style={[styles.avatarContainer, { borderColor: isDark ? '#18181b' : '#ffffff', backgroundColor: colors.surface }]}>
+                                    {user?.photoURL ? (
+                                        <Image
+                                            source={{ uri: user.photoURL }}
+                                            style={{ width: '100%', height: '100%', borderRadius: 41 }}
+                                            resizeMode="cover"
+                                        />
+                                    ) : (
+                                        <>
+                                            <LinearGradient
+                                                colors={[colors.primary, customDarken(colors.primary, 20)]}
+                                                style={StyleSheet.absoluteFill}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                            />
+                                            <Text style={styles.avatarText}>
+                                                {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                                            </Text>
+                                        </>
+                                    )}
+                                </View>
+
+                                {/* Camera badge */}
+                                <View style={[styles.avatarCameraBadge, { borderColor: isDark ? '#18181b' : '#ffffff' }]}>
+                                    {isUploadingPhoto ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <Camera size={13} color="#fff" />
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+
+                            {/* Change Photo Pill */}
+                            <TouchableOpacity
+                                style={[
+                                    styles.changePhotoPill,
+                                    {
+                                        backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5',
+                                        borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#a7f3d0',
+                                    }
+                                ]}
+                                onPress={handleUploadPhoto}
+                                disabled={isUploadingPhoto}
+                                activeOpacity={0.8}
+                            >
+                                {isUploadingPhoto ? (
+                                    <ActivityIndicator size="small" color={colors.primary} />
+                                ) : (
+                                    <Camera size={13} color={colors.primary} />
+                                )}
+                                <Text style={[styles.changePhotoPillText, { color: colors.primary }]}>
+                                    {isUploadingPhoto ? 'Uploading...' : (user?.photoURL ? 'Change Profile Photo' : 'Upload Profile Photo')}
                                 </Text>
-                            </View>
+                            </TouchableOpacity>
                         </View>
 
                         <View style={styles.userInfo}>
-                            <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'User'}</Text>
-                            <View style={[styles.emailBadge, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9' }]}>
-                                <Mail size={12} color={colors.textSecondary} />
+                            <Text style={[styles.userName, { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') }]}>
+                                {user?.name || 'User'}
+                            </Text>
+                            <View style={[styles.emailBadge, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9' }]}>
+                                <Mail size={13} color={colors.textSecondary} />
                                 <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user?.email}</Text>
                             </View>
                         </View>
@@ -484,11 +558,11 @@ export default function AccountSettingsScreen() {
                                 </Text>
                             </View>
                             <View style={[styles.statBadge, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc', borderColor: colors.border, borderWidth: 1 }]}>
-                                <UserIcon size={14} color={colors.textSecondary} />
+                                <Calendar size={14} color={colors.textSecondary} />
                                 <Text style={[styles.statText, { color: colors.textSecondary }]}>
                                     {fbUser?.metadata?.creationTime
                                         ? `${new Date(fbUser.metadata.creationTime).getFullYear()}`
-                                        : '2024'}
+                                        : '2025'}
                                 </Text>
                             </View>
                         </View>
@@ -511,6 +585,43 @@ export default function AccountSettingsScreen() {
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PERSONAL INFO</Text>
                         </View>
 
+                        {/* Profile Photo Item */}
+                        <TouchableOpacity style={styles.settingItem} onPress={handleUploadPhoto} disabled={isUploadingPhoto} activeOpacity={0.7}>
+                            <View style={[styles.settingIcon, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.12)' : '#eef2ff' }]}>
+                                <Camera size={18} color="#6366f1" />
+                            </View>
+                            <View style={styles.settingContent}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>Profile Photo</Text>
+                                <Text style={[styles.settingValue, { color: colors.textSecondary }]}>
+                                    {isUploadingPhoto ? 'Uploading photo...' : (user?.photoURL ? 'Custom photo set' : 'Initials avatar')}
+                                </Text>
+                            </View>
+                            {user?.photoURL ? (
+                                <Image
+                                    source={{ uri: user.photoURL }}
+                                    style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border }}
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <View style={{
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: 17,
+                                    backgroundColor: colors.primary,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                                        {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                                    </Text>
+                                </View>
+                            )}
+                            <ChevronRight size={18} color={colors.textSecondary} style={{ marginLeft: 8 }} />
+                        </TouchableOpacity>
+
+                        <View style={[styles.settingDivider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.border }]} />
+
+                        {/* Display Name Item */}
                         <TouchableOpacity style={styles.settingItem} onPress={() => setActiveEditor('name')} activeOpacity={0.7}>
                             <View style={[styles.settingIcon, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf1' }]}>
                                 <UserIcon size={18} color={colors.primary} />
@@ -888,36 +999,63 @@ const styles = StyleSheet.create({
     },
     avatarWrapper: {
         alignItems: 'center',
-        marginBottom: 14,
+        marginBottom: 16,
     },
     avatarRing: {
         position: 'absolute',
-        width: 74,
-        height: 74,
-        borderRadius: 37,
+        width: 90,
+        height: 90,
+        borderRadius: 45,
         overflow: 'hidden',
     },
     avatarContainer: {
-        width: 66,
-        height: 66,
-        borderRadius: 33,
+        width: 82,
+        height: 82,
+        borderRadius: 41,
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
         borderWidth: 3,
         borderColor: '#fff',
     },
+    avatarCameraBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        backgroundColor: '#10b981',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
+    },
+    changePhotoPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    changePhotoPillText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
     avatarText: {
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: '700',
         color: '#fff',
     },
     userInfo: {
         alignItems: 'center',
-        marginBottom: 14,
+        marginBottom: 16,
     },
     userName: {
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: '700',
         color: '#0f172a',
         marginBottom: 6,

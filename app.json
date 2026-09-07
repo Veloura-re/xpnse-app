@@ -31,7 +31,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.zzz1.businessfinancemanagementappkkqzwnt",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Capture receipts, bills, and documents to attach to book entries.",
+        "NSPhotoLibraryUsageDescription": "Select receipts, bills, and photos for profile or business customization."
       }
     },
     "web": {
@@ -62,7 +64,22 @@
     },
     "plugins": [
       "expo-router",
-      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow spndy to access your photos to attach receipts and customize profiles.",
+          "cameraPermission": "Allow spndy to access your camera to capture receipts and bills."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon-transparent.png",
+          "color": "#10b981",
+          "sounds": [],
+          "mode": "default"
+        }
+      ],
       "./plugins/withNdkOverride"
     ],
     "owner": "lucy-structural"

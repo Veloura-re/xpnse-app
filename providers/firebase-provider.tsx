@@ -25,7 +25,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, arrayRemove, serverTimestamp, collection, query, where, getDocs, writeBatch, arrayUnion } from 'firebase/firestore';
 import { db, auth, firebaseInitialized, firebaseError } from '@/config/firebase';
-import { User, Profile, UserRole } from '@/types';
+import { User, Profile, UserRole, DEVELOPER_ADMIN_EMAILS, isDeveloperAdminUser } from '@/types';
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Platform } from 'react-native';
@@ -67,7 +67,8 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser | null): Promise<User 
 
   // Check if Firebase is initialized before accessing db
   if (!firebaseInitialized || !db) {
-    console.warn('⚠️ Firebase not initialized - returning basic user info');
+    console.warn('[Firebase] Not initialized - returning basic user info');
+    const isDevAdmin = isDeveloperAdminUser({ email: firebaseUser.email });
     // Return basic user info without Firestore data
     return {
       uid: firebaseUser.uid,
@@ -78,6 +79,7 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser | null): Promise<User 
       photoURL: firebaseUser.photoURL || undefined,
       displayName: firebaseUser.displayName || undefined,
       disabled: false,
+      isDeveloperAdmin: isDevAdmin,
       metadata: {
         creationTime: firebaseUser.metadata.creationTime || undefined,
         lastSignInTime: firebaseUser.metadata.lastSignInTime || undefined,
@@ -95,6 +97,7 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser | null): Promise<User 
         displayName: firebaseUser.displayName || '',
         phoneNumber: firebaseUser.phoneNumber || '',
         photoURL: firebaseUser.photoURL || '',
+        isDeveloperAdmin: isDevAdmin,
         createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -109,6 +112,17 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser | null): Promise<User 
     // Get the user's profile data from Firestore
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
     const profileData = userDoc.exists() ? (userDoc.data() as Profile) : null;
+    const isDevAdmin = isDeveloperAdminUser({
+      email: firebaseUser.email,
+      isDeveloperAdmin: profileData?.isDeveloperAdmin,
+    });
+
+    // Automatically persist isDeveloperAdmin flag in Firestore for whitelisted developer accounts
+    if (isDevAdmin && userDoc.exists() && !profileData?.isDeveloperAdmin) {
+      setDoc(doc(db, 'users', firebaseUser.uid), { isDeveloperAdmin: true }, { merge: true }).catch((err) => {
+        console.warn('[Auth] Failed to persist developer admin flag:', err);
+      });
+    }
 
     return {
       uid: firebaseUser.uid,
@@ -119,6 +133,7 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser | null): Promise<User 
       photoURL: firebaseUser.photoURL || undefined,
       displayName: firebaseUser.displayName || undefined,
       disabled: false, // Not directly available in Firebase v9+
+      isDeveloperAdmin: isDevAdmin,
       metadata: {
         creationTime: firebaseUser.metadata.creationTime || undefined,
         lastSignInTime: firebaseUser.metadata.lastSignInTime || undefined,
@@ -130,12 +145,13 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser | null): Promise<User 
         photoURL: provider.photoURL || undefined,
         providerId: provider.providerId,
       })),
-      profile: profileData || {
+      profile: profileData ? { ...profileData, isDeveloperAdmin: isDevAdmin } : {
         firstName: firebaseUser.displayName?.split(' ')[0] || '',
         lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
         displayName: firebaseUser.displayName || '',
         phoneNumber: firebaseUser.phoneNumber || '',
         photoURL: firebaseUser.photoURL || '',
+        isDeveloperAdmin: isDevAdmin,
         createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },

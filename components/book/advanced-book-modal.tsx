@@ -92,10 +92,8 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       const existingValuations = book.settings?.customCurrencyValuations || {};
       const existingTracked = book.settings?.trackedCurrencies || Object.keys(existingValuations);
       
-      // Ensure at least default popular currencies if none set
-      const initialTracked = existingTracked.length > 0
-        ? existingTracked.filter(c => c !== currentBookCurr)
-        : ['EUR', 'GBP', 'KES'].filter(c => c !== currentBookCurr);
+      // Only include currencies that were explicitly tracked or saved by the user
+      const initialTracked = existingTracked.filter(c => c && c.toUpperCase() !== currentBookCurr);
 
       const initialRaw: Record<string, string> = {};
       Object.entries(existingValuations).forEach(([k, v]) => {
@@ -108,8 +106,10 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
       setValuations(existingValuations);
       setRawValuations(initialRaw);
 
-      // Fetch live rates for these currencies
-      fetchLiveRates(initialTracked, currentBookCurr);
+      // Fetch live rates only for tracked currencies
+      if (initialTracked.length > 0) {
+        fetchLiveRates(initialTracked, currentBookCurr);
+      }
     }
   }, [book, currentBusiness]);
 
@@ -574,6 +574,18 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                     );
                   })}
 
+                  {trackedCurrencies.length === 0 && (
+                    <View style={[styles.emptyCurrenciesBox, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#F8FAFC', borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#E2E8F0' }]}>
+                      <Globe size={22} color={colors.textSecondary} style={{ marginBottom: 6 }} />
+                      <Text style={[styles.emptyCurrenciesTitle, { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') }]}>
+                        No Foreign Currencies Added
+                      </Text>
+                      <Text style={[styles.emptyCurrenciesText, { color: colors.textSecondary }]}>
+                        Tap below to add currencies and configure custom exchange rate valuations for this book.
+                      </Text>
+                    </View>
+                  )}
+
                   {/* Add Currency Button */}
                   <TouchableOpacity
                     style={[
@@ -1024,6 +1036,23 @@ const styles = StyleSheet.create({
   },
   addCurrBtnText: {
     fontSize: 13,
+  },
+  emptyCurrenciesBox: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emptyCurrenciesTitle: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  emptyCurrenciesText: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
   },
   emptyRecurringBox: {
     padding: 16,

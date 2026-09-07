@@ -3,11 +3,14 @@ import { doc, getDoc, collection, query, where, getDocs, documentId } from 'fire
 
 export interface PushNotificationPayload {
   title: string;
+  subtitle?: string;
   body: string;
   data?: Record<string, any>;
   sound?: string;
   channelId?: string;
   badge?: number;
+  color?: string;
+  priority?: 'default' | 'normal' | 'high';
 }
 
 export class PushNotificationService {
@@ -36,11 +39,13 @@ export class PushNotificationService {
       to: token,
       sound: payload.sound || 'default',
       title: payload.title,
+      subtitle: payload.subtitle,
       body: payload.body,
       data: payload.data || {},
-      priority: 'high',
-      channelId: payload.channelId || 'default',
+      priority: payload.priority || 'high',
+      channelId: payload.channelId || 'transactions',
       badge: payload.badge !== undefined ? payload.badge : 1,
+      color: payload.color || '#10b981',
       _displayInForeground: true,
     }));
 

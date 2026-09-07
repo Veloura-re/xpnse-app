@@ -290,6 +290,17 @@ export default function LoginScreen() {
               <Text style={[styles.bottomNavLink, { color: '#10B981' }]}>Sign Up</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Legal footer */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 10, marginBottom: 8 }}>
+            <TouchableOpacity onPress={() => router.push('/privacy-policy')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.bottomNavText, { color: colors.textSecondary, fontSize: 12 }]}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textSecondary, opacity: 0.4 }} />
+            <TouchableOpacity onPress={() => router.push('/terms-of-service')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.bottomNavText, { color: colors.textSecondary, fontSize: 12 }]}>Terms of Service</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -326,32 +337,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  brandBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 14,
-    gap: 6,
-  },
-  brandBadgeText: {
-    fontSize: 12,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  appName: {
-    fontSize: 32,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
   welcomeText: {
     fontSize: 32,
     fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
     marginBottom: 8,
     textAlign: 'center',
     letterSpacing: -0.8,
