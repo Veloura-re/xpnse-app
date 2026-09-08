@@ -12,19 +12,25 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Lock, Eye, EyeOff, User, ArrowRight, AlertCircle } from 'lucide-react-native';
+import {
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Sun,
+  Moon,
+} from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackgroundDecor } from '@/components/ui/background-decor';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
+import { GitHubSignInButton } from '@/components/auth/github-sign-in-button';
 import * as Haptics from 'expo-haptics';
 
 export default function RegisterScreen() {
   const { register } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { isDark, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
@@ -71,7 +77,7 @@ export default function RegisterScreen() {
         }
         Alert.alert(
           'Account Created',
-          'Welcome to spndy! Please check your email to verify your account.',
+          'Welcome to spndy! Please verify your email to access all features.',
           [{ text: 'Continue', onPress: () => router.replace('/(auth)/verify-email') }]
         );
       } else {
@@ -84,113 +90,174 @@ export default function RegisterScreen() {
     }
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#0D0D0E' : '#F8F9FA' }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <BackgroundDecor />
+  const toggleTheme = () => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (e) {}
+    }
+    setTheme(isDark ? 'light' : 'dark');
+  };
 
-      {/* Subtle ambient glow orbs */}
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+  const inputBg = isDark ? 'rgba(15, 23, 20, 0.75)' : '#ffffff';
+  const inputBorder = isDark ? 'rgba(16, 185, 129, 0.22)' : '#e2e8f0';
+  const cardBg = isDark ? 'rgba(11, 20, 17, 0.85)' : '#ffffff';
+  const cardBorder = isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.18)';
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      {/* Atmospheric Green Background Gradient */}
+      <LinearGradient
+        colors={
+          isDark
+            ? ['#031711', '#061a14', '#08120f', '#060a09']
+            : ['#ecfdf5', '#f0fdf4', '#f8fafc', '#ffffff']
+        }
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+
+      {/* Ambient Emerald Glow Orbs */}
       <View
         style={[
           styles.glowOrbTop,
-          { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.10)' : 'rgba(16, 185, 129, 0.06)' },
+          {
+            backgroundColor: isDark
+              ? 'rgba(16, 185, 129, 0.18)'
+              : 'rgba(16, 185, 129, 0.12)',
+          },
         ]}
       />
       <View
         style={[
           styles.glowOrbBottom,
-          { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.07)' : 'rgba(99, 102, 241, 0.04)' },
+          {
+            backgroundColor: isDark
+              ? 'rgba(5, 150, 105, 0.14)'
+              : 'rgba(52, 211, 153, 0.10)',
+          },
         ]}
       />
 
+      {/* Top Header: Brand Wordmark & Theme Switcher */}
+      <View
+        style={[
+          styles.navBar,
+          {
+            paddingTop: Math.max(insets.top + 10, 24),
+          },
+        ]}
+      >
+        <Text style={[styles.navBrandText, { color: isDark ? '#34d399' : '#059669' }]}>
+          spndy
+        </Text>
+
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={toggleTheme}
+          style={[
+            styles.themeToggleBtn,
+            {
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#ffffff',
+              borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0',
+            },
+          ]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          {isDark ? (
+            <Sun size={17} color="#f59e0b" />
+          ) : (
+            <Moon size={17} color="#64748b" />
+          )}
+        </TouchableOpacity>
+      </View>
+
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: Math.max(insets.top + 28, 52),
-              paddingBottom: Math.max(insets.bottom + 28, 48),
+              paddingBottom: Math.max(insets.bottom + 24, 40),
             },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Claude-style Centered Header */}
-          <View style={styles.headerContainer}>
-            <Text style={[styles.welcomeHeadline, { color: colors.text }]}>Create your account</Text>
-            <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>
-              Enter your details to get started
-            </Text>
-          </View>
-
-          {/* Claude-style Form Box */}
           <View
             style={[
-              styles.formCard,
+              styles.centerCard,
               {
-                backgroundColor: isDark ? '#141416' : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
-                shadowColor: '#000',
-                shadowOpacity: isDark ? 0.30 : 0.05,
-                shadowRadius: 20,
-                elevation: isDark ? 4 : 2,
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
+                shadowColor: isDark ? '#000000' : '#10b981',
+                shadowOpacity: isDark ? 0.35 : 0.08,
+                shadowRadius: 18,
+                elevation: isDark ? 5 : 2,
               },
             ]}
           >
-            {/* Error Banner */}
+            {/* ChatGPT-style Typography Header */}
+            <Text style={[styles.headline, { color: textPrimary }]}>
+              Create your account
+            </Text>
+            <Text style={[styles.subheadline, { color: textSecondary }]}>
+              Start tracking cash flow and collaborative vaults
+            </Text>
+
+            {/* Error Notification */}
             {error && (
               <View
                 style={[
-                  styles.errorBanner,
+                  styles.errorBox,
                   {
-                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEE2E2',
-                    borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FCA5A5',
+                    backgroundColor: isDark
+                      ? 'rgba(239, 68, 68, 0.12)'
+                      : '#fef2f2',
+                    borderColor: isDark
+                      ? 'rgba(239, 68, 68, 0.3)'
+                      : '#fecaca',
                   },
                 ]}
               >
-                <AlertCircle size={16} color="#EF4444" style={{ marginRight: 8, marginTop: 1 }} />
-                <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : '#B91C1C' }]}>
+                <AlertCircle size={16} color="#ef4444" style={{ marginRight: 8 }} />
+                <Text
+                  style={[
+                    styles.errorText,
+                    { color: isDark ? '#fca5a5' : '#dc2626' },
+                  ]}
+                >
                   {error}
                 </Text>
               </View>
             )}
 
-            {/* Full Name Field */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Full Name</Text>
-              <View
-                style={[
-                  styles.inputBox,
-                  {
-                    backgroundColor: isDark
-                      ? focusedField === 'name'
-                        ? 'rgba(16, 185, 129, 0.06)'
-                        : '#1B1B1E'
-                      : focusedField === 'name'
-                      ? '#F0FDF4'
-                      : '#F4F5F7',
-                    borderColor:
-                      focusedField === 'name'
-                        ? '#10B981'
-                        : isDark
-                        ? 'rgba(255, 255, 255, 0.08)'
-                        : '#E2E8F0',
-                  },
-                ]}
-              >
-                <View style={styles.inputIcon}>
-                  <User
-                    size={17}
-                    color={focusedField === 'name' ? '#10B981' : colors.textSecondary}
-                  />
-                </View>
+            {/* Form Fields */}
+            <View style={styles.formContainer}>
+              {/* Full Name Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: textSecondary }]}>
+                  Full name
+                </Text>
                 <TextInput
-                  style={[styles.textInput, { color: colors.text }]}
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor:
+                        focusedField === 'name' ? '#10b981' : inputBorder,
+                      color: textPrimary,
+                    },
+                  ]}
                   placeholder="Alex Morgan"
-                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={name}
                   onChangeText={(val) => {
                     setName(val);
@@ -201,41 +268,24 @@ export default function RegisterScreen() {
                   autoCapitalize="words"
                 />
               </View>
-            </View>
 
-            {/* Email Field */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
-              <View
-                style={[
-                  styles.inputBox,
-                  {
-                    backgroundColor: isDark
-                      ? focusedField === 'email'
-                        ? 'rgba(16, 185, 129, 0.06)'
-                        : '#1B1B1E'
-                      : focusedField === 'email'
-                      ? '#F0FDF4'
-                      : '#F4F5F7',
-                    borderColor:
-                      focusedField === 'email'
-                        ? '#10B981'
-                        : isDark
-                        ? 'rgba(255, 255, 255, 0.08)'
-                        : '#E2E8F0',
-                  },
-                ]}
-              >
-                <View style={styles.inputIcon}>
-                  <Mail
-                    size={17}
-                    color={focusedField === 'email' ? '#10B981' : colors.textSecondary}
-                  />
-                </View>
+              {/* Email Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: textSecondary }]}>
+                  Email address
+                </Text>
                 <TextInput
-                  style={[styles.textInput, { color: colors.text }]}
-                  placeholder="name@company.com"
-                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor:
+                        focusedField === 'email' ? '#10b981' : inputBorder,
+                      color: textPrimary,
+                    },
+                  ]}
+                  placeholder="name@example.com"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={email}
                   onChangeText={(val) => {
                     setEmail(val);
@@ -248,225 +298,186 @@ export default function RegisterScreen() {
                   autoCorrect={false}
                 />
               </View>
+
+              {/* Password Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: textSecondary }]}>
+                  Password
+                </Text>
+                <View
+                  style={[
+                    styles.passwordInputContainer,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor:
+                        focusedField === 'password' ? '#10b981' : inputBorder,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.passwordInput, { color: textPrimary }]}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                    value={password}
+                    onChangeText={(val) => {
+                      setPassword(val);
+                      if (error) setError(null);
+                    }}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {showPassword ? (
+                      <EyeOff size={17} color={textSecondary} />
+                    ) : (
+                      <Eye size={17} color={textSecondary} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Confirm Password Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: textSecondary }]}>
+                  Confirm password
+                </Text>
+                <View
+                  style={[
+                    styles.passwordInputContainer,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor:
+                        focusedField === 'confirmPassword' ? '#10b981' : inputBorder,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.passwordInput, { color: textPrimary }]}
+                    placeholder="Re-enter password"
+                    placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                    value={confirmPassword}
+                    onChangeText={(val) => {
+                      setConfirmPassword(val);
+                      if (error) setError(null);
+                    }}
+                    onFocus={() => setFocusedField('confirmPassword')}
+                    onBlur={() => setFocusedField(null)}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.eyeBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={17} color={textSecondary} />
+                    ) : (
+                      <Eye size={17} color={textSecondary} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Primary Continue Button */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+                onPress={handleRegister}
+                style={styles.primaryBtnWrapper}
+              >
+                <LinearGradient
+                  colors={['#10b981', '#059669']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.primaryBtn}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Continue</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
 
-            {/* Password Field */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Password</Text>
+            {/* Divider */}
+            <View style={styles.dividerRow}>
               <View
                 style={[
-                  styles.inputBox,
-                  {
-                    backgroundColor: isDark
-                      ? focusedField === 'password'
-                        ? 'rgba(16, 185, 129, 0.06)'
-                        : '#1B1B1E'
-                      : focusedField === 'password'
-                      ? '#F0FDF4'
-                      : '#F4F5F7',
-                    borderColor:
-                      focusedField === 'password'
-                        ? '#10B981'
-                        : isDark
-                        ? 'rgba(255, 255, 255, 0.08)'
-                        : '#E2E8F0',
-                  },
+                  styles.dividerLine,
+                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0' },
                 ]}
-              >
-                <View style={styles.inputIcon}>
-                  <Lock
-                    size={17}
-                    color={focusedField === 'password' ? '#10B981' : colors.textSecondary}
-                  />
-                </View>
-                <TextInput
-                  style={[styles.textInput, { color: colors.text }]}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                  value={password}
-                  onChangeText={(val) => {
-                    setPassword(val);
-                    if (error) setError(null);
-                  }}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  onPress={() => {
-                    if (Platform.OS !== 'web') {
-                      try {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      } catch (e) {}
-                    }
-                    setShowPassword((prev) => !prev);
-                  }}
-                  style={styles.eyeToggle}
-                >
-                  {showPassword ? (
-                    <EyeOff size={17} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={17} color={colors.textSecondary} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Confirm Password Field */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                Confirm Password
+              />
+              <Text style={[styles.dividerText, { color: textSecondary }]}>
+                OR
               </Text>
               <View
                 style={[
-                  styles.inputBox,
-                  {
-                    backgroundColor: isDark
-                      ? focusedField === 'confirmPassword'
-                        ? 'rgba(16, 185, 129, 0.06)'
-                        : '#1B1B1E'
-                      : focusedField === 'confirmPassword'
-                      ? '#F0FDF4'
-                      : '#F4F5F7',
-                    borderColor:
-                      focusedField === 'confirmPassword'
-                        ? '#10B981'
-                        : isDark
-                        ? 'rgba(255, 255, 255, 0.08)'
-                        : '#E2E8F0',
-                  },
-                ]}
-              >
-                <View style={styles.inputIcon}>
-                  <Lock
-                    size={17}
-                    color={focusedField === 'confirmPassword' ? '#10B981' : colors.textSecondary}
-                  />
-                </View>
-                <TextInput
-                  style={[styles.textInput, { color: colors.text }]}
-                  placeholder="Re-enter password"
-                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                  value={confirmPassword}
-                  onChangeText={(val) => {
-                    setConfirmPassword(val);
-                    if (error) setError(null);
-                  }}
-                  onFocus={() => setFocusedField('confirmPassword')}
-                  onBlur={() => setFocusedField(null)}
-                  secureTextEntry={!showConfirmPassword}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  onPress={() => {
-                    if (Platform.OS !== 'web') {
-                      try {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      } catch (e) {}
-                    }
-                    setShowConfirmPassword((prev) => !prev);
-                  }}
-                  style={styles.eyeToggle}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff size={17} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={17} color={colors.textSecondary} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Primary Action Button */}
-            <TouchableOpacity
-              onPress={handleRegister}
-              disabled={isSubmitting}
-              activeOpacity={0.88}
-              style={styles.primaryButtonWrapper}
-            >
-              <LinearGradient
-                colors={['#10B981', '#059669']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.primaryButton}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <View style={styles.primaryButtonContent}>
-                    <Text style={styles.primaryButtonText}>Create account</Text>
-                    <ArrowRight size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
-                  </View>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Claude-style Divider */}
-            <View style={styles.dividerContainer}>
-              <View
-                style={[
                   styles.dividerLine,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB' },
-                ]}
-              />
-              <Text style={[styles.dividerLabel, { color: colors.textSecondary }]}>OR</Text>
-              <View
-                style={[
-                  styles.dividerLine,
-                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E5E7EB' },
+                  { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0' },
                 ]}
               />
             </View>
 
-            {/* Google Sign Up - Placed Under the Box Fields & Primary Button */}
-            <GoogleSignInButton
-              mode="register"
-              onError={(err) => setError(err)}
-              onSuccess={() => router.replace('/(tabs)')}
-              disabled={isSubmitting}
-            />
-          </View>
+            {/* Social Authentication List */}
+            <View style={styles.socialStack}>
+              <GoogleSignInButton
+                mode="register"
+                onError={(err) => setError(err)}
+                style={{ marginBottom: 10 }}
+              />
 
-          {/* Bottom Switch to Sign In */}
-          <View style={styles.bottomNavRow}>
-            <Text style={[styles.bottomNavText, { color: colors.textSecondary }]}>
-              Already have an account?{' '}
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                if (Platform.OS !== 'web') {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch (e) {}
-                }
-                router.replace('/(auth)/login');
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={[styles.bottomNavAction, { color: '#10B981' }]}>Sign in</Text>
-            </TouchableOpacity>
-          </View>
+              <GitHubSignInButton
+                mode="register"
+                onError={(err) => setError(err)}
+                style={{ marginBottom: 4 }}
+              />
+            </View>
 
-          {/* Claude-style Terms and Privacy Policy Footer */}
-          <View style={styles.legalFooterRow}>
-            <Text style={[styles.legalText, { color: colors.textSecondary }]}>
-              By continuing, you agree to our{' '}
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/terms-of-service')}
-              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-            >
-              <Text style={[styles.legalLink, { color: colors.text }]}>Terms of Service</Text>
-            </TouchableOpacity>
-            <Text style={[styles.legalText, { color: colors.textSecondary }]}> and </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/privacy-policy')}
-              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-            >
-              <Text style={[styles.legalLink, { color: colors.text }]}>Privacy Policy</Text>
-            </TouchableOpacity>
-            <Text style={[styles.legalText, { color: colors.textSecondary }]}>.</Text>
+            {/* Footer Navigation */}
+            <View style={styles.footerRow}>
+              <Text style={[styles.footerPrompt, { color: textSecondary }]}>
+                Already have an account?{' '}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push('/(auth)/login')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.footerLink}>Log in</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Terms and Privacy Policy Footer */}
+            <View style={styles.legalRow}>
+              <Text style={[styles.legalText, { color: textSecondary }]}>
+                By continuing, you agree to our{' '}
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/terms-of-service')}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              >
+                <Text style={[styles.legalLink, { color: textPrimary }]}>
+                  Terms of Service
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.legalText, { color: textSecondary }]}> and </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/privacy-policy')}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              >
+                <Text style={[styles.legalLink, { color: textPrimary }]}>
+                  Privacy Policy
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -478,173 +489,190 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  glowOrbTop: {
+    position: 'absolute',
+    top: -60,
+    left: -40,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
+  glowOrbBottom: {
+    position: 'absolute',
+    bottom: -60,
+    right: -40,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+  },
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+  },
+  navBrandText: {
+    fontSize: 20,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.6,
+  },
+  themeToggleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keyboardAvoid: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
-  glowOrbTop: {
-    position: 'absolute',
-    top: -80,
-    left: '20%',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-  },
-  glowOrbBottom: {
-    position: 'absolute',
-    bottom: -100,
-    right: '15%',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-  },
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  welcomeHeadline: {
-    fontSize: 27,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: -0.6,
-    textAlign: 'center',
-  },
-  welcomeSubtitle: {
-    fontSize: 14,
-    fontFamily: 'SpaceGrotesk_400Regular',
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  formCard: {
+  centerCard: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 400,
     alignSelf: 'center',
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
-    paddingHorizontal: 26,
-    paddingTop: 28,
-    paddingBottom: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
   },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 18,
-  },
-  errorText: {
-    fontSize: 13,
-    fontFamily: 'SpaceGrotesk_400Regular',
-    flex: 1,
-    lineHeight: 18,
-  },
-  fieldGroup: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontFamily: 'SpaceGrotesk_500Medium',
+  headline: {
+    fontSize: 26,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    textAlign: 'center',
+    letterSpacing: -0.6,
     marginBottom: 6,
   },
-  inputBox: {
+  subheadline: {
+    fontSize: 13.5,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 22,
+  },
+  errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
     paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
   },
-  inputIcon: {
-    marginRight: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+  errorText: {
+    fontSize: 12.5,
+    fontFamily: 'SpaceGrotesk_500Medium',
+    flex: 1,
+  },
+  formContainer: {
+    gap: 13,
+    marginBottom: 18,
+  },
+  fieldGroup: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 12.5,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   textInput: {
+    height: 48,
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_500Medium',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+  },
+  passwordInput: {
     flex: 1,
     fontSize: 14,
-    fontFamily: 'SpaceGrotesk_400Regular',
+    fontFamily: 'SpaceGrotesk_500Medium',
     height: '100%',
   },
-  eyeToggle: {
+  eyeBtn: {
     padding: 6,
-    marginLeft: 4,
   },
-  primaryButtonWrapper: {
-    borderRadius: 12,
+  primaryBtnWrapper: {
+    borderRadius: 11,
     overflow: 'hidden',
-    marginTop: 6,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
+    marginTop: 4,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
     elevation: 2,
   },
-  primaryButton: {
+  primaryBtn: {
     height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  primaryButtonContent: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+  primaryBtnText: {
+    fontSize: 14.5,
+    color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: 0.2,
   },
-  dividerContainer: {
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 14,
+    gap: 12,
   },
   dividerLine: {
     flex: 1,
     height: 1,
   },
-  dividerLabel: {
+  dividerText: {
     fontSize: 11,
     fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: 1.4,
-    paddingHorizontal: 12,
-    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  bottomNavRow: {
+  socialStack: {
+    marginBottom: 20,
+  },
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 22,
+    marginBottom: 16,
   },
-  bottomNavText: {
-    fontSize: 14,
+  footerPrompt: {
+    fontSize: 13,
     fontFamily: 'SpaceGrotesk_400Regular',
   },
-  bottomNavAction: {
-    fontSize: 14,
+  footerLink: {
+    fontSize: 13,
     fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10b981',
   },
-  legalFooterRow: {
+  legalRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 18,
-    paddingHorizontal: 16,
   },
   legalText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: 'SpaceGrotesk_400Regular',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   legalLink: {
-    fontSize: 12,
-    fontFamily: 'SpaceGrotesk_500Medium',
+    fontSize: 11.5,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     textDecorationLine: 'underline',
-    lineHeight: 18,
   },
 });
