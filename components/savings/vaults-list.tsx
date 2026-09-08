@@ -22,6 +22,10 @@ import {
   X,
   Target,
   PiggyBank,
+  Sparkles,
+  ShieldCheck,
+  TrendingUp,
+  Zap,
 } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
 import { SavingsVault } from '@/types';
@@ -40,6 +44,8 @@ interface VaultsListProps {
   currency?: string;
   onRefresh: () => void;
 }
+
+const QUICK_AMOUNTS = [25, 50, 100];
 
 export const VaultsList: React.FC<VaultsListProps> = ({
   vaults,
@@ -171,23 +177,37 @@ export const VaultsList: React.FC<VaultsListProps> = ({
     }
   };
 
+  const setPresetPercentage = (pct: number) => {
+    if (!activeVault) return;
+    const base = actionType === 'deposit' ? spendableBalance : activeVault.currentAmount;
+    const calc = Math.floor(base * (pct / 100));
+    setActionAmountStr(calc > 0 ? calc.toString() : '');
+  };
+
+  const openQuickDeposit = (vault: SavingsVault, amount: number) => {
+    setActiveVault(vault);
+    setActionType('deposit');
+    setActionAmountStr(amount.toString());
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Telemetry Header */}
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.headerTitleGroup}>
+          <View style={styles.sectionBadge}>
+            <Target size={11} color="#10B981" />
+            <Text style={styles.sectionBadgeText}>GOAL MATRIX</Text>
+          </View>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            SAVINGS VAULTS
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            Locked & goal-oriented personal savings
+            Target Milestone Vaults
           </Text>
         </View>
 
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => setShowCreateModal(true)}
-          style={styles.addVaultBtnWrapper}
+          style={styles.addVaultBtnOuter}
         >
           <LinearGradient
             colors={['#10B981', '#059669']}
@@ -195,44 +215,46 @@ export const VaultsList: React.FC<VaultsListProps> = ({
             end={{ x: 1, y: 1 }}
             style={styles.addVaultBtn}
           >
-            <Plus size={13} color="#ffffff" />
+            <Plus size={13} color="#ffffff" strokeWidth={2.5} />
             <Text style={styles.addVaultBtnText}>New Goal</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      {/* Vault Cards */}
+      {/* Vault Cards Stack */}
       {vaults.length === 0 ? (
         <View
           style={[
-            styles.emptyCard,
+            styles.emptyChamber,
             {
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : colors.card,
+              backgroundColor: isDark ? '#0a0f0e' : colors.card,
               borderColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.border,
             },
           ]}
         >
-          <View
-            style={[
-              styles.emptyIconCircle,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(16, 185, 129, 0.12)'
-                  : 'rgba(16, 185, 129, 0.08)',
-              },
-            ]}
-          >
-            <PiggyBank size={24} color={colors.primary} />
+          <View style={styles.emptyGlowAura}>
+            <View style={styles.emptyIconPod}>
+              <PiggyBank size={26} color="#10B981" />
+            </View>
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No Savings Vaults Yet
+            Zero Active Milestone Pods
           </Text>
           <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-            Create your first locked vault to set aside money toward specific milestones.
+            Initialize a protected vault to quarantine funds away from daily operational spending toward dedicated targets.
           </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setShowCreateModal(true)}
+            style={styles.emptyActionBtn}
+          >
+            <Sparkles size={13} color="#10B981" />
+            <Text style={styles.emptyActionBtnText}>Initialize First Vault</Text>
+          </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.vaultsList}>
+        <View style={styles.vaultsGrid}>
           {vaults.map((vault) => {
             const progress =
               vault.targetAmount > 0
@@ -242,144 +264,211 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                   )
                 : 0;
             const remaining = Math.max(0, vault.targetAmount - vault.currentAmount);
+            const isCompleted = vault.currentAmount >= vault.targetAmount && vault.targetAmount > 0;
 
             return (
               <View
                 key={vault.id}
                 style={[
-                  styles.vaultCard,
+                  styles.vaultPod,
                   {
-                    backgroundColor: isDark ? '#141c18' : colors.card,
-                    borderColor: isDark ? 'rgba(52, 211, 153, 0.2)' : colors.border,
+                    backgroundColor: isDark ? '#090e0d' : colors.card,
+                    borderColor: isCompleted
+                      ? 'rgba(16, 185, 129, 0.5)'
+                      : isDark
+                      ? 'rgba(16, 185, 129, 0.18)'
+                      : colors.border,
                   },
                 ]}
               >
-                <View style={styles.vaultTopRow}>
-                  <View style={styles.vaultTitleGroup}>
+                {/* Hairline subtle top highlight */}
+                <LinearGradient
+                  colors={
+                    isCompleted
+                      ? ['rgba(16, 185, 129, 0.4)', 'rgba(52, 211, 153, 0.1)', 'transparent']
+                      : ['rgba(16, 185, 129, 0.25)', 'transparent']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.podTopRim}
+                />
+
+                {/* Top Section */}
+                <View style={styles.podHeader}>
+                  <View style={styles.podTitleBox}>
                     <View
                       style={[
-                        styles.vaultIconBubble,
+                        styles.podGlyph,
                         {
                           backgroundColor: isDark
-                            ? 'rgba(16, 185, 129, 0.15)'
-                            : '#ecfdf5',
+                            ? 'rgba(16, 185, 129, 0.12)'
+                            : 'rgba(16, 185, 129, 0.08)',
+                          borderColor: 'rgba(16, 185, 129, 0.25)',
                         },
                       ]}
                     >
-                      <Target size={16} color={colors.primary} />
+                      <Target size={16} color="#10B981" />
                     </View>
-                    <View>
-                      <Text style={[styles.vaultName, { color: colors.text }]}>
+                    <View style={styles.podMeta}>
+                      <Text style={[styles.podName, { color: colors.text }]} numberOfLines={1}>
                         {vault.name}
                       </Text>
-                      <View
-                        style={[
-                          styles.lockBadge,
-                          {
-                            backgroundColor: vault.isLocked
-                              ? isDark
-                                ? 'rgba(16, 185, 129, 0.15)'
-                                : '#ecfdf5'
-                              : isDark
-                              ? 'rgba(255, 255, 255, 0.06)'
-                              : '#f4f4f5',
-                            borderColor: vault.isLocked
-                              ? 'rgba(16, 185, 129, 0.25)'
-                              : 'rgba(255, 255, 255, 0.1)',
-                          },
-                        ]}
-                      >
+                      <View style={styles.podBadgeRow}>
                         <View
                           style={[
-                            styles.lockBadgeDot,
-                            { backgroundColor: vault.isLocked ? '#10B981' : '#9CA3AF' },
-                          ]}
-                        />
-                        {vault.isLocked ? (
-                          <Lock size={10} color={colors.primary} />
-                        ) : (
-                          <Unlock size={10} color={colors.textSecondary} />
-                        )}
-                        <Text
-                          style={[
-                            styles.lockBadgeText,
+                            styles.lockStatusChip,
                             {
-                              color: vault.isLocked
-                                ? colors.primary
-                                : colors.textSecondary,
+                              backgroundColor: vault.isLocked
+                                ? isDark
+                                  ? 'rgba(16, 185, 129, 0.12)'
+                                  : '#ecfdf5'
+                                : isDark
+                                ? 'rgba(255, 255, 255, 0.05)'
+                                : '#f4f4f5',
+                              borderColor: vault.isLocked
+                                ? 'rgba(16, 185, 129, 0.3)'
+                                : 'rgba(255, 255, 255, 0.1)',
                             },
                           ]}
                         >
-                          {vault.isLocked ? 'Protected' : 'Flexible'}
-                        </Text>
+                          <View
+                            style={[
+                              styles.lockDot,
+                              { backgroundColor: vault.isLocked ? '#10B981' : '#94a3b8' },
+                            ]}
+                          />
+                          {vault.isLocked ? (
+                            <Lock size={9} color="#10B981" />
+                          ) : (
+                            <Unlock size={9} color="#94a3b8" />
+                          )}
+                          <Text
+                            style={[
+                              styles.lockText,
+                              { color: vault.isLocked ? '#10B981' : '#94a3b8' },
+                            ]}
+                          >
+                            {vault.isLocked ? 'PROTECTED LOCK' : 'FLEXIBLE'}
+                          </Text>
+                        </View>
+
+                        {isCompleted && (
+                          <View style={styles.completedTag}>
+                            <ShieldCheck size={9} color="#10B981" />
+                            <Text style={styles.completedTagText}>MET</Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                   </View>
 
-                  <View style={styles.percentBadge}>
-                    <Text style={[styles.vaultPercent, { color: colors.primary }]}>
-                      {progress}%
+                  <View style={styles.percentPill}>
+                    <TrendingUp size={11} color="#10B981" />
+                    <Text style={styles.percentPillText}>{progress}%</Text>
+                  </View>
+                </View>
+
+                {/* Progress Metric Architecture */}
+                <View style={styles.progressModule}>
+                  <View style={styles.trackBackground}>
+                    <LinearGradient
+                      colors={['#059669', '#10B981', '#34D399']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[
+                        styles.trackFill,
+                        {
+                          width: `${Math.max(progress > 0 ? 5 : 0, progress)}%`,
+                        },
+                      ]}
+                    />
+                    {/* Tick Milestones */}
+                    <View style={[styles.tickMark, { left: '25%' }]} />
+                    <View style={[styles.tickMark, { left: '50%' }]} />
+                    <View style={[styles.tickMark, { left: '75%' }]} />
+                  </View>
+                </View>
+
+                {/* Figures Telemetry */}
+                <View style={styles.metricsRow}>
+                  <View>
+                    <Text style={styles.metricCaption}>ACCUMULATED</Text>
+                    <Text style={[styles.metricValue, { color: colors.text }]}>
+                      {formatCurrency(vault.currentAmount, currency)}
+                    </Text>
+                  </View>
+
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.metricCaption}>
+                      {isCompleted ? 'TARGET ACHIEVED' : 'REMAINING DEFICIT'}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.metricSubValue,
+                        { color: isCompleted ? '#10B981' : colors.textSecondary },
+                      ]}
+                    >
+                      {isCompleted
+                        ? formatCurrency(vault.targetAmount, currency)
+                        : `${formatCurrency(remaining, currency)} left`}
                     </Text>
                   </View>
                 </View>
 
-                {/* Progress Bar */}
-                <View
-                  style={[
-                    styles.progressBarTrack,
-                    { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e4e4e7' },
-                  ]}
-                >
-                  <LinearGradient
-                    colors={['#10B981', '#34D399']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${Math.max(progress > 0 ? 5 : 0, progress)}%`,
-                      },
-                    ]}
-                  />
-                </View>
+                {/* Quick Allocation Micro-Chips (Direct 1-tap top up) */}
+                {!isCompleted && spendableBalance >= 25 && (
+                  <View style={styles.quickChipsBar}>
+                    <Text style={styles.quickChipsLabel}>QUICK TOP-UP:</Text>
+                    <View style={styles.quickChipsList}>
+                      {QUICK_AMOUNTS.map((amt) => {
+                        if (spendableBalance < amt) return null;
+                        return (
+                          <TouchableOpacity
+                            key={amt}
+                            activeOpacity={0.75}
+                            onPress={() => openQuickDeposit(vault, amt)}
+                            style={[
+                              styles.quickChip,
+                              {
+                                backgroundColor: isDark
+                                  ? 'rgba(16, 185, 129, 0.09)'
+                                  : 'rgba(16, 185, 129, 0.08)',
+                                borderColor: 'rgba(16, 185, 129, 0.22)',
+                              },
+                            ]}
+                          >
+                            <Zap size={9} color="#10B981" />
+                            <Text style={styles.quickChipText}>
+                              +{currencySymbol}{amt}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
 
-                {/* Numbers Row */}
-                <View style={styles.vaultNumbersRow}>
-                  <Text style={[styles.vaultCurrentAmt, { color: colors.text }]}>
-                    {formatCurrency(vault.currentAmount, currency)}
-                  </Text>
-                  <Text style={[styles.vaultTargetAmt, { color: colors.textSecondary }]}>
-                    Goal: {formatCurrency(vault.targetAmount, currency)}
-                    {remaining > 0 ? ` • ${formatCurrency(remaining, currency)} left` : ' • Completed'}
-                  </Text>
-                </View>
-
-                {/* Vault Action Buttons */}
-                <View style={styles.vaultCardActions}>
+                {/* Action Dock */}
+                <View style={styles.actionsDock}>
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => {
                       setActiveVault(vault);
                       setActionType('deposit');
+                      setActionAmountStr('');
                     }}
                     style={[
-                      styles.vaultActionBtn,
+                      styles.podBtnPrimary,
                       {
                         backgroundColor: isDark
-                          ? 'rgba(16, 185, 129, 0.15)'
+                          ? 'rgba(16, 185, 129, 0.16)'
                           : '#ecfdf5',
-                        borderColor: isDark
-                          ? 'rgba(16, 185, 129, 0.3)'
-                          : 'rgba(16, 185, 129, 0.25)',
+                        borderColor: 'rgba(16, 185, 129, 0.35)',
                       },
                     ]}
                   >
-                    <ArrowDownRight size={14} color={colors.primary} />
-                    <Text
-                      style={[styles.vaultActionBtnText, { color: colors.primary }]}
-                    >
-                      Deposit
-                    </Text>
+                    <ArrowDownRight size={13} color="#10B981" strokeWidth={2.5} />
+                    <Text style={styles.podBtnPrimaryText}>Add Funds</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -387,27 +476,25 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                     onPress={() => {
                       setActiveVault(vault);
                       setActionType('withdraw');
+                      setActionAmountStr('');
                     }}
                     style={[
-                      styles.vaultActionBtn,
+                      styles.podBtnSecondary,
                       {
                         backgroundColor: isDark
-                          ? 'rgba(255, 255, 255, 0.06)'
+                          ? 'rgba(255, 255, 255, 0.04)'
                           : '#f4f4f5',
                         borderColor: isDark
-                          ? 'rgba(255, 255, 255, 0.1)'
+                          ? 'rgba(255, 255, 255, 0.08)'
                           : colors.border,
                       },
                     ]}
                   >
-                    <ArrowUpLeft size={14} color={colors.textSecondary} />
+                    <ArrowUpLeft size={13} color={colors.textSecondary} strokeWidth={2} />
                     <Text
-                      style={[
-                        styles.vaultActionBtnText,
-                        { color: colors.textSecondary },
-                      ]}
+                      style={[styles.podBtnSecondaryText, { color: colors.textSecondary }]}
                     >
-                      Withdraw
+                      Draw
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -431,15 +518,25 @@ export const VaultsList: React.FC<VaultsListProps> = ({
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
+              {
+                backgroundColor: isDark ? '#090e0d' : colors.card,
+                borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : colors.border,
+              },
             ]}
           >
             <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Target size={18} color={colors.primary} />
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  New Savings Goal
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <View style={styles.modalIconPod}>
+                  <Target size={17} color="#10B981" />
+                </View>
+                <View>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    New Savings Goal
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    Segregate liquidity toward target objectives
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity
                 onPress={() => setShowCreateModal(false)}
@@ -449,35 +546,33 @@ export const VaultsList: React.FC<VaultsListProps> = ({
               </TouchableOpacity>
             </View>
 
-            <View style={{ padding: 20 }}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-                VAULT NAME
-              </Text>
+            <View style={styles.modalBody}>
+              <Text style={styles.inputCategoryCaption}>VAULT IDENTIFIER</Text>
               <TextInput
                 style={[
                   styles.formInput,
                   {
                     color: colors.text,
-                    backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
                   },
                 ]}
-                placeholder="e.g. Emergency Fund, Laptop, Travel"
+                placeholder="e.g. Emergency Reserve, Workstation, Escrow"
                 placeholderTextColor={colors.textSecondary}
                 value={newVaultName}
                 onChangeText={setNewVaultName}
               />
 
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: 14 }]}>
-                TARGET AMOUNT ({currency})
+              <Text style={[styles.inputCategoryCaption, { marginTop: 14 }]}>
+                TARGET RESERVE GOAL ({currency})
               </Text>
               <TextInput
                 style={[
                   styles.formInput,
                   {
                     color: colors.text,
-                    backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
                   },
                 ]}
                 placeholder="1000"
@@ -490,47 +585,54 @@ export const VaultsList: React.FC<VaultsListProps> = ({
               {/* Lock Switch */}
               <View
                 style={[
-                  styles.switchRow,
+                  styles.switchPlate,
                   {
-                    backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.06)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.2)' : colors.border,
                   },
                 ]}
               >
                 <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={[styles.switchTitle, { color: colors.text }]}>
-                    Lock Discipline Mode
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Lock size={12} color="#10B981" />
+                    <Text style={[styles.switchTitle, { color: colors.text }]}>
+                      Protected Discipline Mode
+                    </Text>
+                  </View>
                   <Text style={[styles.switchSub, { color: colors.textSecondary }]}>
-                    Marks savings protected to reinforce habit building
+                    Enforces conscious decision barriers to deter impulsive withdrawals
                   </Text>
                 </View>
                 <Switch
                   value={isLocked}
                   onValueChange={setIsLocked}
-                  trackColor={{ false: '#71717a', true: colors.primary }}
+                  trackColor={{ false: '#52525b', true: '#10B981' }}
+                  thumbColor="#ffffff"
                 />
               </View>
 
               <TouchableOpacity
-                activeOpacity={0.9}
+                activeOpacity={0.88}
                 disabled={isCreating || !newVaultName.trim()}
                 onPress={handleCreateVault}
-                style={[
-                  styles.submitBtn,
-                  {
-                    backgroundColor:
-                      isCreating || !newVaultName.trim()
-                        ? '#94a3b8'
-                        : colors.primary,
-                  },
-                ]}
+                style={styles.submitBtnOuter}
               >
-                {isCreating ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>Create Vault</Text>
-                )}
+                <LinearGradient
+                  colors={
+                    isCreating || !newVaultName.trim()
+                      ? ['#475569', '#334155']
+                      : ['#10B981', '#059669']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtnGradient}
+                >
+                  {isCreating ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Initialize Chamber</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -551,20 +653,39 @@ export const VaultsList: React.FC<VaultsListProps> = ({
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
+              {
+                backgroundColor: isDark ? '#090e0d' : colors.card,
+                borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : colors.border,
+              },
             ]}
           >
             <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {actionType === 'deposit' ? (
-                  <ArrowDownRight size={18} color={colors.primary} />
-                ) : (
-                  <ArrowUpLeft size={18} color={colors.textSecondary} />
-                )}
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  {actionType === 'deposit' ? 'Deposit into' : 'Withdraw from'}{' '}
-                  {activeVault?.name}
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <View
+                  style={[
+                    styles.modalIconPod,
+                    {
+                      backgroundColor:
+                        actionType === 'deposit'
+                          ? 'rgba(16, 185, 129, 0.15)'
+                          : 'rgba(245, 158, 11, 0.15)',
+                    },
+                  ]}
+                >
+                  {actionType === 'deposit' ? (
+                    <ArrowDownRight size={17} color="#10B981" />
+                  ) : (
+                    <ArrowUpLeft size={17} color="#f59e0b" />
+                  )}
+                </View>
+                <View>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    {actionType === 'deposit' ? 'Allocate to Vault' : 'Withdraw from Vault'}
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    {activeVault?.name}
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity
                 onPress={() => setActiveVault(null)}
@@ -574,27 +695,41 @@ export const VaultsList: React.FC<VaultsListProps> = ({
               </TouchableOpacity>
             </View>
 
-            <View style={{ padding: 20 }}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-                {actionType === 'deposit'
-                  ? `Available in Wallet: ${formatCurrency(spendableBalance, currency)}`
-                  : `In Vault: ${formatCurrency(activeVault?.currentAmount || 0, currency)}`}
-              </Text>
-
+            <View style={styles.modalBody}>
+              {/* Liquidity telemetry indicator */}
               <View
                 style={[
-                  styles.amountInputRow,
+                  styles.liquidityCallout,
                   {
-                    backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.border,
                   },
                 ]}
               >
-                <Text style={[styles.currencyPrefix, { color: colors.primary }]}>
-                  {currencySymbol}
+                <Text style={[styles.liquidityCalloutLabel, { color: colors.textSecondary }]}>
+                  {actionType === 'deposit' ? 'AVAILABLE WALLET RESERVE' : 'IN VAULT CHAMBER'}
                 </Text>
+                <Text style={[styles.liquidityCalloutVal, { color: colors.text }]}>
+                  {formatCurrency(
+                    actionType === 'deposit' ? spendableBalance : activeVault?.currentAmount || 0,
+                    currency
+                  )}
+                </Text>
+              </View>
+
+              {/* Amount Input */}
+              <View
+                style={[
+                  styles.actionAmountFrame,
+                  {
+                    backgroundColor: isDark ? 'rgba(0, 0, 0, 0.4)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : colors.border,
+                  },
+                ]}
+              >
+                <Text style={styles.actionCurrencyGlyph}>{currencySymbol}</Text>
                 <TextInput
-                  style={[styles.modalAmountInput, { color: colors.text }]}
+                  style={[styles.actionAmountTextInput, { color: colors.text }]}
                   placeholder="0"
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="decimal-pad"
@@ -604,27 +739,58 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                 />
               </View>
 
+              {/* Quick Stepper Chips (25%, 50%, 75%, MAX) */}
+              <View style={styles.percentageChipsRow}>
+                {[25, 50, 75, 100].map((pct) => (
+                  <TouchableOpacity
+                    key={pct}
+                    activeOpacity={0.75}
+                    onPress={() => setPresetPercentage(pct)}
+                    style={[
+                      styles.percentageChip,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.05)'
+                          : '#e4e4e7',
+                        borderColor: isDark
+                          ? 'rgba(255, 255, 255, 0.08)'
+                          : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.percentageChipText}>
+                      {pct === 100 ? 'MAX' : `${pct}%`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <TouchableOpacity
-                activeOpacity={0.9}
+                activeOpacity={0.88}
                 disabled={isActionLoading || actionNumericAmount <= 0}
                 onPress={handleVaultAction}
-                style={[
-                  styles.submitBtn,
-                  {
-                    backgroundColor:
-                      isActionLoading || actionNumericAmount <= 0
-                        ? '#94a3b8'
-                        : colors.primary,
-                  },
-                ]}
+                style={styles.submitBtnOuter}
               >
-                {isActionLoading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>
-                    {actionType === 'deposit' ? 'Confirm Deposit' : 'Confirm Withdrawal'}
-                  </Text>
-                )}
+                <LinearGradient
+                  colors={
+                    isActionLoading || actionNumericAmount <= 0
+                      ? ['#475569', '#334155']
+                      : actionType === 'deposit'
+                      ? ['#10B981', '#059669']
+                      : ['#d97706', '#b45309']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtnGradient}
+                >
+                  {isActionLoading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>
+                      {actionType === 'deposit' ? 'Confirm Allocation' : 'Release to Wallet'}
+                    </Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -645,17 +811,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 12,
-    letterSpacing: 1,
+  headerTitleGroup: {
+    gap: 3,
+  },
+  sectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+  },
+  sectionBadgeText: {
+    fontSize: 10,
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 1.2,
+    color: '#10B981',
   },
-  sectionSubtitle: {
-    fontSize: 11,
-    marginTop: 2,
-    fontFamily: 'SpaceGrotesk_400Regular',
+  sectionTitle: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
   },
-  addVaultBtnWrapper: {
+  addVaultBtnOuter: {
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -663,238 +839,440 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
   },
   addVaultBtnText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.2,
   },
-  emptyCard: {
-    borderRadius: 20,
+  emptyChamber: {
+    borderRadius: 22,
     borderWidth: 1,
-    borderStyle: 'dashed',
-    padding: 28,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  emptyGlowAura: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  emptyIconPod: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'SpaceGrotesk_700Bold',
-    marginBottom: 4,
+    marginBottom: 5,
+    letterSpacing: -0.2,
   },
   emptySub: {
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
     fontFamily: 'SpaceGrotesk_400Regular',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    marginBottom: 16,
   },
-  vaultsList: {
+  emptyActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  emptyActionBtnText: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+  },
+  vaultsGrid: {
     gap: 12,
   },
-  vaultCard: {
-    borderRadius: 20,
+  vaultPod: {
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 18,
+    padding: 16,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  vaultTopRow: {
+  podTopRim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+  },
+  podHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  vaultTitleGroup: {
+  podTitleBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    paddingRight: 8,
   },
-  vaultIconBubble: {
+  podGlyph: {
     width: 36,
     height: 36,
     borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  vaultName: {
-    fontSize: 15,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    marginBottom: 3,
+  podMeta: {
+    flex: 1,
   },
-  lockBadge: {
+  podName: {
+    fontSize: 14.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  podBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  lockStatusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
     borderWidth: 0.8,
   },
-  lockBadgeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  lockDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
-  lockBadgeText: {
-    fontSize: 10,
+  lockText: {
+    fontSize: 9,
     fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: 0.2,
+    letterSpacing: 0.6,
   },
-  percentBadge: {
-    paddingHorizontal: 9,
+  completedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 0.8,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  completedTagText: {
+    fontSize: 8.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+    letterSpacing: 0.6,
+  },
+  percentPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 0.8,
+    borderColor: 'rgba(16, 185, 129, 0.22)',
   },
-  vaultPercent: {
-    fontSize: 13,
+  percentPillText: {
+    fontSize: 11.5,
     fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
   },
-  progressBarTrack: {
-    height: 8,
-    borderRadius: 4,
+  progressModule: {
+    marginBottom: 12,
+  },
+  trackBackground: {
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     overflow: 'hidden',
-    marginBottom: 10,
+    position: 'relative',
+    justifyContent: 'center',
   },
-  progressBarFill: {
+  trackFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3.5,
   },
-  vaultNumbersRow: {
+  tickMark: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1.5,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  metricsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
+    alignItems: 'flex-end',
+    marginBottom: 12,
   },
-  vaultCurrentAmt: {
-    fontSize: 15,
+  metricCaption: {
+    fontSize: 9.5,
+    letterSpacing: 0.8,
+    color: '#64748b',
     fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: -0.2,
+    marginBottom: 2,
   },
-  vaultTargetAmt: {
+  metricValue: {
+    fontSize: 15.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.3,
+  },
+  metricSubValue: {
     fontSize: 12,
-    fontFamily: 'SpaceGrotesk_400Regular',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
-  vaultCardActions: {
+  quickChipsBar: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
-  vaultActionBtn: {
+  quickChipsLabel: {
+    fontSize: 9,
+    letterSpacing: 0.6,
+    color: '#64748b',
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  quickChipsList: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+  },
+  quickChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+    borderWidth: 0.8,
+  },
+  quickChipText: {
+    fontSize: 10.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+  },
+  actionsDock: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  podBtnPrimary: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 11,
     borderWidth: 1,
   },
-  vaultActionBtnText: {
-    fontSize: 12.5,
+  podBtnPrimaryText: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+  },
+  podBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 11,
+    borderWidth: 1,
+  },
+  podBtnSecondaryText: {
+    fontSize: 12,
     fontFamily: 'SpaceGrotesk_600SemiBold',
-    letterSpacing: -0.2,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
   modalCard: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderWidth: 1,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
+  modalIconPod: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.8,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    marginTop: 1,
   },
   closeBtn: {
     padding: 6,
   },
-  inputLabel: {
-    fontSize: 11,
-    letterSpacing: 0.8,
-    marginBottom: 6,
+  modalBody: {
+    padding: 20,
+  },
+  inputCategoryCaption: {
+    fontSize: 10,
+    letterSpacing: 0.9,
+    color: '#64748b',
     fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 6,
   },
   formInput: {
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     fontSize: 14,
-    fontFamily: 'SpaceGrotesk_400Regular',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
-  switchRow: {
+  switchPlate: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 12,
+    padding: 13,
+    borderRadius: 14,
     borderWidth: 1,
     marginTop: 14,
     marginBottom: 20,
   },
   switchTitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   switchSub: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 10.5,
+    marginTop: 3,
+    lineHeight: 14,
     fontFamily: 'SpaceGrotesk_400Regular',
   },
-  amountInputRow: {
+  liquidityCallout: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  liquidityCalloutLabel: {
+    fontSize: 10,
+    letterSpacing: 0.8,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  liquidityCalloutVal: {
+    fontSize: 13,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  actionAmountFrame: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.2,
     paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
-  currencyPrefix: {
-    fontSize: 28,
-    marginRight: 6,
+  actionCurrencyGlyph: {
+    fontSize: 26,
     fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+    marginRight: 6,
   },
-  modalAmountInput: {
+  actionAmountTextInput: {
     fontSize: 32,
     minWidth: 80,
     textAlign: 'center',
     fontFamily: 'SpaceGrotesk_700Bold',
   },
-  submitBtn: {
+  percentageChipsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 20,
+  },
+  percentageChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  percentageChipText: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  submitBtnOuter: {
     borderRadius: 14,
+    overflow: 'hidden',
+  },
+  submitBtnGradient: {
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.3,
   },
 });

@@ -128,10 +128,14 @@ const mapFirebaseUser = async (firebaseUser: FirebaseUser | null): Promise<User 
       });
     }
 
+    const isOAuthUser = Boolean(
+      profileData?.provider && profileData.provider !== 'password'
+    ) || firebaseUser.providerData.some(p => p.providerId && p.providerId !== 'password');
+
     return {
       uid: firebaseUser.uid,
       email: firebaseUser.email || '',
-      emailVerified: firebaseUser.emailVerified,
+      emailVerified: firebaseUser.emailVerified || profileData?.emailVerified === true || isOAuthUser,
       isAnonymous: firebaseUser.isAnonymous,
       phoneNumber: firebaseUser.phoneNumber || undefined,
       photoURL: firebaseUser.photoURL || undefined,

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
   ArrowDownLeft,
@@ -17,6 +18,10 @@ import {
   Users,
   ChevronRight,
   Clock,
+  HandCoins,
+  ShieldCheck,
+  Target,
+  Unlock,
 } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
 import { useAuth } from '@/providers/auth-provider';
@@ -33,6 +38,8 @@ import { SendMoneyModal } from './send-money-modal';
 import { CashOutModal } from './cash-out-modal';
 import { VaultsList } from './vaults-list';
 import { GroupPoolCard } from './group-pool-card';
+import { MoneyRequestModal } from './money-request-modal';
+import { PendingTransferPrompt } from './pending-transfer-prompt';
 import { formatCurrency } from '@/utils/currency-utils';
 
 interface SavingsDashboardProps {
@@ -53,6 +60,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [showSendMoney, setShowSendMoney] = useState(false);
   const [showCashOut, setShowCashOut] = useState(false);
+  const [showRequestMoney, setShowRequestMoney] = useState(false);
 
   const userId = user?.id || '';
   const currency = business.currency || 'USD';
@@ -106,42 +114,42 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   const renderTransactionIcon = (type: WalletTransaction['type']) => {
     switch (type) {
       case 'deposit':
-        return <ArrowDownLeft size={16} color="#10B981" />;
+        return <ArrowDownLeft size={16} color="#10B981" strokeWidth={2.5} />;
       case 'withdrawal':
-        return <Landmark size={16} color="#f59e0b" />;
+        return <Landmark size={16} color="#f59e0b" strokeWidth={2} />;
       case 'transfer_sent':
-        return <ArrowUpRight size={16} color="#ef4444" />;
+        return <ArrowUpRight size={16} color="#ef4444" strokeWidth={2.5} />;
       case 'transfer_recv':
-        return <ArrowDownLeft size={16} color="#10B981" />;
+        return <ArrowDownLeft size={16} color="#10B981" strokeWidth={2.5} />;
       case 'vault_deposit':
-        return <PiggyBank size={16} color="#6366f1" />;
+        return <Target size={16} color="#34d399" strokeWidth={2} />;
       case 'vault_withdraw':
-        return <PiggyBank size={16} color="#10B981" />;
+        return <Unlock size={16} color="#6366f1" strokeWidth={2} />;
       case 'pool_contribution':
-        return <Users size={16} color="#3b82f6" />;
+        return <Users size={16} color="#3b82f6" strokeWidth={2} />;
       default:
-        return <Clock size={16} color={colors.textSecondary} />;
+        return <Clock size={16} color={colors.textSecondary} strokeWidth={2} />;
     }
   };
 
   const getTransactionTitle = (tx: WalletTransaction) => {
     switch (tx.type) {
       case 'deposit':
-        return 'Card Top-Up';
+        return 'Card Top-Up Gateway';
       case 'withdrawal':
-        return 'Cash Out to Bank';
+        return 'ACH Bank Settlement';
       case 'transfer_sent':
-        return `Sent to ${tx.counterpartyName || 'Member'}`;
+        return `Dispatched to ${tx.counterpartyName || 'Member'}`;
       case 'transfer_recv':
         return `Received from ${tx.counterpartyName || 'Member'}`;
       case 'vault_deposit':
-        return `Added to ${tx.vaultName || 'Vault'}`;
+        return `Locked in ${tx.vaultName || 'Vault'}`;
       case 'vault_withdraw':
-        return `Withdrawn from ${tx.vaultName || 'Vault'}`;
+        return `Drawn from ${tx.vaultName || 'Vault'}`;
       case 'pool_contribution':
-        return 'Group Pool Contribution';
+        return 'Syndicate Treasury Pledge';
       default:
-        return 'Wallet Activity';
+        return 'Ledger Entry';
     }
   };
 
@@ -158,21 +166,72 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
+          tintColor="#10B981"
+          colors={['#10B981']}
         />
       }
     >
-      {/* 1. Spendable Personal Wallet Card (Hero at Top) */}
+      {/* 1. Spatial Vault Chamber (Hero Top Terminal) */}
       <WalletCard
         account={account}
         currency={currency}
         onAddMoney={() => setShowAddMoney(true)}
         onSendMoney={() => setShowSendMoney(true)}
         onCashOut={() => setShowCashOut(true)}
+        onRequestMoney={() => setShowRequestMoney(true)}
       />
 
-      {/* 2. Goal-Oriented Savings Vaults (Allocated from Wallet) */}
+      {/* Money Requests Quick Access Dispatch Strip */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => router.push('/money-requests')}
+        style={[
+          styles.requestsBanner,
+          {
+            backgroundColor: isDark ? '#090e0d' : colors.card,
+            borderColor: isDark ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.3)',
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={['rgba(245, 158, 11, 0.25)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.requestsTopRim}
+        />
+
+        <View style={styles.requestsBannerLeft}>
+          <View
+            style={[
+              styles.requestsIconBox,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(245, 158, 11, 0.12)'
+                  : 'rgba(245, 158, 11, 0.1)',
+                borderColor: 'rgba(245, 158, 11, 0.25)',
+              },
+            ]}
+          >
+            <HandCoins size={17} color="#f59e0b" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.requestsHeaderRow}>
+              <View style={styles.requestsBadge}>
+                <Text style={styles.requestsBadgeText}>CLEARINGHOUSE</Text>
+              </View>
+            </View>
+            <Text style={[styles.requestsBannerTitle, { color: colors.text }]}>
+              Payment Requests & Claims
+            </Text>
+            <Text style={[styles.requestsBannerSubtitle, { color: colors.textSecondary }]}>
+              Approve inbound transfers or track outstanding requests
+            </Text>
+          </View>
+        </View>
+        <ChevronRight size={17} color="#f59e0b" />
+      </TouchableOpacity>
+
+      {/* 2. Target Milestone Vaults (Sculpted Milestone Pods) */}
       <VaultsList
         vaults={vaults}
         businessId={business.id}
@@ -182,7 +241,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         onRefresh={onRefresh}
       />
 
-      {/* 3. Community / Group Savings Pool Card */}
+      {/* 3. Syndicate Reserve Pool (Collective Treasury) */}
       <GroupPoolCard
         business={business}
         userId={userId}
@@ -192,38 +251,47 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         onRefresh={onRefresh}
       />
 
-      {/* Recent Ledger Activity Section */}
+      {/* 4. Recent Chrono Ledger Activity Section */}
       <View style={styles.activitySection}>
         <View style={styles.activityHeader}>
-          <Text style={[styles.activitySectionTitle, { color: colors.text }]}>
-            RECENT ACTIVITY
-          </Text>
+          <View style={styles.activityTitleGroup}>
+            <View style={styles.ledgerBadge}>
+              <Clock size={10} color="#10B981" />
+              <Text style={styles.ledgerBadgeText}>CHRONO LEDGER</Text>
+            </View>
+            <Text style={[styles.activitySectionTitle, { color: colors.text }]}>
+              Recent Treasury Activity
+            </Text>
+          </View>
+
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => router.push('/savings-activity')}
             style={styles.seeAllBtn}
           >
-            <Text style={[styles.seeAllText, { color: colors.primary }]}>
-              See All
-            </Text>
-            <ChevronRight size={14} color={colors.primary} />
+            <Text style={styles.seeAllText}>Audit Trail</Text>
+            <ChevronRight size={13} color="#10B981" />
           </TouchableOpacity>
         </View>
 
         {loading ? (
-          <ActivityIndicator style={{ marginVertical: 20 }} color={colors.primary} />
+          <ActivityIndicator style={{ marginVertical: 24 }} color="#10B981" />
         ) : transactions.length === 0 ? (
           <View
             style={[
               styles.emptyActivityBox,
               {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
+                backgroundColor: isDark ? '#090e0d' : colors.card,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
               },
             ]}
           >
+            <ShieldCheck size={28} color="#64748b" style={{ marginBottom: 8 }} />
+            <Text style={[styles.emptyActivityTitle, { color: colors.text }]}>
+              Zero Ledger Movements
+            </Text>
             <Text style={[styles.emptyActivityText, { color: colors.textSecondary }]}>
-              No recent transactions. Add money or send funds to start your ledger.
+              Perform a top-up or transfer to initialize immutable transaction records.
             </Text>
           </View>
         ) : (
@@ -242,8 +310,8 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
                   style={[
                     styles.txRow,
                     {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
+                      backgroundColor: isDark ? '#090e0d' : colors.card,
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.border,
                     },
                   ]}
                 >
@@ -252,9 +320,16 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
                       style={[
                         styles.txIconBubble,
                         {
-                          backgroundColor: isDark
-                            ? 'rgba(255, 255, 255, 0.06)'
-                            : '#f4f4f5',
+                          backgroundColor: isPos
+                            ? 'rgba(16, 185, 129, 0.12)'
+                            : tx.type === 'transfer_sent'
+                            ? 'rgba(239, 68, 68, 0.12)'
+                            : 'rgba(245, 158, 11, 0.12)',
+                          borderColor: isPos
+                            ? 'rgba(16, 185, 129, 0.25)'
+                            : tx.type === 'transfer_sent'
+                            ? 'rgba(239, 68, 68, 0.25)'
+                            : 'rgba(245, 158, 11, 0.25)',
                         },
                       ]}
                     >
@@ -325,6 +400,27 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         onClose={() => setShowCashOut(false)}
         onSuccess={onRefresh}
       />
+
+      {/* Request Money Modal */}
+      <MoneyRequestModal
+        visible={showRequestMoney}
+        businessId={business.id}
+        requesterId={userId}
+        requesterName={user?.displayName || user?.name || user?.email || 'Member'}
+        members={business.members || []}
+        currency={currency}
+        onClose={() => setShowRequestMoney(false)}
+        onSuccess={onRefresh}
+      />
+
+      {/* Pending Transfer Prompt — real-time inbound confirmations */}
+      {userId && business.id && (
+        <PendingTransferPrompt
+          businessId={business.id}
+          recipientId={userId}
+          currency={currency}
+        />
+      )}
     </ScrollView>
   );
 };
@@ -335,46 +431,134 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 2,
-    paddingBottom: 100,
+    paddingBottom: 110,
+  },
+  requestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  requestsTopRim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
+  },
+  requestsBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    paddingRight: 8,
+  },
+  requestsIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  requestsBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  requestsBadgeText: {
+    fontSize: 8.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#f59e0b',
+    letterSpacing: 0.8,
+  },
+  requestsBannerTitle: {
+    fontSize: 13.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
+  },
+  requestsBannerSubtitle: {
+    fontSize: 10.5,
+    marginTop: 2,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   activitySection: {
     paddingHorizontal: 16,
-    marginVertical: 14,
+    marginVertical: 12,
   },
   activityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginBottom: 12,
   },
-  activitySectionTitle: {
-    fontSize: 12,
-    letterSpacing: 1,
+  activityTitleGroup: {
+    gap: 3,
+  },
+  ledgerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+  },
+  ledgerBadgeText: {
+    fontSize: 9.5,
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 1.2,
+    color: '#10B981',
+  },
+  activitySectionTitle: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
   },
   seeAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
   seeAllText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
   },
   emptyActivityBox: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    padding: 20,
+    padding: 24,
     alignItems: 'center',
   },
+  emptyActivityTitle: {
+    fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 4,
+  },
   emptyActivityText: {
-    fontSize: 12,
+    fontSize: 11.5,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 17,
     fontFamily: 'SpaceGrotesk_400Regular',
+    paddingHorizontal: 12,
   },
   transactionsList: {
-    gap: 10,
+    gap: 9,
   },
   txRow: {
     flexDirection: 'row',
@@ -382,33 +566,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
+    padding: 13,
   },
   txLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 11,
     flex: 1,
     paddingRight: 10,
   },
   txIconBubble: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   txTitle: {
-    fontSize: 14,
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontSize: 13.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
   },
   txDate: {
-    fontSize: 11,
+    fontSize: 10.5,
     marginTop: 2,
     fontFamily: 'SpaceGrotesk_400Regular',
   },
   txAmount: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
   },
 });

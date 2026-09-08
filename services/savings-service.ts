@@ -3,24 +3,31 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   runTransaction,
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
   increment,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { PushNotificationService } from '@/services/push-notification-service';
 import {
   MemberAccount,
   SavingsVault,
   WalletTransaction,
   WalletTransactionType,
   Business,
+  MoneyRequest,
+  MoneyRequestStatus,
+  PendingTransfer,
+  PendingTransferStatus,
 } from '@/types';
 
 /**
@@ -119,6 +126,7 @@ export async function depositToWallet(params: {
   }
 
   try {
+    await checkDepositLimit(businessId, amount);
     const firestore = getDb();
     const accountRef = doc(firestore, 'businesses', businessId, 'accounts', userId);
     const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
@@ -750,4 +758,585 @@ export function subscribeToWalletTransactions(
     unsub();
     if (fallbackUnsub) fallbackUnsub();
   };
+}
+
+// ---------------------------------------------------------------------------
+// Transfer Limit Enforcement
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates a proposed outbound amount against the business transfer limits.
+ * Throws a descriptive Error if any limit would be exceeded.
+ */
+export async function checkTransferLimits(
+  businessId: string,
+  senderId: string,
+  amount: number
+): Promise<void> {
+  const firestore = getDb();
+  const bizRef = doc(firestore, 'businesses', businessId);
+  const bizSnap = await getDoc(bizRef);
+  if (!bizSnap.exists()) return;
+
+  const biz = bizSnap.data() as Business;
+  const limits = biz.transferLimits;
+  if (!limits) return;
+
+  // Single-transfer cap
+  if (limits.singleTransferMax !== undefined && amount > limits.singleTransferMax) {
+    throw new Error(
+      `Transfer amount exceeds the single-transfer limit of ${limits.singleTransferMax} ${biz.currency || 'USD'}.`
+    );
+  }
+
+  // Rolling 24-hour cap: sum all outbound wallet_transactions created in the last 24h
+  if (limits.dailyTransferMax !== undefined) {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
+    const recentQ = query(
+      txCol,
+      where('userId', '==', senderId),
+      where('type', 'in', ['transfer_sent', 'withdrawal', 'pool_contribution']),
+      where('createdAt', '>=', oneDayAgo)
+    );
+    const snap = await getDocs(recentQ);
+    let dailyTotal = 0;
+    snap.forEach((d) => { dailyTotal += Number(d.data().amount || 0); });
+    if (dailyTotal + amount > limits.dailyTransferMax) {
+      throw new Error(
+        `This transfer would exceed your daily outbound limit of ${limits.dailyTransferMax} ${biz.currency || 'USD'}.`
+      );
+    }
+  }
+}
+
+/**
+ * Validates a deposit amount against the business deposit limit.
+ */
+export async function checkDepositLimit(
+  businessId: string,
+  amount: number
+): Promise<void> {
+  const firestore = getDb();
+  const bizRef = doc(firestore, 'businesses', businessId);
+  const bizSnap = await getDoc(bizRef);
+  if (!bizSnap.exists()) return;
+
+  const biz = bizSnap.data() as Business;
+  const depositMax = biz.transferLimits?.depositMax;
+  if (depositMax !== undefined && amount > depositMax) {
+    throw new Error(
+      `Deposit amount exceeds the maximum allowed deposit of ${depositMax} ${biz.currency || 'USD'}.`
+    );
+  }
+}
+
+/**
+ * Updates business-level transfer limits (owner only — caller must verify role).
+ */
+export async function updateTransferLimits(
+  businessId: string,
+  limits: Business['transferLimits']
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firestore = getDb();
+    await updateDoc(doc(firestore, 'businesses', businessId), { transferLimits: limits ?? null });
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Update transfer limits error:', err);
+    return { success: false, error: err?.message || 'Could not update transfer limits.' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pending Transfer (Hold-and-Confirm) Flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Initiates a pending transfer from sender to recipient.
+ * Funds are NOT moved yet. The recipient must confirm before the wallet balances change.
+ * A push notification is dispatched to the recipient.
+ */
+export async function initiatePendingTransfer(params: {
+  businessId: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  recipientName: string;
+  amount: number;
+  currency?: string;
+  note?: string;
+}): Promise<{ success: boolean; pendingTransferId?: string; error?: string }> {
+  const {
+    businessId, senderId, senderName,
+    recipientId, recipientName, amount,
+    currency = 'USD', note,
+  } = params;
+
+  if (senderId === recipientId) {
+    return { success: false, error: 'Cannot send money to yourself.' };
+  }
+  if (amount <= 0) {
+    return { success: false, error: 'Transfer amount must be greater than zero.' };
+  }
+
+  try {
+    // Enforce business-level limits before creating the pending record
+    await checkTransferLimits(businessId, senderId, amount);
+
+    const firestore = getDb();
+
+    // Verify sender has sufficient spendable balance
+    const accountRef = doc(firestore, 'businesses', businessId, 'accounts', senderId);
+    const accSnap = await getDoc(accountRef);
+    const currentBalance = accSnap.exists() ? (accSnap.data().mainBalance || 0) : 0;
+    if (currentBalance < amount) {
+      return { success: false, error: 'Insufficient spendable balance.' };
+    }
+
+    const ptCol = collection(firestore, 'businesses', businessId, 'pending_transfers');
+    const ptRef = doc(ptCol);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+    const pendingTx: PendingTransfer = {
+      id: ptRef.id,
+      businessId,
+      senderId,
+      senderName,
+      recipientId,
+      recipientName,
+      amount,
+      currency,
+      note: note || undefined,
+      status: 'awaiting_confirmation',
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    await setDoc(ptRef, pendingTx);
+
+    // Notify recipient via push
+    PushNotificationService.sendToUser(recipientId, {
+      title: 'Incoming Transfer',
+      body: `${senderName} wants to send you ${amount} ${currency}. Open Cashiee to confirm.`,
+      data: { type: 'pending_transfer', pendingTransferId: ptRef.id, businessId },
+      channelId: 'transactions',
+    }).catch(() => { /* push is best-effort */ });
+
+    return { success: true, pendingTransferId: ptRef.id };
+  } catch (err: any) {
+    console.error('[Savings] Initiate pending transfer error:', err);
+    return { success: false, error: err?.message || 'Could not initiate transfer.' };
+  }
+}
+
+/**
+ * Recipient responds to a pending transfer.
+ * On confirmation: atomically debits sender and credits recipient, creates wallet_transaction records.
+ * On decline: marks the record declined, no money moves.
+ */
+export async function respondToPendingTransfer(params: {
+  businessId: string;
+  pendingTransferId: string;
+  recipientId: string;
+  decision: 'confirmed' | 'declined';
+}): Promise<{ success: boolean; error?: string }> {
+  const { businessId, pendingTransferId, recipientId, decision } = params;
+
+  try {
+    const firestore = getDb();
+    const ptRef = doc(firestore, 'businesses', businessId, 'pending_transfers', pendingTransferId);
+
+    if (decision === 'declined') {
+      await updateDoc(ptRef, {
+        status: 'declined' as PendingTransferStatus,
+        respondedAt: new Date().toISOString(),
+      });
+      return { success: true };
+    }
+
+    // Confirm — atomically execute the transfer
+    await runTransaction(firestore, async (t) => {
+      const ptSnap = await t.get(ptRef);
+      if (!ptSnap.exists()) throw new Error('Pending transfer not found.');
+
+      const pt = ptSnap.data() as PendingTransfer;
+
+      if (pt.status !== 'awaiting_confirmation') {
+        throw new Error('This transfer has already been responded to or expired.');
+      }
+      if (pt.recipientId !== recipientId) {
+        throw new Error('You are not the intended recipient of this transfer.');
+      }
+      if (new Date(pt.expiresAt) < new Date()) {
+        throw new Error('This transfer request has expired.');
+      }
+
+      const senderRef = doc(firestore, 'businesses', businessId, 'accounts', pt.senderId);
+      const recipientRef = doc(firestore, 'businesses', businessId, 'accounts', recipientId);
+
+      const senderSnap = await t.get(senderRef);
+      if (!senderSnap.exists()) throw new Error('Sender account not found.');
+
+      const senderData = senderSnap.data() as MemberAccount;
+      if ((senderData.mainBalance || 0) < pt.amount) {
+        throw new Error('Sender no longer has sufficient balance.');
+      }
+
+      const recipientSnap = await t.get(recipientRef);
+      const recipientMain = recipientSnap.exists() ? (recipientSnap.data().mainBalance || 0) : 0;
+      const recipientLocked = recipientSnap.exists() ? (recipientSnap.data().lockedSavingsBalance || 0) : 0;
+
+      // Deduct from sender
+      t.update(senderRef, {
+        mainBalance: senderData.mainBalance - pt.amount,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Credit to recipient
+      t.set(recipientRef, {
+        id: recipientId,
+        businessId,
+        userId: recipientId,
+        mainBalance: recipientMain + pt.amount,
+        lockedSavingsBalance: recipientLocked,
+        currency: pt.currency,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      const timestamp = new Date().toISOString();
+      const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
+
+      // Sender ledger record
+      const senderTxRef = doc(txCol);
+      const senderTx: WalletTransaction = {
+        id: senderTxRef.id,
+        businessId,
+        userId: pt.senderId,
+        type: 'transfer_sent',
+        amount: pt.amount,
+        currency: pt.currency,
+        counterpartyId: recipientId,
+        counterpartyName: pt.recipientName,
+        status: 'completed',
+        note: pt.note || `Sent to ${pt.recipientName}`,
+        createdAt: timestamp,
+      };
+      t.set(senderTxRef, senderTx);
+
+      // Recipient ledger record
+      const recipientTxRef = doc(txCol);
+      const recipientTx: WalletTransaction = {
+        id: recipientTxRef.id,
+        businessId,
+        userId: recipientId,
+        type: 'transfer_recv',
+        amount: pt.amount,
+        currency: pt.currency,
+        counterpartyId: pt.senderId,
+        counterpartyName: pt.senderName,
+        status: 'completed',
+        note: pt.note || `Received from ${pt.senderName}`,
+        createdAt: timestamp,
+      };
+      t.set(recipientTxRef, recipientTx);
+
+      // Mark pending transfer as confirmed
+      t.update(ptRef, {
+        status: 'confirmed' as PendingTransferStatus,
+        respondedAt: timestamp,
+      });
+    });
+
+    // Notify sender that the transfer was confirmed
+    PushNotificationService.sendToUser(params.businessId, {
+      title: 'Transfer Confirmed',
+      body: `Your transfer was accepted by the recipient.`,
+      channelId: 'transactions',
+    }).catch(() => {});
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Respond to pending transfer error:', err);
+    return { success: false, error: err?.message || 'Could not process transfer response.' };
+  }
+}
+
+/**
+ * Subscribe to incoming pending transfers for the current user (as recipient).
+ * Returns only transfers awaiting confirmation.
+ */
+export function subscribeToIncomingPendingTransfers(
+  businessId: string,
+  recipientId: string,
+  callback: (transfers: PendingTransfer[]) => void
+): Unsubscribe {
+  if (!db) {
+    callback([]);
+    return () => {};
+  }
+
+  const ptCol = collection(db, 'businesses', businessId, 'pending_transfers');
+  const q = query(
+    ptCol,
+    where('recipientId', '==', recipientId),
+    where('status', '==', 'awaiting_confirmation'),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: PendingTransfer[] = [];
+      snap.forEach((d) => list.push(d.data() as PendingTransfer));
+      // Filter out any that have expired client-side (index build gap safety net)
+      const now = new Date();
+      callback(list.filter((pt) => new Date(pt.expiresAt) > now));
+    },
+    (err) => {
+      console.warn('[Savings] Incoming pending transfers subscription error:', err);
+      callback([]);
+    }
+  );
+}
+
+/**
+ * Subscribe to all pending transfers initiated by the current user (as sender).
+ */
+export function subscribeToOutgoingPendingTransfers(
+  businessId: string,
+  senderId: string,
+  callback: (transfers: PendingTransfer[]) => void
+): Unsubscribe {
+  if (!db) {
+    callback([]);
+    return () => {};
+  }
+
+  const ptCol = collection(db, 'businesses', businessId, 'pending_transfers');
+  const q = query(
+    ptCol,
+    where('senderId', '==', senderId),
+    orderBy('createdAt', 'desc'),
+    limit(20)
+  );
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: PendingTransfer[] = [];
+      snap.forEach((d) => list.push(d.data() as PendingTransfer));
+      callback(list);
+    },
+    (err) => {
+      console.warn('[Savings] Outgoing pending transfers subscription error:', err);
+      callback([]);
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Money Request Flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a money request from requester to payer.
+ * A push notification is dispatched to the payer.
+ */
+export async function requestMoney(params: {
+  businessId: string;
+  requesterId: string;
+  requesterName: string;
+  payerId: string;
+  payerName: string;
+  amount: number;
+  currency?: string;
+  note?: string;
+}): Promise<{ success: boolean; requestId?: string; error?: string }> {
+  const {
+    businessId, requesterId, requesterName,
+    payerId, payerName, amount,
+    currency = 'USD', note,
+  } = params;
+
+  if (requesterId === payerId) {
+    return { success: false, error: 'Cannot request money from yourself.' };
+  }
+  if (amount <= 0) {
+    return { success: false, error: 'Requested amount must be greater than zero.' };
+  }
+
+  try {
+    const firestore = getDb();
+    const reqCol = collection(firestore, 'businesses', businessId, 'money_requests');
+    const reqRef = doc(reqCol);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours
+
+    const moneyRequest: MoneyRequest = {
+      id: reqRef.id,
+      businessId,
+      requesterId,
+      requesterName,
+      payerId,
+      payerName,
+      amount,
+      currency,
+      note: note || undefined,
+      status: 'pending',
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    await setDoc(reqRef, moneyRequest);
+
+    // Notify the payer
+    PushNotificationService.sendToUser(payerId, {
+      title: 'Money Request',
+      body: `${requesterName} is requesting ${amount} ${currency} from you.`,
+      data: { type: 'money_request', requestId: reqRef.id, businessId },
+      channelId: 'transactions',
+    }).catch(() => {});
+
+    return { success: true, requestId: reqRef.id };
+  } catch (err: any) {
+    console.error('[Savings] Request money error:', err);
+    return { success: false, error: err?.message || 'Could not create money request.' };
+  }
+}
+
+/**
+ * Payer responds to a money request.
+ * On approval: calls initiatePendingTransfer so the requester must also confirm receipt.
+ * On decline: marks the request declined.
+ */
+export async function respondToMoneyRequest(params: {
+  businessId: string;
+  requestId: string;
+  payerId: string;
+  payerName: string;
+  decision: 'approved' | 'declined';
+}): Promise<{ success: boolean; error?: string }> {
+  const { businessId, requestId, payerId, payerName, decision } = params;
+
+  try {
+    const firestore = getDb();
+    const reqRef = doc(firestore, 'businesses', businessId, 'money_requests', requestId);
+    const reqSnap = await getDoc(reqRef);
+
+    if (!reqSnap.exists()) {
+      return { success: false, error: 'Money request not found.' };
+    }
+
+    const req = reqSnap.data() as MoneyRequest;
+
+    if (req.status !== 'pending') {
+      return { success: false, error: 'This request has already been responded to or expired.' };
+    }
+    if (req.payerId !== payerId) {
+      return { success: false, error: 'You are not the designated payer for this request.' };
+    }
+    if (new Date(req.expiresAt) < new Date()) {
+      await updateDoc(reqRef, { status: 'expired' as MoneyRequestStatus });
+      return { success: false, error: 'This money request has expired.' };
+    }
+
+    if (decision === 'declined') {
+      await updateDoc(reqRef, {
+        status: 'declined' as MoneyRequestStatus,
+        respondedAt: new Date().toISOString(),
+      });
+      // Notify requester
+      PushNotificationService.sendToUser(req.requesterId, {
+        title: 'Request Declined',
+        body: `${payerName} declined your money request for ${req.amount} ${req.currency}.`,
+        channelId: 'transactions',
+      }).catch(() => {});
+      return { success: true };
+    }
+
+    // Approved — initiate a pending transfer from payer to requester
+    const result = await initiatePendingTransfer({
+      businessId,
+      senderId: payerId,
+      senderName: payerName,
+      recipientId: req.requesterId,
+      recipientName: req.requesterName,
+      amount: req.amount,
+      currency: req.currency,
+      note: req.note || `Payment for money request from ${req.requesterName}`,
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    // Mark the money request as approved
+    await updateDoc(reqRef, {
+      status: 'approved' as MoneyRequestStatus,
+      respondedAt: new Date().toISOString(),
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Respond to money request error:', err);
+    return { success: false, error: err?.message || 'Could not process response.' };
+  }
+}
+
+/**
+ * Requester cancels their own pending money request.
+ */
+export async function cancelMoneyRequest(
+  businessId: string,
+  requestId: string,
+  requesterId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firestore = getDb();
+    const reqRef = doc(firestore, 'businesses', businessId, 'money_requests', requestId);
+    const snap = await getDoc(reqRef);
+    if (!snap.exists()) return { success: false, error: 'Request not found.' };
+    const req = snap.data() as MoneyRequest;
+    if (req.requesterId !== requesterId) return { success: false, error: 'Permission denied.' };
+    if (req.status !== 'pending') return { success: false, error: 'Only pending requests can be cancelled.' };
+    await updateDoc(reqRef, { status: 'cancelled' as MoneyRequestStatus });
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Cancel money request error:', err);
+    return { success: false, error: err?.message || 'Could not cancel request.' };
+  }
+}
+
+/**
+ * Subscribe to all money requests involving the current user (as requester or payer).
+ */
+export function subscribeToMoneyRequests(
+  businessId: string,
+  userId: string,
+  role: 'payer' | 'requester',
+  callback: (requests: MoneyRequest[]) => void
+): Unsubscribe {
+  if (!db) {
+    callback([]);
+    return () => {};
+  }
+
+  const reqCol = collection(db, 'businesses', businessId, 'money_requests');
+  const field = role === 'payer' ? 'payerId' : 'requesterId';
+  const q = query(reqCol, where(field, '==', userId), orderBy('createdAt', 'desc'), limit(30));
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: MoneyRequest[] = [];
+      snap.forEach((d) => list.push(d.data() as MoneyRequest));
+      callback(list);
+    },
+    (err) => {
+      console.warn('[Savings] Money requests subscription error:', err);
+      callback([]);
+    }
+  );
 }

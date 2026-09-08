@@ -221,6 +221,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.1,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   indicator: {
     marginVertical: 2,

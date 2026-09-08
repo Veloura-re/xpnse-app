@@ -2,7 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useSegments, useRouter, useGlobalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useCallback } from "react";
+
+// Complete OAuth web authentication sessions immediately upon arrival
+WebBrowser.maybeCompleteAuthSession();
 import { StyleSheet, View, Text, TextInput, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -107,13 +111,17 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === "(auth)";
     const inTabsGroup = segments[0] === "(tabs)";
 
-    if (user && !user.emailVerified) {
+    const isOAuthUser = Boolean(
+      (user as any)?.profile?.provider && (user as any).profile.provider !== 'password'
+    ) || Boolean(user?.providerData?.some(p => p.providerId && p.providerId !== 'password'));
+
+    if (user && !user.emailVerified && !isOAuthUser) {
       // If user is logged in but not verified, go to verify-email
       const isVerifyScreen = segments.length > 1 && (segments as string[])[1] === "verify-email";
       if (!isVerifyScreen) {
         router.replace("/(auth)/verify-email");
       }
-    } else if (user && user.emailVerified) {
+    } else if (user && (user.emailVerified || isOAuthUser)) {
       // If user is verified and in auth group, go to tabs
       if (inAuthGroup) {
         router.replace("/(tabs)");

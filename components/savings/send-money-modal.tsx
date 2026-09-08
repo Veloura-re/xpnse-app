@@ -12,9 +12,9 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { X, Send, UserCheck, AlertCircle } from 'lucide-react-native';
+import { X, Send, UserCheck, AlertCircle, Clock } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
-import { transferBetweenMembers } from '@/services/savings-service';
+import { initiatePendingTransfer } from '@/services/savings-service';
 import { BusinessMember } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
@@ -46,6 +46,7 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
   const [amountStr, setAmountStr] = useState('');
   const [note, setNote] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [waitingConfirmation, setWaitingConfirmation] = useState(false);
 
   const currencySymbol = getCurrencySymbol(currency);
   const numericAmount = parseFloat(amountStr) || 0;
@@ -86,7 +87,7 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
         selectedRecipient?.user?.email ||
         'Member';
 
-      const res = await transferBetweenMembers({
+      const res = await initiatePendingTransfer({
         businessId,
         senderId,
         senderName,
@@ -98,13 +99,18 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
       });
 
       if (res.success) {
-        onSuccess();
-        onClose();
-        setAmountStr('');
-        setNote('');
-        setSelectedRecipientId('');
+        // Show the waiting-for-confirmation state briefly then close
+        setWaitingConfirmation(true);
+        setTimeout(() => {
+          setWaitingConfirmation(false);
+          setAmountStr('');
+          setNote('');
+          setSelectedRecipientId('');
+          onSuccess();
+          onClose();
+        }, 2000);
       } else {
-        Alert.alert('Transfer Failed', res.error || 'Unable to complete transfer.');
+        Alert.alert('Transfer Failed', res.error || 'Unable to initiate transfer.');
       }
     } catch (err: any) {
       console.error('[SendMoneyModal] Transfer error:', err);
@@ -175,6 +181,24 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollBody}
           >
+            {/* Waiting-for-confirmation banner */}
+            {waitingConfirmation && (
+              <View
+                style={[
+                  styles.waitingBanner,
+                  {
+                    backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : 'rgba(16,185,129,0.08)',
+                    borderColor: 'rgba(16,185,129,0.3)',
+                  },
+                ]}
+              >
+                <Clock size={16} color={colors.primary} />
+                <Text style={[styles.waitingText, { color: colors.primary }]}>
+                  Transfer sent — waiting for recipient confirmation
+                </Text>
+              </View>
+            )}
+
             {/* Balance Badge */}
             <View
               style={[
@@ -435,6 +459,21 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     padding: 20,
+  },
+  waitingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  waitingText: {
+    fontSize: 13,
+    fontFamily: 'SpaceGrotesk_500Medium',
+    flex: 1,
   },
   balancePill: {
     flexDirection: 'row',

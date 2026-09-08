@@ -42,3 +42,8 @@ GoogleService-Info.plist
 # typescript
 *.tsbuildinfo
 .vercel
+
+# Firebase debug & Cloud Functions
+firebase-debug.log*
+functions/node_modules/
+functions/lib/

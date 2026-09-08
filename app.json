@@ -2,6 +2,7 @@
   "expo": {
     "name": "spndy",
     "slug": "spndy",
+    "scheme": "spndy",
     "version": "1.0.0",
     "description": "Track your expenses",
     "assetBundlePatterns": [
