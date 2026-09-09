@@ -57,7 +57,7 @@
     },
     "extra": {
       "router": {
-        "origin": "https://spndy.app/"
+        "origin": "https://spndy-eight.vercel.app/"
       },
       "eas": {
         "projectId": "7a9025e1-7d9a-4bce-babf-4a77545d859f"
