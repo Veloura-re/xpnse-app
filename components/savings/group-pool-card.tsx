@@ -11,7 +11,15 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { Users, Coins, Plus, X, HeartHandshake } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Users,
+  Plus,
+  X,
+  HeartHandshake,
+  ShieldCheck,
+  Zap,
+} from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
 import { Business } from '@/types';
 import { contributeToGroupPool } from '@/services/savings-service';
@@ -43,7 +51,8 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const poolBalance = business.groupPoolBalance || 0;
-  const memberCount = business.members?.length || 1;
+  const members = business.members || [];
+  const memberCount = members.length > 0 ? members.length : 1;
   const currencySymbol = getCurrencySymbol(currency);
   const numericAmount = parseFloat(amountStr) || 0;
 
@@ -87,59 +96,143 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
     }
   };
 
+  const openPresetPledge = (amt: number) => {
+    setAmountStr(amt.toString());
+    setShowModal(true);
+  };
+
   return (
     <View style={styles.container}>
       <View
         style={[
-          styles.card,
+          styles.syndicateCard,
           {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
+            backgroundColor: isDark ? '#090e0d' : colors.card,
+            borderColor: isDark ? 'rgba(16, 185, 129, 0.22)' : colors.border,
           },
         ]}
       >
-        <View style={styles.topRow}>
-          <View style={styles.titleGroup}>
-            <View
-              style={[
-                styles.iconBubble,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(16, 185, 129, 0.15)'
-                    : 'rgba(16, 185, 129, 0.1)',
-                },
-              ]}
-            >
-              <Users size={16} color={colors.primary} />
+        {/* Top Rim Gradient */}
+        <LinearGradient
+          colors={['rgba(16, 185, 129, 0.35)', 'rgba(52, 211, 153, 0.1)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.topRim}
+        />
+
+        {/* Header Telemetry */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <View style={styles.syndicateBadge}>
+              <Users size={10} color="#10B981" />
+              <Text style={styles.syndicateBadgeText}>COLLECTIVE TREASURY</Text>
             </View>
-            <View>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>
-                Group Savings Pool
-              </Text>
-              <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
-                Collective reserve • {memberCount} member{memberCount !== 1 ? 's' : ''}
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Syndicate Reserve Pool
+            </Text>
+          </View>
+
+          <View style={styles.consensusTag}>
+            <View style={styles.consensusDot} />
+            <Text style={styles.consensusText}>ACTIVE CONSENSUS</Text>
+          </View>
+        </View>
+
+        {/* Central Reserve Vault Chamber Display */}
+        <View
+          style={[
+            styles.vaultChamberDisplay,
+            {
+              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.05)' : '#ecfdf5',
+              borderColor: isDark ? 'rgba(16, 185, 129, 0.18)' : 'rgba(16, 185, 129, 0.2)',
+            },
+          ]}
+        >
+          <View style={styles.chamberHeaderRow}>
+            <Text style={styles.chamberCaption}>SHARED POOL BALANCE</Text>
+            {/* Member avatar cluster */}
+            <View style={styles.avatarCluster}>
+              {members.slice(0, 3).map((m, idx) => (
+                <View
+                  key={m.userId || idx}
+                  style={[
+                    styles.avatarBubble,
+                    {
+                      marginLeft: idx > 0 ? -8 : 0,
+                      zIndex: 10 - idx,
+                      backgroundColor: idx === 0 ? '#10B981' : idx === 1 ? '#059669' : '#047857',
+                    },
+                  ]}
+                >
+                  <Text style={styles.avatarInitial}>
+                    {(m.role || 'M').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              ))}
+              <Text style={[styles.memberCountLabel, { color: colors.textSecondary }]}>
+                {memberCount} participant{memberCount !== 1 ? 's' : ''}
               </Text>
             </View>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => setShowModal(true)}
-            style={[styles.contributeBtn, { backgroundColor: colors.primary }]}
-          >
-            <Plus size={13} color="#ffffff" />
-            <Text style={styles.contributeBtnText}>Contribute</Text>
-          </TouchableOpacity>
+          <View style={styles.balanceReadoutGroup}>
+            <Text style={styles.currencySymbolBadge}>{currencySymbol}</Text>
+            <Text style={[styles.chamberAmount, { color: colors.text }]}>
+              {poolBalance.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </Text>
+            <Text style={[styles.currencyCodeTag, { color: colors.textSecondary }]}>
+              {currency}
+            </Text>
+          </View>
+
+          {/* Quick 1-tap micro pledge pills */}
+          <View style={styles.microPledgeRow}>
+            <Text style={styles.microPledgeLabel}>PLEDGE:</Text>
+            <View style={styles.presetButtons}>
+              {POOL_PRESETS.map((preset) => (
+                <TouchableOpacity
+                  key={preset}
+                  activeOpacity={0.75}
+                  onPress={() => openPresetPledge(preset)}
+                  style={[
+                    styles.presetPill,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(16, 185, 129, 0.08)'
+                        : 'rgba(16, 185, 129, 0.1)',
+                      borderColor: 'rgba(16, 185, 129, 0.25)',
+                    },
+                  ]}
+                >
+                  <Zap size={9} color="#10B981" />
+                  <Text style={styles.presetPillText}>
+                    +{currencySymbol}{preset}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
-        <View style={styles.balanceWrap}>
-          <Text style={[styles.balanceCaption, { color: colors.textSecondary }]}>
-            Shared Community Pool Balance
-          </Text>
-          <Text style={[styles.balanceAmount, { color: colors.primary }]}>
-            {formatCurrency(poolBalance, currency)}
-          </Text>
-        </View>
+        {/* Primary Action Button */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => setShowModal(true)}
+          style={styles.pledgeBtnOuter}
+        >
+          <LinearGradient
+            colors={['#10B981', '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.pledgeBtn}
+          >
+            <Plus size={14} color="#ffffff" strokeWidth={2.5} />
+            <Text style={styles.pledgeBtnText}>Contribute to Shared Pool</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
 
       {/* Contribution Modal */}
@@ -156,15 +249,25 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
           <View
             style={[
               styles.modalCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
+              {
+                backgroundColor: isDark ? '#090e0d' : colors.card,
+                borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : colors.border,
+              },
             ]}
           >
             <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <HeartHandshake size={18} color={colors.primary} />
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  Contribute to Group Pool
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <View style={styles.modalIconPod}>
+                  <HeartHandshake size={17} color="#10B981" />
+                </View>
+                <View>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    Syndicate Pool Contribution
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    Co-fund shared reserve buffer
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity
                 onPress={() => setShowModal(false)}
@@ -174,24 +277,35 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
               </TouchableOpacity>
             </View>
 
-            <View style={{ padding: 20 }}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-                Available Spendable: {formatCurrency(spendableBalance, currency)}
-              </Text>
+            <View style={styles.modalBody}>
+              <View
+                style={[
+                  styles.liquidityCallout,
+                  {
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.liquidityCalloutLabel, { color: colors.textSecondary }]}>
+                  AVAILABLE SPENDABLE WALLET
+                </Text>
+                <Text style={[styles.liquidityCalloutVal, { color: colors.text }]}>
+                  {formatCurrency(spendableBalance, currency)}
+                </Text>
+              </View>
 
-              {/* Amount Input */}
+              {/* Amount Box */}
               <View
                 style={[
                   styles.amountBox,
                   {
-                    backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? 'rgba(0, 0, 0, 0.4)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : colors.border,
                   },
                 ]}
               >
-                <Text style={[styles.currencyPrefix, { color: colors.primary }]}>
-                  {currencySymbol}
-                </Text>
+                <Text style={styles.currencyPrefix}>{currencySymbol}</Text>
                 <TextInput
                   style={[styles.amountInput, { color: colors.text }]}
                   value={amountStr}
@@ -216,11 +330,15 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
                         styles.presetChip,
                         {
                           backgroundColor: isSelected
-                            ? colors.primary
+                            ? '#10B981'
                             : isDark
-                            ? 'rgba(255, 255, 255, 0.06)'
+                            ? 'rgba(255, 255, 255, 0.05)'
                             : '#e4e4e7',
-                          borderColor: isSelected ? colors.primary : colors.border,
+                          borderColor: isSelected
+                            ? '#10B981'
+                            : isDark
+                            ? 'rgba(255, 255, 255, 0.08)'
+                            : colors.border,
                         },
                       ]}
                     >
@@ -231,7 +349,7 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
                             color: isSelected ? '#ffffff' : colors.text,
                             fontFamily: isSelected
                               ? 'SpaceGrotesk_700Bold'
-                              : 'SpaceGrotesk_500Medium',
+                              : 'SpaceGrotesk_600SemiBold',
                           },
                         ]}
                       >
@@ -243,45 +361,46 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
               </View>
 
               {/* Note */}
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: 8 }]}>
-                NOTE (OPTIONAL)
-              </Text>
+              <Text style={styles.inputCategoryCaption}>CONTRIBUTION MEMO (OPTIONAL)</Text>
               <TextInput
                 style={[
                   styles.noteInput,
                   {
                     color: colors.text,
-                    backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f4f4f5',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
                   },
                 ]}
-                placeholder="e.g. Monthly group reserve share"
+                placeholder="e.g. Monthly team reserve contribution"
                 placeholderTextColor={colors.textSecondary}
                 value={note}
                 onChangeText={setNote}
               />
 
               <TouchableOpacity
-                activeOpacity={0.9}
+                activeOpacity={0.88}
                 disabled={isLoading || numericAmount <= 0}
                 onPress={handleContribute}
-                style={[
-                  styles.submitBtn,
-                  {
-                    backgroundColor:
-                      isLoading || numericAmount <= 0
-                        ? '#94a3b8'
-                        : colors.primary,
-                  },
-                ]}
+                style={styles.submitBtnOuter}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>
-                    Contribute {formatCurrency(numericAmount, currency)}
-                  </Text>
-                )}
+                <LinearGradient
+                  colors={
+                    isLoading || numericAmount <= 0
+                      ? ['#475569', '#334155']
+                      : ['#10B981', '#059669']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtnGradient}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>
+                      Transfer {formatCurrency(numericAmount, currency)} to Syndicate
+                    </Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -294,116 +413,264 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    marginVertical: 6,
+    marginVertical: 8,
   },
-  card: {
-    borderRadius: 18,
+  syndicateCard: {
+    borderRadius: 22,
     borderWidth: 1,
-    padding: 18,
+    padding: 16,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  topRow: {
+  topRim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  titleGroup: {
+  headerLeft: {
+    gap: 2,
+  },
+  syndicateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 5,
+    alignSelf: 'flex-start',
   },
-  iconBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+  syndicateBadgeText: {
+    fontSize: 9.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 1.2,
+    color: '#10B981',
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
   },
-  cardSub: {
-    fontSize: 11,
-    fontFamily: 'SpaceGrotesk_400Regular',
-    marginTop: 2,
-  },
-  contributeBtn: {
+  consensusTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 12,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 0.8,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
-  contributeBtnText: {
-    fontSize: 12,
-    color: '#ffffff',
+  consensusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+  },
+  consensusText: {
+    fontSize: 9,
     fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+    letterSpacing: 0.6,
   },
-  balanceWrap: {
-    backgroundColor: 'rgba(16, 185, 129, 0.06)',
-    borderRadius: 14,
+  vaultChamberDisplay: {
+    borderRadius: 16,
+    borderWidth: 1,
     padding: 14,
+    marginBottom: 14,
+  },
+  chamberHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  chamberCaption: {
+    fontSize: 9.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 1,
+    color: '#64748b',
+  },
+  avatarCluster: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  balanceCaption: {
-    fontSize: 11,
-    fontFamily: 'SpaceGrotesk_400Regular',
-    marginBottom: 4,
+  avatarBubble: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#090e0d',
   },
-  balanceAmount: {
-    fontSize: 24,
+  avatarInitial: {
+    fontSize: 9,
     fontFamily: 'SpaceGrotesk_700Bold',
-    letterSpacing: -0.5,
+    color: '#ffffff',
+  },
+  memberCountLabel: {
+    fontSize: 10,
+    fontFamily: 'SpaceGrotesk_500Medium',
+    marginLeft: 6,
+  },
+  balanceReadoutGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginBottom: 12,
+  },
+  currencySymbolBadge: {
+    fontSize: 18,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+  },
+  chamberAmount: {
+    fontSize: 26,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.6,
+  },
+  currencyCodeTag: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.6,
+    marginLeft: 2,
+  },
+  microPledgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  microPledgeLabel: {
+    fontSize: 9,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#64748b',
+    letterSpacing: 0.8,
+  },
+  presetButtons: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+  },
+  presetPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+    borderWidth: 0.8,
+  },
+  presetPillText: {
+    fontSize: 10.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+  },
+  pledgeBtnOuter: {
+    borderRadius: 13,
+    overflow: 'hidden',
+  },
+  pledgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+  },
+  pledgeBtnText: {
+    fontSize: 12.5,
+    color: '#ffffff',
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.2,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
   modalCard: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderWidth: 1,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
+  modalIconPod: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.8,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: -0.2,
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    marginTop: 1,
   },
   closeBtn: {
     padding: 6,
   },
-  inputLabel: {
-    fontSize: 11,
+  modalBody: {
+    padding: 20,
+  },
+  liquidityCallout: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  liquidityCalloutLabel: {
+    fontSize: 10,
     letterSpacing: 0.8,
-    marginBottom: 6,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  liquidityCalloutVal: {
+    fontSize: 13,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   amountBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.2,
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     marginBottom: 14,
   },
   currencyPrefix: {
-    fontSize: 28,
-    marginRight: 6,
+    fontSize: 26,
     fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
+    marginRight: 6,
   },
   amountInput: {
     fontSize: 32,
@@ -419,34 +686,44 @@ const styles = StyleSheet.create({
   },
   presetChip: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   presetChipText: {
-    fontSize: 13,
-    fontFamily: 'SpaceGrotesk_600SemiBold',
+    fontSize: 12,
+  },
+  inputCategoryCaption: {
+    fontSize: 10,
+    letterSpacing: 0.9,
+    color: '#64748b',
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 6,
   },
   noteInput: {
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     fontSize: 14,
     fontFamily: 'SpaceGrotesk_400Regular',
     marginBottom: 20,
   },
-  submitBtn: {
+  submitBtnOuter: {
     borderRadius: 14,
+    overflow: 'hidden',
+  },
+  submitBtnGradient: {
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitBtnText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.3,
   },
 });

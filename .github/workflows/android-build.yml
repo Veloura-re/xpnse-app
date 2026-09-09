@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - 'feature/**'
   pull_request:
     branches:
       - main
@@ -27,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '20'
           cache: 'npm'
 
       - name: Setup Java
@@ -40,7 +41,9 @@ jobs:
         uses: android-actions/setup-android@v2
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          rm -f package-lock.json
+          npm install --legacy-peer-deps
 
       - name: Create .env file
         run: |
@@ -51,6 +54,7 @@ jobs:
           echo "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" >> .env
           echo "EXPO_PUBLIC_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}" >> .env
           echo "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '572518473431-okpgc73pdpr29hpd8dp6qpde1gp5fv3q.apps.googleusercontent.com' }}" >> .env
+          echo "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '572518473431-3flq50ijubfav2ora252olcdlb46fcnu.apps.googleusercontent.com' }}" >> .env
           echo "EXPO_PUBLIC_GITHUB_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GITHUB_CLIENT_ID || 'Ov23liUcar8XB8sdZiPa' }}" >> .env
           echo "EXPO_PUBLIC_GITHUB_CLIENT_SECRET=${{ secrets.EXPO_PUBLIC_GITHUB_CLIENT_SECRET }}" >> .env
 

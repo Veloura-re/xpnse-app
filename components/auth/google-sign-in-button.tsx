@@ -62,18 +62,22 @@ export function GoogleSignInButton({
   const { colors, isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
 
-  const rawWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  const rawIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-  const rawAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+  const webClientId =
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+    '572518473431-okpgc73pdpr29hpd8dp6qpde1gp5fv3q.apps.googleusercontent.com';
+  const androidClientId =
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+    '572518473431-3flq50ijubfav2ora252olcdlb46fcnu.apps.googleusercontent.com';
+  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || webClientId;
 
-  const isConfiguredForNative = Boolean(rawWebClientId || rawIosClientId || rawAndroidClientId);
+  const isConfiguredForNative = true;
 
   // Provide fallback strings to prevent invariantClientId exceptions at render time
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: rawWebClientId || 'unconfigured-client-id.apps.googleusercontent.com',
-    webClientId: rawWebClientId || 'unconfigured-client-id.apps.googleusercontent.com',
-    iosClientId: rawIosClientId || 'unconfigured-client-id.apps.googleusercontent.com',
-    androidClientId: rawAndroidClientId || 'unconfigured-client-id.apps.googleusercontent.com',
+    clientId: webClientId,
+    webClientId: webClientId,
+    iosClientId: iosClientId,
+    androidClientId: androidClientId,
   });
 
   useEffect(() => {

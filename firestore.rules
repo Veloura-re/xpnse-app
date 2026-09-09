@@ -95,6 +95,37 @@ service cloud.firestore {
     match /businesses/{businessId}/wallet_transactions/{txId} {
       allow read, write: if isMember(businessId);
     }
+
+    // Money Requests subcollection (request-to-pay flow)
+    match /businesses/{businessId}/money_requests/{reqId} {
+      // Both the requester and the payer can read the request
+      allow read: if isMember(businessId) &&
+                     (request.auth.uid == resource.data.requesterId ||
+                      request.auth.uid == resource.data.payerId);
+      // Only the requester can create a new request
+      allow create: if isMember(businessId) &&
+                       request.resource.data.requesterId == request.auth.uid;
+      // Payer can respond (approve/decline); requester can cancel
+      allow update: if isMember(businessId) &&
+                       (request.auth.uid == resource.data.payerId ||
+                        request.auth.uid == resource.data.requesterId);
+      allow delete: if false;
+    }
+
+    // Pending Transfers subcollection (hold-and-confirm transfer flow)
+    match /businesses/{businessId}/pending_transfers/{txId} {
+      // Sender and recipient can both read
+      allow read: if isMember(businessId) &&
+                     (request.auth.uid == resource.data.senderId ||
+                      request.auth.uid == resource.data.recipientId);
+      // Only the sender can create
+      allow create: if isMember(businessId) &&
+                       request.resource.data.senderId == request.auth.uid;
+      // Only the recipient can respond (update status)
+      allow update: if isMember(businessId) &&
+                       request.auth.uid == resource.data.recipientId;
+      allow delete: if false;
+    }
     
     // Invitations collection
     match /invitations/{invitationId} {

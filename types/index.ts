@@ -15,6 +15,8 @@ export interface Profile {
   emailNotifications?: boolean;
   pushNotifications?: boolean;
   isDeveloperAdmin?: boolean;
+  provider?: string;
+  emailVerified?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +90,12 @@ export interface Business {
   photoUrl?: string; // Optional uploaded photo replacing the icon
   groupPoolBalance?: number; // Total collective pool balance
   lastActiveAt?: string;
+  // Per-business transfer limit controls (owner-configurable)
+  transferLimits?: {
+    singleTransferMax?: number; // Maximum amount for a single transfer
+    dailyTransferMax?: number;  // Rolling 24-hour outbound cap per member
+    depositMax?: number;        // Maximum amount for a single deposit
+  };
 }
 
 export interface MemberAccount {
@@ -139,6 +147,48 @@ export interface WalletTransaction {
   paymentIntentId?: string;
   note?: string;
   createdAt: string;
+}
+
+// Money request: member A asks member B to send them funds
+export type MoneyRequestStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'cancelled';
+
+export interface MoneyRequest {
+  id: string;
+  businessId: string;
+  requesterId: string;     // The user who wants money
+  requesterName: string;
+  payerId: string;         // The user who is asked to pay
+  payerName: string;
+  amount: number;
+  currency: string;
+  note?: string;
+  status: MoneyRequestStatus;
+  createdAt: string;
+  expiresAt: string;       // Requests auto-expire after 48h
+  respondedAt?: string;
+}
+
+// Pending transfer: two-phase hold-and-confirm transfer between members
+export type PendingTransferStatus =
+  | 'awaiting_confirmation'
+  | 'confirmed'
+  | 'declined'
+  | 'expired';
+
+export interface PendingTransfer {
+  id: string;
+  businessId: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  recipientName: string;
+  amount: number;
+  currency: string;
+  note?: string;
+  status: PendingTransferStatus;
+  createdAt: string;
+  expiresAt: string;       // Auto-expires after 24h if no response
+  respondedAt?: string;
 }
 
 export interface BusinessMember {

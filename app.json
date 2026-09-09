@@ -26,11 +26,11 @@
         "foregroundImage": "./assets/images/cashbook-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.zzz1.businessfinancemanagementappkkqzwnt"
+      "package": "com.zzz1.cashiee"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.zzz1.businessfinancemanagementappkkqzwnt",
+      "bundleIdentifier": "com.zzz1.cashiee",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Capture receipts, bills, and documents to attach to book entries.",
@@ -57,7 +57,7 @@
     },
     "extra": {
       "router": {
-        "origin": "https://spndy.app/"
+        "origin": "https://spndy-eight.vercel.app/"
       },
       "eas": {
         "projectId": "7a9025e1-7d9a-4bce-babf-4a77545d859f"

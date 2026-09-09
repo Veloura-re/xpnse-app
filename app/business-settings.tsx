@@ -18,7 +18,7 @@ import { Stack, router } from 'expo-router';
 import { useBusiness } from '@/providers/business-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Building2, ChevronLeft, Edit3, Save, X, Check, Search, ArrowRight, Camera } from 'lucide-react-native';
+import { Building2, ChevronLeft, Edit3, Save, X, Check, Search, ArrowRight, Camera, Shield } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { getFontFamily } from '@/config/font-config';
@@ -38,6 +38,15 @@ export default function BusinessSettingsScreen() {
         return currentLogo?.id || '1';
     });
     const [businessCurrency, setBusinessCurrency] = useState(currentBusiness?.currency || 'USD');
+    const [singleTransferMax, setSingleTransferMax] = useState(
+        currentBusiness?.transferLimits?.singleTransferMax?.toString() || ''
+    );
+    const [dailyTransferMax, setDailyTransferMax] = useState(
+        currentBusiness?.transferLimits?.dailyTransferMax?.toString() || ''
+    );
+    const [depositMax, setDepositMax] = useState(
+        currentBusiness?.transferLimits?.depositMax?.toString() || ''
+    );
     const [showLogoPicker, setShowLogoPicker] = useState(false);
     const [logoSearchQuery, setLogoSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -79,6 +88,20 @@ export default function BusinessSettingsScreen() {
                 await updateBusiness({ currency: businessCurrency });
             }
 
+            const parsedSingle = singleTransferMax.trim() ? parseFloat(singleTransferMax.trim()) : undefined;
+            const parsedDaily = dailyTransferMax.trim() ? parseFloat(dailyTransferMax.trim()) : undefined;
+            const parsedDeposit = depositMax.trim() ? parseFloat(depositMax.trim()) : undefined;
+
+            const newTransferLimits = {
+                ...(parsedSingle !== undefined && !isNaN(parsedSingle) ? { singleTransferMax: parsedSingle } : {}),
+                ...(parsedDaily !== undefined && !isNaN(parsedDaily) ? { dailyTransferMax: parsedDaily } : {}),
+                ...(parsedDeposit !== undefined && !isNaN(parsedDeposit) ? { depositMax: parsedDeposit } : {}),
+            };
+
+            await updateBusiness({
+                transferLimits: Object.keys(newTransferLimits).length > 0 ? newTransferLimits : undefined,
+            });
+
             setIsEditing(false);
             Alert.alert('Success', 'Business settings updated successfully');
         } catch (error: any) {
@@ -91,6 +114,9 @@ export default function BusinessSettingsScreen() {
     const handleCancel = () => {
         setBusinessName(currentBusiness?.name || '');
         setBusinessCurrency(currentBusiness?.currency || 'USD');
+        setSingleTransferMax(currentBusiness?.transferLimits?.singleTransferMax?.toString() || '');
+        setDailyTransferMax(currentBusiness?.transferLimits?.dailyTransferMax?.toString() || '');
+        setDepositMax(currentBusiness?.transferLimits?.depositMax?.toString() || '');
         const currentLogo = LOGO_OPTIONS.find(l => l.icon === currentBusiness?.icon);
         setSelectedLogoId(currentLogo?.id || '1');
         setIsEditing(false);
@@ -243,6 +269,73 @@ export default function BusinessSettingsScreen() {
                             editable={isEditing && canEdit}
                             placeholder="Currency (e.g., USD, EUR)"
                             placeholderTextColor={colors.textSecondary}
+                        />
+
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 4, gap: 8 }}>
+                            <Shield size={16} color={colors.primary} />
+                            <Text style={[styles.cardTitle, { color: colors.textSecondary, marginTop: 0 }]}>TRANSFER & DEPOSIT LIMITS</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 12 }}>
+                            Optional caps on outbound transfers and top-ups. Leave empty for unlimited.
+                        </Text>
+
+                        <Text style={[styles.cardTitle, { color: colors.textSecondary, marginTop: 8 }]}>SINGLE TRANSFER MAX</Text>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                {
+                                    backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
+                                    borderColor: isEditing ? colors.primary : colors.border,
+                                    color: colors.text,
+                                    borderWidth: isEditing ? 2 : 1,
+                                }
+                            ]}
+                            value={singleTransferMax}
+                            onChangeText={setSingleTransferMax}
+                            editable={isEditing && canEdit}
+                            placeholder="No limit (e.g., 500)"
+                            placeholderTextColor={colors.textSecondary}
+                            keyboardType="numeric"
+                        />
+
+                        <Text style={[styles.cardTitle, { color: colors.textSecondary, marginTop: 12 }]}>DAILY ROLLING 24H CAP</Text>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                {
+                                    backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
+                                    borderColor: isEditing ? colors.primary : colors.border,
+                                    color: colors.text,
+                                    borderWidth: isEditing ? 2 : 1,
+                                }
+                            ]}
+                            value={dailyTransferMax}
+                            onChangeText={setDailyTransferMax}
+                            editable={isEditing && canEdit}
+                            placeholder="No limit (e.g., 2000)"
+                            placeholderTextColor={colors.textSecondary}
+                            keyboardType="numeric"
+                        />
+
+                        <Text style={[styles.cardTitle, { color: colors.textSecondary, marginTop: 12 }]}>MAXIMUM SINGLE DEPOSIT</Text>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                {
+                                    backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
+                                    borderColor: isEditing ? colors.primary : colors.border,
+                                    color: colors.text,
+                                    borderWidth: isEditing ? 2 : 1,
+                                }
+                            ]}
+                            value={depositMax}
+                            onChangeText={setDepositMax}
+                            editable={isEditing && canEdit}
+                            placeholder="No limit (e.g., 5000)"
+                            placeholderTextColor={colors.textSecondary}
+                            keyboardType="numeric"
                         />
 
                         {isEditing && (
