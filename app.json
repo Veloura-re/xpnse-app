@@ -2,7 +2,11 @@
   "expo": {
     "name": "spndy",
     "slug": "spndy",
-    "scheme": "spndy",
+    "scheme": [
+      "spndy",
+      "com.zzz1.cashiee",
+      "com.googleusercontent.apps.572518473431-3flq50ijubfav2ora252olcdlb46fcnu"
+    ],
     "version": "1.0.0",
     "description": "Track your expenses",
     "assetBundlePatterns": [
@@ -26,7 +30,27 @@
         "foregroundImage": "./assets/images/cashbook-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.zzz1.cashiee"
+      "package": "com.zzz1.cashiee",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "com.googleusercontent.apps.572518473431-3flq50ijubfav2ora252olcdlb46fcnu"
+            },
+            {
+              "scheme": "com.zzz1.cashiee"
+            },
+            {
+              "scheme": "spndy"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "ios": {
       "supportsTablet": true,
