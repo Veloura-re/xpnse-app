@@ -36,6 +36,7 @@ interface GitHubSignInButtonProps {
   mode?: 'login' | 'register';
   onError?: (error: string) => void;
   onSuccess?: () => void;
+  onLoadingChange?: (loading: boolean) => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }
@@ -44,11 +45,17 @@ export function GitHubSignInButton({
   mode = 'login',
   onError,
   onSuccess,
+  onLoadingChange,
   disabled = false,
   style,
 }: GitHubSignInButtonProps) {
   const { isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+
+  const setButtonLoading = (loading: boolean) => {
+    setIsLoading(loading);
+    onLoadingChange?.(loading);
+  };
 
   const handlePress = async () => {
     if (disabled || isLoading) return;
@@ -59,7 +66,7 @@ export function GitHubSignInButton({
       } catch (e) {}
     }
 
-    setIsLoading(true);
+    setButtonLoading(true);
 
     try {
       const result = await authenticateWithGitHub();
@@ -81,7 +88,7 @@ export function GitHubSignInButton({
     } catch (err: any) {
       onError?.(err?.message || 'GitHub authentication could not be completed.');
     } finally {
-      setIsLoading(false);
+      setButtonLoading(false);
     }
   };
 

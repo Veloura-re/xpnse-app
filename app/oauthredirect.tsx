@@ -14,15 +14,8 @@ export default function OAuthRedirectHandler() {
       console.warn('[OAuthRedirectHandler] Completion notice:', e);
     }
 
-    const timer = setTimeout(() => {
-      if (user) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/(tabs)');
-      }
-    }, 1500);
-
-    return () => clearTimeout(timer);
+    // Immediately route to tabs
+    router.replace('/(tabs)');
   }, [user]);
 
   return (

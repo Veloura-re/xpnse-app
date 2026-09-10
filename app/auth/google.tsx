@@ -11,11 +11,7 @@ export default function GoogleAuthCallback() {
       console.warn('[GoogleAuthCallback] Auth session notice:', e);
     }
 
-    const timer = setTimeout(() => {
-      router.replace('/(tabs)');
-    }, 1500);
-
-    return () => clearTimeout(timer);
+    router.replace('/(tabs)');
   }, []);
 
   return (

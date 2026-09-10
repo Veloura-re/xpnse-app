@@ -47,6 +47,7 @@ interface GoogleSignInButtonProps {
   mode?: 'login' | 'register';
   onError?: (error: string) => void;
   onSuccess?: () => void;
+  onLoadingChange?: (loading: boolean) => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }
@@ -55,12 +56,18 @@ export function GoogleSignInButton({
   mode = 'login',
   onError,
   onSuccess,
+  onLoadingChange,
   disabled = false,
   style,
 }: GoogleSignInButtonProps) {
   const { signInWithGoogle } = useAuth();
   const { colors, isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+
+  const setButtonLoading = (loading: boolean) => {
+    setIsLoading(loading);
+    onLoadingChange?.(loading);
+  };
 
   const webClientId =
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
@@ -86,22 +93,23 @@ export function GoogleSignInButton({
     if (response.type === 'success') {
       const idToken = response.params?.id_token;
       if (idToken) {
+        setButtonLoading(true);
         handleNativeGoogleExchange(idToken);
       } else {
-        setIsLoading(false);
+        setButtonLoading(false);
         onError?.('Authentication token was not returned by Google.');
       }
     } else if (response.type === 'error') {
-      setIsLoading(false);
+      setButtonLoading(false);
       onError?.(response.error?.message || 'Google authentication encountered an error.');
     } else if (response.type === 'cancel' || response.type === 'dismiss') {
-      setIsLoading(false);
+      setButtonLoading(false);
     }
   }, [response]);
 
   const handleNativeGoogleExchange = async (idToken: string) => {
     try {
-      setIsLoading(true);
+      setButtonLoading(true);
       const result = await signInWithGoogle(idToken);
       if (result.success) {
         if (Platform.OS !== 'web') {
@@ -120,7 +128,7 @@ export function GoogleSignInButton({
     } catch (err: any) {
       onError?.(err?.message || 'An unexpected error occurred during Google sign-in.');
     } finally {
-      setIsLoading(false);
+      setButtonLoading(false);
     }
   };
 

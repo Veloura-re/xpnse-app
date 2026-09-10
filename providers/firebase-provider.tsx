@@ -220,19 +220,66 @@ export const [FirebaseProvider, useFirebase] = createContextHook((): FirebaseCon
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!isMounted) return;
 
-      try {
-        const mappedUser = firebaseUser ? await mapFirebaseUser(firebaseUser) : null;
-
-        if (isMounted) {
-          setUser(mappedUser);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Error mapping Firebase user:', error);
+      if (!firebaseUser) {
         if (isMounted) {
           setUser(null);
           setIsLoading(false);
         }
+        return;
+      }
+
+      // 1. Immediately create and set optimistic user object in <1ms to eliminate delay
+      const isDevAdmin = isDeveloperAdminUser({ email: firebaseUser.email });
+      const instantUser: User = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        emailVerified: firebaseUser.emailVerified || true,
+        isAnonymous: firebaseUser.isAnonymous,
+        phoneNumber: firebaseUser.phoneNumber || undefined,
+        photoURL: firebaseUser.photoURL || undefined,
+        displayName: firebaseUser.displayName || undefined,
+        disabled: false,
+        isDeveloperAdmin: isDevAdmin,
+        metadata: {
+          creationTime: firebaseUser.metadata.creationTime || undefined,
+          lastSignInTime: firebaseUser.metadata.lastSignInTime || undefined,
+        },
+        providerData: firebaseUser.providerData.map(provider => ({
+          uid: provider.uid,
+          displayName: provider.displayName || undefined,
+          email: provider.email || undefined,
+          photoURL: provider.photoURL || undefined,
+          providerId: provider.providerId,
+        })),
+        profile: {
+          firstName: firebaseUser.displayName?.split(' ')[0] || '',
+          lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
+          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          phoneNumber: firebaseUser.phoneNumber || '',
+          photoURL: firebaseUser.photoURL || '',
+          isDeveloperAdmin: isDevAdmin,
+          createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || '',
+        phone: firebaseUser.phoneNumber || '',
+        avatar: firebaseUser.photoURL || '',
+      };
+
+      if (isMounted) {
+        setUser(instantUser);
+        setIsLoading(false);
+      }
+
+      // 2. Enrich with complete Firestore profile in background without blocking screen transition
+      try {
+        const enrichedUser = await mapFirebaseUser(firebaseUser);
+        if (isMounted && enrichedUser) {
+          setUser(enrichedUser);
+        }
+      } catch (error) {
+        console.warn('[Auth] Background profile enrichment note:', error);
       }
     });
 
@@ -458,45 +505,87 @@ export const [FirebaseProvider, useFirebase] = createContextHook((): FirebaseCon
       }
 
       const firebaseUser = userCredential.user;
-
-      // Check if user profile already exists in Firestore
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      const userDoc = await getDoc(userRef);
-
       const isDevAdmin = isDeveloperAdminUser({ email: firebaseUser.email });
 
-      if (!userDoc.exists()) {
-        const names = (firebaseUser.displayName || '').trim().split(' ');
-        const firstName = names[0] || '';
-        const lastName = names.slice(1).join(' ') || '';
-
-        const userProfile: Profile = {
-          firstName,
-          lastName,
-          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+      // Create instant user object so auth state and router transition immediately (<10ms)
+      const instantUser: User = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        emailVerified: firebaseUser.emailVerified || true,
+        isAnonymous: firebaseUser.isAnonymous,
+        phoneNumber: firebaseUser.phoneNumber || undefined,
+        photoURL: firebaseUser.photoURL || undefined,
+        displayName: firebaseUser.displayName || undefined,
+        disabled: false,
+        isDeveloperAdmin: isDevAdmin,
+        metadata: {
+          creationTime: firebaseUser.metadata.creationTime || undefined,
+          lastSignInTime: firebaseUser.metadata.lastSignInTime || undefined,
+        },
+        providerData: firebaseUser.providerData.map(provider => ({
+          uid: provider.uid,
+          displayName: provider.displayName || undefined,
+          email: provider.email || undefined,
+          photoURL: provider.photoURL || undefined,
+          providerId: provider.providerId,
+        })),
+        profile: {
+          firstName: firebaseUser.displayName?.split(' ')[0] || '',
+          lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
+          displayName: firebaseUser.displayName || 'User',
           phoneNumber: firebaseUser.phoneNumber || '',
           photoURL: firebaseUser.photoURL || '',
           isDeveloperAdmin: isDevAdmin,
-          createdAt: new Date().toISOString(),
+          createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        };
+        },
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || '',
+        phone: firebaseUser.phoneNumber || '',
+        avatar: firebaseUser.photoURL || '',
+      };
 
-        await setDoc(userRef, {
-          ...userProfile,
-          email: firebaseUser.email?.toLowerCase() || '',
-          uid: firebaseUser.uid,
-          isDeveloperAdmin: isDevAdmin,
-        });
-      } else if (isDevAdmin && !userDoc.data()?.isDeveloperAdmin) {
-        await setDoc(userRef, { isDeveloperAdmin: true }, { merge: true }).catch(() => null);
-      }
+      setUser(instantUser);
+      setIsLoading(false);
 
-      const mappedUser = await mapFirebaseUser(firebaseUser);
-      if (mappedUser) {
-        setUser(mappedUser);
-      }
+      // Perform Firestore profile synchronization in background without blocking UI
+      (async () => {
+        try {
+          if (db) {
+            const userRef = doc(db, 'users', firebaseUser.uid);
+            const userDoc = await getDoc(userRef);
+            if (!userDoc.exists()) {
+              const names = (firebaseUser.displayName || '').trim().split(' ');
+              const firstName = names[0] || '';
+              const lastName = names.slice(1).join(' ') || '';
 
-      return { data: mappedUser, error: null };
+              const userProfile: Profile = {
+                firstName,
+                lastName,
+                displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+                phoneNumber: firebaseUser.phoneNumber || '',
+                photoURL: firebaseUser.photoURL || '',
+                isDeveloperAdmin: isDevAdmin,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+
+              await setDoc(userRef, {
+                ...userProfile,
+                email: firebaseUser.email?.toLowerCase() || '',
+                uid: firebaseUser.uid,
+                isDeveloperAdmin: isDevAdmin,
+              });
+            } else if (isDevAdmin && !userDoc.data()?.isDeveloperAdmin) {
+              await setDoc(userRef, { isDeveloperAdmin: true }, { merge: true }).catch(() => null);
+            }
+          }
+        } catch (syncErr) {
+          console.warn('[Auth] Background profile sync notice:', syncErr);
+        }
+      })();
+
+      return { data: instantUser, error: null };
     } catch (err: any) {
       console.error('[Auth] Google sign in error:', err?.code, err?.message);
       return { data: null, error: err };

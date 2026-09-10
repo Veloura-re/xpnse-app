@@ -36,6 +36,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -362,11 +363,15 @@ export default function LoginScreen() {
             <View style={styles.socialStack}>
               <GoogleSignInButton
                 onError={(err) => setError(err)}
+                onLoadingChange={(loading) => setIsSocialLoading(loading)}
+                disabled={isSubmitting || isSocialLoading}
                 style={{ marginBottom: 10 }}
               />
 
               <GitHubSignInButton
                 onError={(err) => setError(err)}
+                onLoadingChange={(loading) => setIsSocialLoading(loading)}
+                disabled={isSubmitting || isSocialLoading}
                 style={{ marginBottom: 4 }}
               />
             </View>
@@ -380,6 +385,7 @@ export default function LoginScreen() {
                 activeOpacity={0.7}
                 onPress={() => router.push('/(auth)/register')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                disabled={isSubmitting || isSocialLoading}
               >
                 <Text style={styles.footerLink}>Sign up</Text>
               </TouchableOpacity>
@@ -387,6 +393,29 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Instant Social Auth Loading Transition Overlay */}
+      {isSocialLoading && (
+        <View style={styles.loadingOverlay}>
+          <View
+            style={[
+              styles.loadingCard,
+              {
+                backgroundColor: isDark ? 'rgba(6, 26, 20, 0.94)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)',
+              },
+            ]}
+          >
+            <ActivityIndicator size="large" color="#10b981" />
+            <Text style={[styles.loadingTitle, { color: textPrimary }]}>
+              Signing you in...
+            </Text>
+            <Text style={[styles.loadingSubtitle, { color: textSecondary }]}>
+              Preparing your workspace
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -573,5 +602,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+    paddingHorizontal: 24,
+  },
+  loadingCard: {
+    paddingHorizontal: 28,
+    paddingVertical: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    maxWidth: 300,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  loadingTitle: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginTop: 6,
+  },
+  loadingSubtitle: {
+    fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    textAlign: 'center',
   },
 });
