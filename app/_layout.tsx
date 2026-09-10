@@ -132,7 +132,7 @@ function RootLayoutNav() {
         router.replace("/(auth)/login");
       }
     }
-  }, [user, isLoading, params.mode, params.oobCode]);
+  }, [user, isLoading, params.mode, params.oobCode, segments]);
 
   if (isLoading) {
     return <LoadingScreen isDark={isDark} />;
@@ -142,6 +142,7 @@ function RootLayoutNav() {
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false, headerBackTitle: "Back" }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="recurring" options={{ headerShown: false }} />
