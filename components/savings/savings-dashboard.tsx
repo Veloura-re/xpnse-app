@@ -22,10 +22,11 @@ import {
   ShieldCheck,
   Target,
   Unlock,
+  Sparkles,
 } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
 import { useAuth } from '@/providers/auth-provider';
-import { Business, MemberAccount, SavingsVault, WalletTransaction } from '@/types';
+import { Business, MemberAccount, SavingsVault, WalletTransaction, RoundUpSettings } from '@/types';
 import {
   getOrCreateMemberAccount,
   subscribeToMemberAccount,
@@ -40,6 +41,7 @@ import { VaultsList } from './vaults-list';
 import { GroupPoolCard } from './group-pool-card';
 import { MoneyRequestModal } from './money-request-modal';
 import { PendingTransferPrompt } from './pending-transfer-prompt';
+import { RoundUpSettingsModal } from './round-up-settings-modal';
 import { formatCurrency } from '@/utils/currency-utils';
 
 interface SavingsDashboardProps {
@@ -61,6 +63,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   const [showSendMoney, setShowSendMoney] = useState(false);
   const [showCashOut, setShowCashOut] = useState(false);
   const [showRequestMoney, setShowRequestMoney] = useState(false);
+  const [showRoundUpModal, setShowRoundUpModal] = useState(false);
 
   const userId = user?.id || '';
   const currency = business.currency || 'USD';
@@ -127,6 +130,8 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         return <Unlock size={16} color="#6366f1" strokeWidth={2} />;
       case 'pool_contribution':
         return <Users size={16} color="#3b82f6" strokeWidth={2} />;
+      case 'round_up_deposit':
+        return <Sparkles size={16} color="#10B981" strokeWidth={2} />;
       default:
         return <Clock size={16} color={colors.textSecondary} strokeWidth={2} />;
     }
@@ -148,13 +153,19 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         return `Drawn from ${tx.vaultName || 'Vault'}`;
       case 'pool_contribution':
         return 'Syndicate Treasury Pledge';
+      case 'round_up_deposit':
+        return `Spare Change in ${tx.vaultName || 'Vault'}`;
       default:
         return 'Ledger Entry';
     }
   };
 
   const isPositiveTransaction = (type: WalletTransaction['type']) => {
-    return type === 'deposit' || type === 'transfer_recv' || type === 'vault_withdraw';
+    return (
+      type === 'deposit' ||
+      type === 'transfer_recv' ||
+      type === 'vault_withdraw'
+    );
   };
 
   return (
@@ -179,6 +190,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         onSendMoney={() => setShowSendMoney(true)}
         onCashOut={() => setShowCashOut(true)}
         onRequestMoney={() => setShowRequestMoney(true)}
+        onOpenRoundUp={() => setShowRoundUpModal(true)}
       />
 
       {/* Money Requests Quick Access Dispatch Strip */}
@@ -411,6 +423,26 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         currency={currency}
         onClose={() => setShowRequestMoney(false)}
         onSuccess={onRefresh}
+      />
+
+      {/* Round-Up Settings Modal */}
+      <RoundUpSettingsModal
+        visible={showRoundUpModal}
+        businessId={business.id}
+        userId={userId}
+        currency={currency}
+        vaults={vaults}
+        currentSettings={account?.roundUpSettings}
+        onClose={() => setShowRoundUpModal(false)}
+        onSuccess={(updated) => {
+          if (account) {
+            setAccount({
+              ...account,
+              roundUpSettings: updated,
+            });
+          }
+          onRefresh();
+        }}
       />
 
       {/* Pending Transfer Prompt — real-time inbound confirmations */}

@@ -28,6 +28,7 @@ import {
   MoneyRequestStatus,
   PendingTransfer,
   PendingTransferStatus,
+  RoundUpSettings,
 } from '@/types';
 
 /**
@@ -1339,4 +1340,174 @@ export function subscribeToMoneyRequests(
       callback([]);
     }
   );
+}
+
+/**
+ * Calculates the exact spare change round-up amount based on user settings
+ */
+export function calculateRoundUp(amount: number, settings?: RoundUpSettings | null): number {
+  if (!settings || !settings.enabled || settings.paused || !settings.targetVaultId) {
+    return 0;
+  }
+  if (!amount || amount <= 0) {
+    return 0;
+  }
+
+  const step = settings.step || 1;
+  const multiplier = settings.multiplier || 1;
+
+  let nextTarget = Math.ceil(amount / step) * step;
+  // If exact multiple (e.g. $10.00 on step 1), no spare change
+  let diff = nextTarget - amount;
+  if (diff <= 0.001) {
+    return 0;
+  }
+
+  const total = Math.round(diff * multiplier * 100) / 100;
+  return total;
+}
+
+/**
+ * Persist user round-up preferences to their MemberAccount document
+ */
+export async function updateRoundUpSettings(
+  businessId: string,
+  userId: string,
+  settings: RoundUpSettings
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firestore = getDb();
+    const accountRef = doc(firestore, 'businesses', businessId, 'accounts', userId);
+    await setDoc(
+      accountRef,
+      {
+        roundUpSettings: settings,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Update round-up settings error:', err);
+    return { success: false, error: err?.message || 'Failed to update round-up settings.' };
+  }
+}
+
+/**
+ * Executes an automated micro-saving round-up for a logged expense book entry
+ */
+export async function executeRoundUpForEntry(params: {
+  businessId: string;
+  userId: string;
+  entryAmount: number;
+  bookEntryId: string;
+  bookName?: string;
+}): Promise<{
+  success: boolean;
+  roundUpAmount?: number;
+  vaultName?: string;
+  skippedReason?: string;
+  error?: string;
+}> {
+  const { businessId, userId, entryAmount, bookEntryId, bookName } = params;
+
+  if (entryAmount <= 0) {
+    return { success: true, roundUpAmount: 0 };
+  }
+
+  try {
+    const firestore = getDb();
+    const accountRef = doc(firestore, 'businesses', businessId, 'accounts', userId);
+    const accountSnap = await getDoc(accountRef);
+
+    if (!accountSnap.exists()) {
+      return { success: true, roundUpAmount: 0, skippedReason: 'no_account' };
+    }
+
+    const account = accountSnap.data() as MemberAccount;
+    const settings = account.roundUpSettings;
+
+    if (!settings || !settings.enabled || settings.paused || !settings.targetVaultId) {
+      return { success: true, roundUpAmount: 0, skippedReason: 'disabled' };
+    }
+
+    const roundUpAmount = calculateRoundUp(entryAmount, settings);
+    if (roundUpAmount <= 0) {
+      return { success: true, roundUpAmount: 0, skippedReason: 'zero_diff' };
+    }
+
+    // Check safety floor guard (e.g. don't round up if balance falls below $20)
+    const safetyFloor = settings.safetyFloor || 0;
+    if (account.mainBalance - roundUpAmount < safetyFloor) {
+      return {
+        success: true,
+        roundUpAmount: 0,
+        skippedReason: 'safety_floor_triggered',
+      };
+    }
+
+    const vaultRef = doc(firestore, 'businesses', businessId, 'savings_vaults', settings.targetVaultId);
+    const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
+    const newTxRef = doc(txCol);
+
+    let vaultName = settings.targetVaultName || 'Savings Vault';
+
+    await runTransaction(firestore, async (t) => {
+      const accSnap = await t.get(accountRef);
+      if (!accSnap.exists()) throw new Error('Member account not found.');
+      const currentAccount = accSnap.data() as MemberAccount;
+
+      if (currentAccount.mainBalance < roundUpAmount) {
+        throw new Error('Insufficient spendable balance for round-up.');
+      }
+
+      const vSnap = await t.get(vaultRef);
+      if (!vSnap.exists()) {
+        throw new Error('Target savings vault not found.');
+      }
+      const vaultData = vSnap.data() as SavingsVault;
+      vaultName = vaultData.name;
+
+      // 1. Deduct from main balance, add to locked savings
+      t.update(accountRef, {
+        mainBalance: currentAccount.mainBalance - roundUpAmount,
+        lockedSavingsBalance: (currentAccount.lockedSavingsBalance || 0) + roundUpAmount,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // 2. Credit target vault
+      t.update(vaultRef, {
+        currentAmount: (vaultData.currentAmount || 0) + roundUpAmount,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // 3. Write immutable wallet transaction
+      const tx: WalletTransaction = {
+        id: newTxRef.id,
+        businessId,
+        userId,
+        type: 'round_up_deposit',
+        amount: roundUpAmount,
+        currency: currentAccount.currency || 'USD',
+        vaultId: settings.targetVaultId,
+        vaultName: vaultData.name,
+        status: 'completed',
+        note: `Spare change rounded up from ${bookName || 'Expense'} ($${entryAmount.toFixed(2)})`,
+        createdAt: new Date().toISOString(),
+      };
+      t.set(newTxRef, tx);
+    });
+
+    return {
+      success: true,
+      roundUpAmount,
+      vaultName,
+    };
+  } catch (err: any) {
+    console.warn('[Savings] Round-up execution note:', err?.message);
+    return {
+      success: false,
+      error: err?.message || 'Round-up execution could not be completed.',
+    };
+  }
 }

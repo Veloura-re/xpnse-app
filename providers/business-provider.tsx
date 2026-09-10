@@ -12,7 +12,7 @@ import { collection, query, where, getDocs, getDoc, limit, onSnapshot, doc, setD
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 import { PushNotificationService } from '@/services/push-notification-service';
 import { CurrencyService } from '@/services/currency-service';
-import { getOrCreateMemberAccount } from '@/services/savings-service';
+import { getOrCreateMemberAccount, executeRoundUpForEntry } from '@/services/savings-service';
 
 interface BusinessState {
   // Existing state
@@ -1225,6 +1225,19 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           totalCashIn: entryData.type === 'cash_in' ? increment(amount) : increment(0),
           totalCashOut: entryData.type === 'cash_out' ? increment(amount) : increment(0),
           balance: entryData.type === 'cash_in' ? increment(amount) : increment(-amount)
+        });
+      }
+
+      // Execute Automated Round-Up for cash_out expenses if enabled
+      if (entryData.type === 'cash_out' && amount > 0 && user.id) {
+        executeRoundUpForEntry({
+          businessId: currentBusiness.id,
+          userId: user.id,
+          entryAmount: amount,
+          bookEntryId: newEntryId,
+          bookName: context?.bookName,
+        }).catch((roundUpErr) => {
+          console.warn('[RoundUp] Background execution notice:', roundUpErr?.message);
         });
       }
 

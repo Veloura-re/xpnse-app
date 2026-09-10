@@ -98,6 +98,19 @@ export interface Business {
   };
 }
 
+export type RoundUpStep = 1 | 5 | 10;
+export type RoundUpMultiplier = 1 | 2 | 3 | 5 | 10;
+
+export interface RoundUpSettings {
+  enabled: boolean;
+  targetVaultId: string;
+  targetVaultName?: string;
+  step: RoundUpStep; // Next $1, $5, or $10
+  multiplier: RoundUpMultiplier; // 1x, 2x, 3x, 5x, 10x
+  safetyFloor: number; // Minimum main balance required to execute round-up (e.g. 20)
+  paused?: boolean;
+}
+
 export interface MemberAccount {
   id: string;
   businessId: string;
@@ -105,6 +118,7 @@ export interface MemberAccount {
   mainBalance: number; // Spendable balance
   lockedSavingsBalance: number; // In vaults
   currency: string;
+  roundUpSettings?: RoundUpSettings;
   createdAt: string;
   updatedAt: string;
 }
@@ -130,7 +144,8 @@ export type WalletTransactionType =
   | 'transfer_recv'
   | 'vault_deposit'
   | 'vault_withdraw'
-  | 'pool_contribution';
+  | 'pool_contribution'
+  | 'round_up_deposit';
 
 export interface WalletTransaction {
   id: string;

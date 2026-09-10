@@ -27,6 +27,7 @@ interface WalletCardProps {
   onSendMoney: () => void;
   onCashOut: () => void;
   onRequestMoney?: () => void;
+  onOpenRoundUp?: () => void;
 }
 
 export const WalletCard: React.FC<WalletCardProps> = ({
@@ -36,6 +37,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
   onSendMoney,
   onCashOut,
   onRequestMoney,
+  onOpenRoundUp,
 }) => {
   const { colors, isDark } = useTheme();
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
@@ -43,6 +45,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
   const mainBalance = account?.mainBalance ?? 0;
   const lockedBalance = account?.lockedSavingsBalance ?? 0;
   const totalBalance = mainBalance + lockedBalance;
+  const roundUpSettings = account?.roundUpSettings;
 
   const liquidRatio = totalBalance > 0
     ? Math.min(100, Math.max(0, Math.round((mainBalance / totalBalance) * 100)))
@@ -102,6 +105,49 @@ export const WalletCard: React.FC<WalletCardProps> = ({
                 SPENDABLE VAULT
               </Text>
             </View>
+
+            {onOpenRoundUp && (
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={onOpenRoundUp}
+                style={[
+                  styles.roundUpStatusPill,
+                  {
+                    backgroundColor: roundUpSettings?.enabled
+                      ? isDark
+                        ? 'rgba(16, 185, 129, 0.15)'
+                        : 'rgba(16, 185, 129, 0.1)'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.04)'
+                      : '#f1f5f9',
+                    borderColor: roundUpSettings?.enabled
+                      ? '#10b981'
+                      : isDark
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : '#e2e8f0',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roundUpStatusText,
+                    {
+                      color: roundUpSettings?.enabled
+                        ? isDark
+                          ? '#34d399'
+                          : '#059669'
+                        : isDark
+                        ? '#94a3b8'
+                        : '#64748b',
+                    },
+                  ]}
+                >
+                  {roundUpSettings?.enabled
+                    ? `Auto-Save: ${roundUpSettings.multiplier || 1}x`
+                    : 'Auto-Save: Off'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.controlsRow}>
@@ -472,6 +518,7 @@ const styles = StyleSheet.create({
   badgeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   statusPill: {
     flexDirection: 'row',
@@ -481,6 +528,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 0.8,
+  },
+  roundUpStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  roundUpStatusText: {
+    fontSize: 9.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.3,
   },
   statusDot: {
     width: 6,
