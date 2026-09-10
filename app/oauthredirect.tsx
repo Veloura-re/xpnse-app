@@ -1,42 +1,35 @@
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 
-export default function NotFoundScreen() {
-  const { user, isLoading } = useAuth();
+export default function OAuthRedirectHandler() {
+  const { user } = useAuth();
 
   useEffect(() => {
     try {
       WebBrowser.maybeCompleteAuthSession();
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[OAuthRedirectHandler] Completion notice:', e);
+    }
 
     const timer = setTimeout(() => {
       if (user) {
         router.replace('/(tabs)');
-      } else if (!isLoading) {
-        router.replace('/(auth)/login');
+      } else {
+        router.replace('/(tabs)');
       }
-    }, 800);
+    }, 1500);
 
     return () => clearTimeout(timer);
-  }, [user, isLoading]);
+  }, [user]);
 
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color="#10b981" />
-      <Text style={styles.title}>Redirecting to spndy...</Text>
-      <Text style={styles.subtitle}>Securing your workspace...</Text>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => {
-          if (user) router.replace('/(tabs)');
-          else router.replace('/(auth)/login');
-        }}
-      >
-        <Text style={styles.buttonText}>Go to Home</Text>
-      </TouchableOpacity>
+      <Text style={styles.title}>Signing In...</Text>
+      <Text style={styles.subtitle}>Securing session and entering spndy...</Text>
     </View>
   );
 }
@@ -62,18 +55,5 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontFamily: 'SpaceGrotesk_400Regular',
     textAlign: 'center',
-  },
-  button: {
-    marginTop: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#10b981',
-    borderRadius: 12,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
-    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 });
