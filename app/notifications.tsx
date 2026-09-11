@@ -1,9 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, LayoutAnimation, Platform, UIManager, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, LayoutAnimation, Platform, UIManager, Alert, Modal } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useNotifications } from '@/providers/notification-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, ChevronLeft, ChevronDown, ChevronUp, Check, CheckCheck, Trash2, Circle, CheckCircle2, X, Sparkles } from 'lucide-react-native';
+import {
+    Bell,
+    ChevronLeft,
+    ChevronDown,
+    ChevronUp,
+    Check,
+    CheckCheck,
+    Trash2,
+    Circle,
+    CheckCircle2,
+    X,
+    Sparkles,
+    Award,
+    Lock,
+    Unlock,
+    Coins,
+    Repeat,
+    ArrowDownLeft,
+    ArrowUpRight,
+    Wallet,
+} from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 
@@ -26,7 +46,37 @@ export default function NotificationsScreen() {
     const router = useRouter();
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [activeTab, setActiveTab] = useState<'all' | 'savings' | 'books'>('all');
+    const [celebrationVault, setCelebrationVault] = useState<{ name: string; target?: number } | null>(null);
     const isSelectionMode = selectedIds.size > 0;
+
+    const isSavingsNotification = (n: any) => {
+        const cat = n.data?.category || n.metadata?.category;
+        if (cat === 'savings_vault') return true;
+        const t = n.type || '';
+        return (
+            t.startsWith('vault_') ||
+            t === 'round_up_stashed' ||
+            t === 'scheduled_stash' ||
+            t === 'wallet_deposit' ||
+            t === 'wallet_cashout' ||
+            t === 'transfer_sent' ||
+            t === 'transfer_recv' ||
+            t === 'money_request' ||
+            t === 'pending_transfer'
+        );
+    };
+
+    const isBooksNotification = (n: any) => !isSavingsNotification(n);
+
+    const filteredNotifications = notifications.filter(n => {
+        if (activeTab === 'savings') return isSavingsNotification(n);
+        if (activeTab === 'books') return isBooksNotification(n);
+        return true;
+    });
+
+    const savingsCount = notifications.filter(isSavingsNotification).length;
+    const booksCount = notifications.filter(isBooksNotification).length;
 
     const toggleSelection = (id: string) => {
         if (Platform.OS !== 'web') {
@@ -130,7 +180,7 @@ export default function NotificationsScreen() {
             } catch (e) {}
         }
         await createNotification({
-            title: 'Notifications Active! 🎉',
+            title: 'Notifications Active',
             message: 'Your in-app alerts and notifications are working seamlessly.',
             type: 'success',
         });
@@ -142,7 +192,22 @@ export default function NotificationsScreen() {
         const titleLower = item.title?.toLowerCase() || '';
         const messageLower = item.message?.toLowerCase() || '';
 
-        if (titleLower.includes('cash in') || messageLower.includes('cash in') ||
+        if (item.type === 'vault_milestone') {
+            iconColor = '#10b981';
+            bgColor = isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5';
+        } else if (item.type === 'vault_deposit' || item.type === 'scheduled_stash') {
+            iconColor = '#8b5cf6';
+            bgColor = isDark ? 'rgba(139, 92, 246, 0.18)' : '#f3e8ff';
+        } else if (item.type === 'vault_withdraw' || item.type === 'vault_unlocked') {
+            iconColor = '#f59e0b';
+            bgColor = isDark ? 'rgba(245, 158, 11, 0.18)' : '#fef3c7';
+        } else if (item.type === 'round_up_stashed') {
+            iconColor = '#06b6d4';
+            bgColor = isDark ? 'rgba(6, 182, 212, 0.18)' : '#cffafe';
+        } else if (item.type === 'money_request' || item.type === 'pending_transfer') {
+            iconColor = '#6366f1';
+            bgColor = isDark ? 'rgba(99, 102, 241, 0.18)' : '#e0e7ff';
+        } else if (titleLower.includes('cash in') || messageLower.includes('cash in') ||
             titleLower.includes('received') || messageLower.includes('received')) {
             iconColor = '#10b981';
             bgColor = isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5';
@@ -156,34 +221,74 @@ export default function NotificationsScreen() {
         const isAnyExpanded = expandedIds.size > 0;
         const shouldBlur = isAnyExpanded && !isExpanded;
 
+        const handleItemPress = () => {
+            if (isSelectionMode) {
+                toggleSelection(item.id);
+                return;
+            }
+
+            if (item.type === 'vault_milestone') {
+                const is100Pct = item.data?.milestonePercent === 100 || item.title?.includes('100%') || item.title?.includes('Goal Achieved');
+                if (is100Pct) {
+                    if (Platform.OS !== 'web') {
+                        try {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        } catch (e) {}
+                    }
+                    setCelebrationVault({
+                        name: item.data?.vaultName || 'Savings Vault',
+                        target: item.data?.targetAmount,
+                    });
+                }
+            }
+
+            toggleExpand(item.id, item.read);
+        };
+
+        const renderItemIcon = () => {
+            if (isSelectionMode) {
+                return selectedIds.has(item.id) ? (
+                    <CheckCircle2 size={20} color={colors.primary} />
+                ) : (
+                    <Circle size={20} color={colors.border} />
+                );
+            }
+
+            let IconComponent = Bell;
+            if (item.type === 'vault_milestone') IconComponent = Award;
+            else if (item.type === 'vault_deposit') IconComponent = Lock;
+            else if (item.type === 'vault_withdraw' || item.type === 'vault_unlocked') IconComponent = Unlock;
+            else if (item.type === 'round_up_stashed') IconComponent = Coins;
+            else if (item.type === 'scheduled_stash') IconComponent = Repeat;
+            else if (item.type === 'wallet_deposit' || item.type === 'transfer_recv') IconComponent = ArrowDownLeft;
+            else if (item.type === 'wallet_cashout' || item.type === 'transfer_sent') IconComponent = ArrowUpRight;
+            else if (item.type === 'money_request' || item.type === 'pending_transfer') IconComponent = Wallet;
+
+            return (
+                <>
+                    <IconComponent size={18} color={iconColor} />
+                    {!item.read && <View style={[styles.unreadDot, { borderColor: colors.card }]} />}
+                </>
+            );
+        };
+
         return (
             <TouchableOpacity
                 style={[
                     styles.notificationItem,
                     { backgroundColor: colors.cardGlass, borderBottomColor: colors.borderGlass },
                     !item.read && [styles.unreadItem, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4' }],
-                    index === notifications.length - 1 && styles.lastItem,
+                    index === filteredNotifications.length - 1 && styles.lastItem,
                     selectedIds.has(item.id) && [styles.selectedItem, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7' }],
                     { overflow: 'hidden' }
                 ]}
-                onPress={() => isSelectionMode ? toggleSelection(item.id) : toggleExpand(item.id, item.read)}
+                onPress={handleItemPress}
                 onLongPress={() => handleLongPress(item.id)}
                 delayLongPress={500}
                 activeOpacity={0.7}
             >
                 <View style={[styles.iconContainer, { backgroundColor: isSelectionMode ? (selectedIds.has(item.id) ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7') : colors.card) : bgColor }]}>
-                    {isSelectionMode ? (
-                        selectedIds.has(item.id) ? (
-                            <CheckCircle2 size={20} color={colors.primary} />
-                        ) : (
-                            <Circle size={20} color={colors.border} />
-                        )
-                    ) : (
-                        <>
-                            <Bell size={18} color={iconColor} />
-                            {!item.read && <View style={[styles.unreadDot, { borderColor: colors.card }]} />}
-                        </>
-                    )}
+                    {renderItemIcon()}
                 </View>
 
                 <View style={styles.contentContainer}>
@@ -271,6 +376,62 @@ export default function NotificationsScreen() {
                 </View>
                 <Text style={[styles.appName, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>spndy</Text>
                 <Text style={[styles.headerTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }]}>{isSelectionMode ? `${selectedIds.size} Selected` : 'Notifications'}</Text>
+
+                {/* Category Filtering Tabs */}
+                {!isSelectionMode && (
+                    <View style={styles.tabsContainer}>
+                        <TouchableOpacity
+                            style={[
+                                styles.tabPill,
+                                { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                activeTab === 'all' && [styles.activeTabPill, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5', borderColor: '#10b981' }],
+                            ]}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') Haptics.selectionAsync();
+                                setActiveTab('all');
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.tabText, { color: activeTab === 'all' ? '#10b981' : colors.textSecondary }]}>
+                                All ({notifications.length})
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.tabPill,
+                                { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                activeTab === 'savings' && [styles.activeTabPill, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5', borderColor: '#10b981' }],
+                            ]}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') Haptics.selectionAsync();
+                                setActiveTab('savings');
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.tabText, { color: activeTab === 'savings' ? '#10b981' : colors.textSecondary }]}>
+                                Savings & Vaults ({savingsCount})
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.tabPill,
+                                { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                activeTab === 'books' && [styles.activeTabPill, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5', borderColor: '#10b981' }],
+                            ]}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') Haptics.selectionAsync();
+                                setActiveTab('books');
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={[styles.tabText, { color: activeTab === 'books' ? '#10b981' : colors.textSecondary }]}>
+                                Books & Ledgers ({booksCount})
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
 
             {isSelectionMode && (
@@ -295,7 +456,7 @@ export default function NotificationsScreen() {
             >
                 <View style={[styles.card, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass }]}>
                     <FlatList
-                        data={notifications}
+                        data={filteredNotifications}
                         renderItem={renderItem}
                         keyExtractor={(item) => item.id}
                         extraData={expandedIds}
@@ -309,9 +470,13 @@ export default function NotificationsScreen() {
                                 <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4' }]}>
                                     <Bell size={28} color={colors.primary} />
                                 </View>
-                                <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>No notifications yet</Text>
+                                <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                    {activeTab === 'savings' ? 'No savings telemetry yet' : 'No notifications yet'}
+                                </Text>
                                 <Text style={[styles.emptyMessage, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-                                    You'll see activity, updates, and balance alerts here.
+                                    {activeTab === 'savings'
+                                        ? 'Vault allocations, milestone achievements, and round-up stashes will appear here.'
+                                        : "You'll see activity, updates, and balance alerts here."}
                                 </Text>
                                 <TouchableOpacity
                                     style={[styles.testNotifBtn, { backgroundColor: colors.primary }]}
@@ -328,6 +493,52 @@ export default function NotificationsScreen() {
                     />
                 </View>
             </View>
+
+            {/* Milestone Celebration Modal */}
+            {celebrationVault && (
+                <Modal
+                    visible={!!celebrationVault}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setCelebrationVault(null)}
+                >
+                    <View style={styles.modalBackdrop}>
+                        <View style={[styles.celebrationCard, { backgroundColor: isDark ? '#090e0d' : '#ffffff', borderColor: '#10b981' }]}>
+                            <View style={styles.celebrationIconDisc}>
+                                <Award size={36} color="#10b981" />
+                            </View>
+                            <Text style={styles.celebrationBadgeText}>
+                                100% TARGET REACHED
+                            </Text>
+                            <Text style={[styles.celebrationTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                                Goal Achieved
+                            </Text>
+                            <Text style={[styles.celebrationMessage, { color: colors.textSecondary }]}>
+                                Vault "{celebrationVault.name}" has reached 100% of its funding goal.
+                            </Text>
+                            <View style={styles.celebrationActions}>
+                                <TouchableOpacity
+                                    style={styles.celebrationPrimaryBtn}
+                                    onPress={() => {
+                                        setCelebrationVault(null);
+                                        router.push('/(tabs)');
+                                    }}
+                                    activeOpacity={0.85}
+                                >
+                                    <Text style={styles.celebrationPrimaryBtnText}>Inspect Vault Chamber</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.celebrationSecondaryBtn}
+                                    onPress={() => setCelebrationVault(null)}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={[styles.celebrationSecondaryBtnText, { color: colors.textSecondary }]}>Dismiss</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            )}
         </View>
     );
 }
@@ -603,5 +814,97 @@ const styles = StyleSheet.create({
     },
     deleteActionText: {
         color: '#ef4444',
+    },
+    // Category Tabs
+    tabsContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 14,
+    },
+    tabPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    activeTabPill: {},
+    tabText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    // Celebration Modal
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    celebrationCard: {
+        width: '100%',
+        maxWidth: 360,
+        borderRadius: 24,
+        padding: 24,
+        alignItems: 'center',
+        borderWidth: 1.5,
+        shadowColor: '#10b981',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 24,
+        elevation: 16,
+    },
+    celebrationIconDisc: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: 'rgba(16, 185, 129, 0.18)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+        borderColor: 'rgba(16, 185, 129, 0.4)',
+        marginBottom: 16,
+    },
+    celebrationBadgeText: {
+        fontSize: 11,
+        fontWeight: '800',
+        letterSpacing: 1.2,
+        marginBottom: 6,
+        color: '#10b981',
+    },
+    celebrationTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    celebrationMessage: {
+        fontSize: 13,
+        textAlign: 'center',
+        lineHeight: 18,
+        marginBottom: 24,
+        paddingHorizontal: 12,
+    },
+    celebrationActions: {
+        width: '100%',
+        gap: 10,
+    },
+    celebrationPrimaryBtn: {
+        backgroundColor: '#10b981',
+        paddingVertical: 14,
+        borderRadius: 14,
+        alignItems: 'center',
+    },
+    celebrationPrimaryBtnText: {
+        color: '#ffffff',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    celebrationSecondaryBtn: {
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    celebrationSecondaryBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
     },
 });

@@ -24,6 +24,8 @@ if (Platform.OS !== 'web') {
     });
 }
 
+import { NotificationType } from '@/types';
+
 export interface Notification {
     id: string;
     userId: string;
@@ -31,10 +33,11 @@ export interface Notification {
     message: string;
     read: boolean;
     createdAt: any;
-    type?: 'info' | 'warning' | 'error' | 'success' | 'entry_added' | 'book_created';
+    type?: NotificationType;
     data?: any; // For navigation
     metadata?: any;
     color?: string;
+    deleted?: boolean;
 }
 
 interface NotificationState {
@@ -55,7 +58,7 @@ interface NotificationState {
         userId?: string;
         title: string;
         message: string;
-        type?: 'info' | 'warning' | 'error' | 'success' | 'entry_added' | 'book_created';
+        type?: NotificationType;
         data?: any;
         metadata?: any;
         color?: string;
@@ -234,7 +237,7 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         userId?: string;
         title: string;
         message: string;
-        type?: 'info' | 'warning' | 'error' | 'success' | 'entry_added' | 'book_created';
+        type?: NotificationType;
         data?: any;
         metadata?: any;
         color?: string;

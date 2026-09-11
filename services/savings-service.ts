@@ -16,6 +16,7 @@ import {
   serverTimestamp,
   increment,
   Unsubscribe,
+  addDoc,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { PushNotificationService } from '@/services/push-notification-service';
@@ -32,6 +33,7 @@ import {
   RoundUpSettings,
   ScheduledStashRule,
   ScheduledStashFrequency,
+  NotificationType,
 } from '@/types';
 
 /**
@@ -42,6 +44,57 @@ function getDb(): Firestore {
     throw new Error('Firestore database is not initialized.');
   }
   return db;
+}
+
+/**
+ * Dispatch real-time in-app and push notifications for savings and vault events
+ */
+export async function dispatchSavingsNotification(params: {
+  userId: string;
+  businessId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  color?: string;
+  data?: Record<string, any>;
+}): Promise<void> {
+  if (!db || !params.userId) return;
+
+  const notifColor = params.color || '#10b981';
+  const payloadData = {
+    category: 'savings_vault',
+    businessId: params.businessId,
+    path: '/(tabs)',
+    ...params.data,
+  };
+
+  try {
+    // 1. Write in-app notification to Firestore notifications collection
+    await addDoc(collection(db, 'notifications'), {
+      userId: params.userId,
+      title: params.title,
+      message: params.message,
+      read: false,
+      createdAt: new Date().toISOString(),
+      type: params.type,
+      color: notifColor,
+      data: payloadData,
+      metadata: payloadData,
+    });
+  } catch (err) {
+    console.warn('[Savings] In-app notification write notice:', err);
+  }
+
+  // 2. Dispatch native push notification
+  try {
+    await PushNotificationService.sendToUser(params.userId, {
+      title: params.title,
+      body: params.message,
+      data: payloadData,
+    });
+  } catch (pushErr) {
+    console.warn('[Savings] Push notification notice:', pushErr);
+  }
 }
 
 /**
@@ -173,6 +226,16 @@ export async function depositToWallet(params: {
       t.set(newTxRef, transactionRecord);
     });
 
+    dispatchSavingsNotification({
+      userId,
+      businessId,
+      title: 'Wallet Deposit Completed',
+      message: `Added ${currency} ${amount.toFixed(2)} to your spendable balance.`,
+      type: 'wallet_deposit',
+      color: '#10b981',
+      data: { amount, currency, paymentMethodTitle },
+    }).catch(() => {});
+
     return { success: true };
   } catch (err: any) {
     console.error('[Savings] Deposit error:', err);
@@ -293,6 +356,28 @@ export async function transferBetweenMembers(params: {
       t.set(recipientTxRef, recipientTx);
     });
 
+    // Notify sender
+    dispatchSavingsNotification({
+      userId: senderId,
+      businessId,
+      title: 'Transfer Sent',
+      message: `Sent ${currency} ${amount.toFixed(2)} to ${recipientName}.`,
+      type: 'transfer_sent',
+      color: '#6366f1',
+      data: { amount, currency, counterpartyId: recipientId, counterpartyName: recipientName },
+    }).catch(() => {});
+
+    // Notify recipient
+    dispatchSavingsNotification({
+      userId: recipientId,
+      businessId,
+      title: 'Transfer Received',
+      message: `Received ${currency} ${amount.toFixed(2)} from ${senderName}.`,
+      type: 'transfer_recv',
+      color: '#10b981',
+      data: { amount, currency, counterpartyId: senderId, counterpartyName: senderName },
+    }).catch(() => {});
+
     return { success: true };
   } catch (err: any) {
     console.error('[Savings] P2P Transfer error:', err);
@@ -367,6 +452,16 @@ export async function cashOutFromWallet(params: {
       t.set(newTxRef, tx);
     });
 
+    dispatchSavingsNotification({
+      userId,
+      businessId,
+      title: 'Withdrawal Initiated',
+      message: `Withdrew ${currency} ${amount.toFixed(2)} (${destinationTitle || destinationType}).`,
+      type: 'wallet_cashout',
+      color: '#f59e0b',
+      data: { amount, currency, destinationType },
+    }).catch(() => {});
+
     return { success: true };
   } catch (err: any) {
     console.error('[Savings] Cash-out error:', err);
@@ -424,6 +519,17 @@ export async function createSavingsVault(params: {
     };
 
     await setDoc(newVaultRef, newVault);
+
+    dispatchSavingsNotification({
+      userId,
+      businessId,
+      title: 'Vault Created',
+      message: `Created "${name.trim()}" with target ${currency} ${targetAmount.toFixed(2)}.`,
+      type: 'vault_deposit',
+      color: '#8b5cf6',
+      data: { vaultId: newVaultRef.id, vaultName: name.trim(), targetAmount },
+    }).catch(() => {});
+
     return { success: true, data: newVault };
   } catch (err: any) {
     console.error('[Savings] Create vault error:', err);
@@ -455,6 +561,11 @@ export async function transferToVault(params: {
     const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
     const newTxRef = doc(txCol);
 
+    let resolvedVaultName = vaultName;
+    let targetAmount = 0;
+    let prevPct = 0;
+    let newPct = 0;
+
     await runTransaction(firestore, async (t) => {
       const accSnap = await t.get(accountRef);
       const vaultSnap = await t.get(vaultRef);
@@ -470,6 +581,12 @@ export async function transferToVault(params: {
         throw new Error('Insufficient spendable balance.');
       }
 
+      resolvedVaultName = vaultData.name || vaultName;
+      targetAmount = vaultData.targetAmount || 0;
+      const currentAmount = vaultData.currentAmount || 0;
+      prevPct = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
+      newPct = targetAmount > 0 ? ((currentAmount + amount) / targetAmount) * 100 : 0;
+
       // Update Account balances
       t.update(accountRef, {
         mainBalance: (accData.mainBalance || 0) - amount,
@@ -479,7 +596,7 @@ export async function transferToVault(params: {
 
       // Update Vault balance
       t.update(vaultRef, {
-        currentAmount: (vaultData.currentAmount || 0) + amount,
+        currentAmount: currentAmount + amount,
         updatedAt: new Date().toISOString(),
       });
 
@@ -492,14 +609,60 @@ export async function transferToVault(params: {
         amount,
         currency,
         vaultId,
-        vaultName: vaultData.name || vaultName,
+        vaultName: resolvedVaultName,
         status: 'completed',
-        note: `Allocated to ${vaultData.name || vaultName}`,
+        note: `Allocated to ${resolvedVaultName}`,
         createdAt: new Date().toISOString(),
       };
 
       t.set(newTxRef, tx);
     });
+
+    // 1. Dispatch vault deposit notification
+    dispatchSavingsNotification({
+      userId,
+      businessId,
+      title: 'Allocated to Vault',
+      message: `Stashed ${currency} ${amount.toFixed(2)} into ${resolvedVaultName}.`,
+      type: 'vault_deposit',
+      color: '#8b5cf6',
+      data: { vaultId, vaultName: resolvedVaultName, amount, currency },
+    }).catch(() => {});
+
+    // 2. Dispatch milestone notifications if target thresholds crossed
+    if (targetAmount > 0) {
+      if (prevPct < 100 && newPct >= 100) {
+        dispatchSavingsNotification({
+          userId,
+          businessId,
+          title: 'Goal Achieved',
+          message: `Vault "${resolvedVaultName}" has achieved 100% of its target!`,
+          type: 'vault_milestone',
+          color: '#10b981',
+          data: { vaultId, vaultName: resolvedVaultName, milestonePercent: 100, targetAmount },
+        }).catch(() => {});
+      } else if (prevPct < 75 && newPct >= 75) {
+        dispatchSavingsNotification({
+          userId,
+          businessId,
+          title: '75% Milestone Reached',
+          message: `Vault "${resolvedVaultName}" is now 75% funded!`,
+          type: 'vault_milestone',
+          color: '#3b82f6',
+          data: { vaultId, vaultName: resolvedVaultName, milestonePercent: 75, targetAmount },
+        }).catch(() => {});
+      } else if (prevPct < 50 && newPct >= 50) {
+        dispatchSavingsNotification({
+          userId,
+          businessId,
+          title: 'Halfway There (50%)',
+          message: `Vault "${resolvedVaultName}" crossed 50% of its goal!`,
+          type: 'vault_milestone',
+          color: '#3b82f6',
+          data: { vaultId, vaultName: resolvedVaultName, milestonePercent: 50, targetAmount },
+        }).catch(() => {});
+      }
+    }
 
     return { success: true };
   } catch (err: any) {
@@ -532,6 +695,8 @@ export async function withdrawFromVault(params: {
     const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
     const newTxRef = doc(txCol);
 
+    let resolvedVaultName = vaultName;
+
     await runTransaction(firestore, async (t) => {
       const accSnap = await t.get(accountRef);
       const vaultSnap = await t.get(vaultRef);
@@ -546,6 +711,8 @@ export async function withdrawFromVault(params: {
       if ((vaultData.currentAmount || 0) < amount) {
         throw new Error('Insufficient funds in vault.');
       }
+
+      resolvedVaultName = vaultData.name || vaultName;
 
       // Update Account balances
       t.update(accountRef, {
@@ -569,14 +736,24 @@ export async function withdrawFromVault(params: {
         amount,
         currency,
         vaultId,
-        vaultName: vaultData.name || vaultName,
+        vaultName: resolvedVaultName,
         status: 'completed',
-        note: `Released from ${vaultData.name || vaultName}`,
+        note: `Released from ${resolvedVaultName}`,
         createdAt: new Date().toISOString(),
       };
 
       t.set(newTxRef, tx);
     });
+
+    dispatchSavingsNotification({
+      userId,
+      businessId,
+      title: 'Vault Funds Released',
+      message: `Released ${currency} ${amount.toFixed(2)} from ${resolvedVaultName} back to spendable wallet.`,
+      type: 'vault_withdraw',
+      color: '#f59e0b',
+      data: { vaultId, vaultName: resolvedVaultName, amount, currency },
+    }).catch(() => {});
 
     return { success: true };
   } catch (err: any) {
@@ -920,13 +1097,16 @@ export async function initiatePendingTransfer(params: {
 
     await setDoc(ptRef, pendingTx);
 
-    // Notify recipient via push
-    PushNotificationService.sendToUser(recipientId, {
+    // Notify recipient via in-app & push
+    dispatchSavingsNotification({
+      userId: recipientId,
+      businessId,
       title: 'Incoming Transfer',
-      body: `${senderName} wants to send you ${amount} ${currency}. Open Cashiee to confirm.`,
-      data: { type: 'pending_transfer', pendingTransferId: ptRef.id, businessId },
-      channelId: 'transactions',
-    }).catch(() => { /* push is best-effort */ });
+      message: `${senderName} wants to send you ${currency} ${amount.toFixed(2)}. Open to confirm.`,
+      type: 'pending_transfer',
+      color: '#6366f1',
+      data: { type: 'pending_transfer', pendingTransferId: ptRef.id, businessId, amount, currency, senderName },
+    }).catch(() => {});
 
     return { success: true, pendingTransferId: ptRef.id };
   } catch (err: any) {
@@ -953,12 +1133,30 @@ export async function respondToPendingTransfer(params: {
     const ptRef = doc(firestore, 'businesses', businessId, 'pending_transfers', pendingTransferId);
 
     if (decision === 'declined') {
-      await updateDoc(ptRef, {
-        status: 'declined' as PendingTransferStatus,
-        respondedAt: new Date().toISOString(),
-      });
+      const ptSnap = await getDoc(ptRef);
+      if (ptSnap.exists()) {
+        const pt = ptSnap.data() as PendingTransfer;
+        await updateDoc(ptRef, {
+          status: 'declined' as PendingTransferStatus,
+          respondedAt: new Date().toISOString(),
+        });
+        dispatchSavingsNotification({
+          userId: pt.senderId,
+          businessId,
+          title: 'Transfer Declined',
+          message: `${pt.recipientName} declined your transfer of ${pt.currency} ${pt.amount.toFixed(2)}.`,
+          type: 'pending_transfer',
+          color: '#ef4444',
+          data: { pendingTransferId, decision: 'declined' },
+        }).catch(() => {});
+      }
       return { success: true };
     }
+
+    let confirmedSenderId = '';
+    let confirmedRecipientName = '';
+    let confirmedAmount = 0;
+    let confirmedCurrency = 'USD';
 
     // Confirm — atomically execute the transfer
     await runTransaction(firestore, async (t) => {
@@ -976,6 +1174,11 @@ export async function respondToPendingTransfer(params: {
       if (new Date(pt.expiresAt) < new Date()) {
         throw new Error('This transfer request has expired.');
       }
+
+      confirmedSenderId = pt.senderId;
+      confirmedRecipientName = pt.recipientName;
+      confirmedAmount = pt.amount;
+      confirmedCurrency = pt.currency;
 
       const senderRef = doc(firestore, 'businesses', businessId, 'accounts', pt.senderId);
       const recipientRef = doc(firestore, 'businesses', businessId, 'accounts', recipientId);
@@ -1054,11 +1257,17 @@ export async function respondToPendingTransfer(params: {
     });
 
     // Notify sender that the transfer was confirmed
-    PushNotificationService.sendToUser(params.businessId, {
-      title: 'Transfer Confirmed',
-      body: `Your transfer was accepted by the recipient.`,
-      channelId: 'transactions',
-    }).catch(() => {});
+    if (confirmedSenderId) {
+      dispatchSavingsNotification({
+        userId: confirmedSenderId,
+        businessId,
+        title: 'Transfer Confirmed',
+        message: `${confirmedRecipientName} accepted your transfer of ${confirmedCurrency} ${confirmedAmount.toFixed(2)}.`,
+        type: 'transfer_sent',
+        color: '#10b981',
+        data: { pendingTransferId, amount: confirmedAmount, recipientName: confirmedRecipientName },
+      }).catch(() => {});
+    }
 
     return { success: true };
   } catch (err: any) {
@@ -1195,12 +1404,15 @@ export async function requestMoney(params: {
 
     await setDoc(reqRef, moneyRequest);
 
-    // Notify the payer
-    PushNotificationService.sendToUser(payerId, {
+    // Notify the payer via in-app & push
+    dispatchSavingsNotification({
+      userId: payerId,
+      businessId,
       title: 'Money Request',
-      body: `${requesterName} is requesting ${amount} ${currency} from you.`,
-      data: { type: 'money_request', requestId: reqRef.id, businessId },
-      channelId: 'transactions',
+      message: `${requesterName} is requesting ${currency} ${amount.toFixed(2)} from you.`,
+      type: 'money_request',
+      color: '#f59e0b',
+      data: { type: 'money_request', requestId: reqRef.id, businessId, amount, currency, requesterName },
     }).catch(() => {});
 
     return { success: true, requestId: reqRef.id };
@@ -1251,11 +1463,15 @@ export async function respondToMoneyRequest(params: {
         status: 'declined' as MoneyRequestStatus,
         respondedAt: new Date().toISOString(),
       });
-      // Notify requester
-      PushNotificationService.sendToUser(req.requesterId, {
+      // Notify requester via in-app & push
+      dispatchSavingsNotification({
+        userId: req.requesterId,
+        businessId,
         title: 'Request Declined',
-        body: `${payerName} declined your money request for ${req.amount} ${req.currency}.`,
-        channelId: 'transactions',
+        message: `${payerName} declined your money request for ${req.currency} ${req.amount.toFixed(2)}.`,
+        type: 'money_request',
+        color: '#ef4444',
+        data: { type: 'money_request', requestId, decision: 'declined', amount: req.amount, currency: req.currency, payerName },
       }).catch(() => {});
       return { success: true };
     }
@@ -1449,7 +1665,7 @@ export async function executeRoundUpForEntry(params: {
       };
     }
 
-    const vaultRef = doc(firestore, 'businesses', businessId, 'savings_vaults', settings.targetVaultId);
+    const vaultRef = doc(firestore, 'businesses', businessId, 'vaults', settings.targetVaultId);
     const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
     const newTxRef = doc(txCol);
 
@@ -1500,6 +1716,16 @@ export async function executeRoundUpForEntry(params: {
       };
       t.set(newTxRef, tx);
     });
+
+    dispatchSavingsNotification({
+      userId,
+      businessId,
+      title: 'Spare Change Stashed',
+      message: `Rounded up $${roundUpAmount.toFixed(2)} from ${bookName || 'Expense'} into ${vaultName}.`,
+      type: 'round_up_stashed',
+      color: '#06b6d4',
+      data: { roundUpAmount, vaultName, bookEntryId, bookName },
+    }).catch(() => {});
 
     return {
       success: true,
@@ -1730,11 +1956,14 @@ export async function processDueScheduledStashes(
   for (const docSnap of snap.docs) {
     const rule = docSnap.data() as ScheduledStashRule;
     const ruleRef = docSnap.ref;
-    const vaultRef = doc(firestore, 'businesses', businessId, 'savings_vaults', rule.targetVaultId);
+    const vaultRef = doc(firestore, 'businesses', businessId, 'vaults', rule.targetVaultId);
     const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
     const newTxRef = doc(txCol);
 
     try {
+      let executedVaultName = '';
+      let executedCurrency = 'USD';
+
       await runTransaction(firestore, async (t) => {
         const accSnap = await t.get(accountRef);
         if (!accSnap.exists()) return;
@@ -1749,6 +1978,8 @@ export async function processDueScheduledStashes(
         const vSnap = await t.get(vaultRef);
         if (!vSnap.exists()) return;
         const vault = vSnap.data() as SavingsVault;
+        executedVaultName = vault.name;
+        executedCurrency = account.currency || 'USD';
 
         // 1. Deduct main, credit locked
         t.update(accountRef, {
@@ -1770,7 +2001,7 @@ export async function processDueScheduledStashes(
           userId,
           type: 'scheduled_stash_deposit',
           amount: rule.amount,
-          currency: account.currency || 'USD',
+          currency: executedCurrency,
           vaultId: rule.targetVaultId,
           vaultName: vault.name,
           status: 'completed',
@@ -1791,6 +2022,18 @@ export async function processDueScheduledStashes(
         processedCount++;
         totalAmountSaved += rule.amount;
       });
+
+      if (executedVaultName) {
+        dispatchSavingsNotification({
+          userId,
+          businessId,
+          title: 'Scheduled Stash Saved',
+          message: `Automated ${rule.frequency} stash of ${executedCurrency} ${rule.amount.toFixed(2)} stashed into ${executedVaultName}.`,
+          type: 'scheduled_stash',
+          color: '#8b5cf6',
+          data: { vaultId: rule.targetVaultId, vaultName: executedVaultName, amount: rule.amount },
+        }).catch(() => {});
+      }
     } catch (e: any) {
       console.warn(`[Savings] Execution error on stash rule ${rule.id}:`, e?.message);
     }

@@ -346,3 +346,37 @@ export interface ActivityLog {
   metadata?: Record<string, any>;
   user: User;
 }
+
+export type NotificationType =
+  | 'info'
+  | 'warning'
+  | 'error'
+  | 'success'
+  | 'entry_added'
+  | 'book_created'
+  | 'vault_deposit'
+  | 'vault_withdraw'
+  | 'vault_milestone'
+  | 'vault_unlocked'
+  | 'round_up_stashed'
+  | 'scheduled_stash'
+  | 'wallet_deposit'
+  | 'wallet_cashout'
+  | 'transfer_sent'
+  | 'transfer_recv'
+  | 'money_request'
+  | 'pending_transfer';
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: any;
+  type?: NotificationType;
+  data?: Record<string, any>;
+  metadata?: Record<string, any>;
+  color?: string;
+  deleted?: boolean;
+}

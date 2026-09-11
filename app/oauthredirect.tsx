@@ -5,24 +5,35 @@ import { router } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function OAuthRedirectHandler() {
-  const { user } = useAuth();
+  const { user, setOAuthAuthenticating } = useAuth();
 
   useEffect(() => {
+    setOAuthAuthenticating(true, 'Google');
     try {
       WebBrowser.maybeCompleteAuthSession();
     } catch (e) {
       console.warn('[OAuthRedirectHandler] Completion notice:', e);
     }
 
-    // Immediately route to tabs
-    router.replace('/(tabs)');
+    if (user) {
+      router.replace('/(tabs)');
+    }
+  }, [user, setOAuthAuthenticating]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!user) {
+        router.replace('/(auth)/login');
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
   }, [user]);
 
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color="#10b981" />
-      <Text style={styles.title}>Signing In...</Text>
-      <Text style={styles.subtitle}>Securing session and entering spndy...</Text>
+      <Text style={styles.title}>Signing you in...</Text>
+      <Text style={styles.subtitle}>Verifying credentials and preparing your workspace...</Text>
     </View>
   );
 }

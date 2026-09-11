@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
+import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { authenticateWithGitHub } from '@/services/oauth-service';
 
@@ -50,11 +51,15 @@ export function GitHubSignInButton({
   style,
 }: GitHubSignInButtonProps) {
   const { isDark } = useTheme();
+  const { setOAuthAuthenticating } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const setButtonLoading = (loading: boolean) => {
     setIsLoading(loading);
     onLoadingChange?.(loading);
+    if (loading) {
+      setOAuthAuthenticating(true, 'GitHub');
+    }
   };
 
   const handlePress = async () => {
@@ -66,6 +71,7 @@ export function GitHubSignInButton({
       } catch (e) {}
     }
 
+    setOAuthAuthenticating(true, 'GitHub');
     setButtonLoading(true);
 
     try {
@@ -82,13 +88,17 @@ export function GitHubSignInButton({
         } else {
           router.replace('/(tabs)');
         }
+        // Keep loading state active during transition to avoid flashing login screen
+        return;
       } else if (result.error) {
+        setOAuthAuthenticating(false);
+        setButtonLoading(false);
         onError?.(result.error);
       }
     } catch (err: any) {
-      onError?.(err?.message || 'GitHub authentication could not be completed.');
-    } finally {
+      setOAuthAuthenticating(false);
       setButtonLoading(false);
+      onError?.(err?.message || 'GitHub authentication could not be completed.');
     }
   };
 

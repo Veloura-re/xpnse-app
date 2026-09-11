@@ -5,10 +5,10 @@ import { LoadingScreen } from '@/components/ui/loading-screen';
 import { useTheme } from '@/providers/theme-provider';
 
 export default function IndexScreen() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isOAuthAuthenticating } = useAuth();
   const { isDark } = useTheme();
 
-  if (isLoading) {
+  if (isLoading || isOAuthAuthenticating) {
     return <LoadingScreen isDark={isDark} />;
   }
 

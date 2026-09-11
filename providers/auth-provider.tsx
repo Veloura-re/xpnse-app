@@ -5,6 +5,9 @@ import { useFirebase } from './firebase-provider';
 interface AuthState {
   user: User | null;
   isLoading: boolean;
+  isOAuthAuthenticating: boolean;
+  oauthProviderName: string | null;
+  setOAuthAuthenticating: (authenticating: boolean, providerName?: string | null) => void;
   error: string | null;
   isDeveloperAdmin: boolean;
   // Backward-compatible high-level auth actions used by screens
@@ -63,12 +66,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   } = useFirebase();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOAuthAuthenticating, setIsOAuthAuthenticating] = useState(false);
+  const [oauthProviderName, setOauthProviderName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const setOAuthAuthenticating = useCallback((authenticating: boolean, providerName?: string | null) => {
+    setIsOAuthAuthenticating(authenticating);
+    if (providerName !== undefined) {
+      setOauthProviderName(providerName);
+    }
+    if (!authenticating) {
+      setOauthProviderName(null);
+    }
+  }, []);
 
   useEffect(() => {
     setIsLoading(firebaseLoading);
 
     if (firebaseUser) {
+      setIsOAuthAuthenticating(false);
+      setOauthProviderName(null);
       const isDevAdmin = isDeveloperAdminUser(firebaseUser);
       // Convert Firebase user to our User type
       const appUser: User = {
@@ -368,6 +385,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo(() => ({
     user,
     isLoading,
+    isOAuthAuthenticating,
+    oauthProviderName,
+    setOAuthAuthenticating,
     error,
     isDeveloperAdmin,
     login,
@@ -387,6 +407,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }), [
     user,
     isLoading,
+    isOAuthAuthenticating,
+    oauthProviderName,
+    setOAuthAuthenticating,
     error,
     isDeveloperAdmin,
     login,

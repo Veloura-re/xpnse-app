@@ -2,17 +2,32 @@ import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
+import { useAuth } from '@/providers/auth-provider';
 
 export default function GoogleAuthCallback() {
+  const { user, setOAuthAuthenticating } = useAuth();
+
   useEffect(() => {
+    setOAuthAuthenticating(true, 'Google');
     try {
       WebBrowser.maybeCompleteAuthSession();
     } catch (e) {
       console.warn('[GoogleAuthCallback] Auth session notice:', e);
     }
 
-    router.replace('/(tabs)');
-  }, []);
+    if (user) {
+      router.replace('/(tabs)');
+    }
+  }, [user, setOAuthAuthenticating]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!user) {
+        router.replace('/(auth)/login');
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [user]);
 
   return (
     <View style={styles.container}>

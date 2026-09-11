@@ -28,7 +28,7 @@ import { GitHubSignInButton } from '@/components/auth/github-sign-in-button';
 import * as Haptics from 'expo-haptics';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, user, isOAuthAuthenticating } = useAuth();
   const { isDark, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -37,8 +37,16 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Navigate immediately when authenticated so user never sees idle login screen
+  React.useEffect(() => {
+    if (user) {
+      router.replace('/(tabs)');
+    }
+  }, [user]);
 
   const handleLogin = async (overrideEmail?: string, overridePassword?: string) => {
     if (Platform.OS !== 'web') {
@@ -362,16 +370,28 @@ export default function LoginScreen() {
             {/* Social Authentication List */}
             <View style={styles.socialStack}>
               <GoogleSignInButton
-                onError={(err) => setError(err)}
-                onLoadingChange={(loading) => setIsSocialLoading(loading)}
-                disabled={isSubmitting || isSocialLoading}
+                onError={(err) => {
+                  setIsSocialLoading(false);
+                  setError(err);
+                }}
+                onLoadingChange={(loading) => {
+                  setIsSocialLoading(loading);
+                  if (loading) setSocialProvider('Google');
+                }}
+                disabled={isSubmitting || isSocialLoading || isOAuthAuthenticating}
                 style={{ marginBottom: 10 }}
               />
 
               <GitHubSignInButton
-                onError={(err) => setError(err)}
-                onLoadingChange={(loading) => setIsSocialLoading(loading)}
-                disabled={isSubmitting || isSocialLoading}
+                onError={(err) => {
+                  setIsSocialLoading(false);
+                  setError(err);
+                }}
+                onLoadingChange={(loading) => {
+                  setIsSocialLoading(loading);
+                  if (loading) setSocialProvider('GitHub');
+                }}
+                disabled={isSubmitting || isSocialLoading || isOAuthAuthenticating}
                 style={{ marginBottom: 4 }}
               />
             </View>
@@ -385,7 +405,7 @@ export default function LoginScreen() {
                 activeOpacity={0.7}
                 onPress={() => router.push('/(auth)/register')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                disabled={isSubmitting || isSocialLoading}
+                disabled={isSubmitting || isSocialLoading || isOAuthAuthenticating}
               >
                 <Text style={styles.footerLink}>Sign up</Text>
               </TouchableOpacity>
@@ -408,10 +428,10 @@ export default function LoginScreen() {
           >
             <ActivityIndicator size="large" color="#10b981" />
             <Text style={[styles.loadingTitle, { color: textPrimary }]}>
-              Signing you in...
+              {socialProvider ? `Signing in with ${socialProvider}...` : 'Signing you in...'}
             </Text>
             <Text style={[styles.loadingSubtitle, { color: textSecondary }]}>
-              Preparing your workspace
+              Finalizing credentials and synchronizing workspace...
             </Text>
           </View>
         </View>

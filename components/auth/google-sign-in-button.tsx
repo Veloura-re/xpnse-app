@@ -60,13 +60,16 @@ export function GoogleSignInButton({
   disabled = false,
   style,
 }: GoogleSignInButtonProps) {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, setOAuthAuthenticating, user } = useAuth();
   const { colors, isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
 
   const setButtonLoading = (loading: boolean) => {
     setIsLoading(loading);
     onLoadingChange?.(loading);
+    if (loading) {
+      setOAuthAuthenticating(true, 'Google');
+    }
   };
 
   const webClientId =
@@ -93,22 +96,36 @@ export function GoogleSignInButton({
     if (response.type === 'success') {
       const idToken = response.params?.id_token;
       if (idToken) {
+        setOAuthAuthenticating(true, 'Google');
         setButtonLoading(true);
         handleNativeGoogleExchange(idToken);
       } else {
+        setOAuthAuthenticating(false);
         setButtonLoading(false);
         onError?.('Authentication token was not returned by Google.');
       }
     } else if (response.type === 'error') {
+      setOAuthAuthenticating(false);
       setButtonLoading(false);
       onError?.(response.error?.message || 'Google authentication encountered an error.');
-    } else if (response.type === 'cancel' || response.type === 'dismiss') {
+    } else if (response.type === 'cancel') {
+      setOAuthAuthenticating(false);
       setButtonLoading(false);
+    } else if (response.type === 'dismiss') {
+      // Grace period for token exchange before resetting
+      const timer = setTimeout(() => {
+        if (!user) {
+          setOAuthAuthenticating(false);
+          setButtonLoading(false);
+        }
+      }, 3500);
+      return () => clearTimeout(timer);
     }
-  }, [response]);
+  }, [response, user]);
 
   const handleNativeGoogleExchange = async (idToken: string) => {
     try {
+      setOAuthAuthenticating(true, 'Google');
       setButtonLoading(true);
       const result = await signInWithGoogle(idToken);
       if (result.success) {
@@ -122,13 +139,17 @@ export function GoogleSignInButton({
         } else {
           router.replace('/(tabs)');
         }
+        // Keep loading state active during screen transition to prevent flashing login page
+        return;
       } else if (result.error) {
+        setOAuthAuthenticating(false);
+        setButtonLoading(false);
         onError?.(result.error);
       }
     } catch (err: any) {
-      onError?.(err?.message || 'An unexpected error occurred during Google sign-in.');
-    } finally {
+      setOAuthAuthenticating(false);
       setButtonLoading(false);
+      onError?.(err?.message || 'An unexpected error occurred during Google sign-in.');
     }
   };
 
@@ -141,7 +162,9 @@ export function GoogleSignInButton({
       } catch (e) {}
     }
 
-    setIsLoading(true);
+    // Immediately trigger loading overlay so user sees "Signing in with Google..."
+    setOAuthAuthenticating(true, 'Google');
+    setButtonLoading(true);
 
     try {
       if (Platform.OS === 'web') {
@@ -152,25 +175,46 @@ export function GoogleSignInButton({
           } else {
             router.replace('/(tabs)');
           }
+          return;
         } else if (result.error) {
+          setOAuthAuthenticating(false);
+          setButtonLoading(false);
           onError?.(result.error);
         }
       } else {
         if (!isConfiguredForNative) {
+          setOAuthAuthenticating(false);
+          setButtonLoading(false);
           onError?.(
             'Google Sign-In on mobile requires EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to be configured in your environment.'
           );
-          setIsLoading(false);
           return;
         }
-        await promptAsync();
+        const res = await promptAsync();
+        if (res.type === 'success' && res.params?.id_token) {
+          await handleNativeGoogleExchange(res.params.id_token);
+        } else if (res.type === 'cancel') {
+          setOAuthAuthenticating(false);
+          setButtonLoading(false);
+        } else if (res.type === 'dismiss') {
+          // On mobile Android/iOS, dismiss can be triggered when the browser closes after redirecting.
+          // Do NOT immediately turn off global loading; allow response hook or safety timeout to finalize.
+          setTimeout(() => {
+            if (!user) {
+              setOAuthAuthenticating(false);
+              setButtonLoading(false);
+            }
+          }, 3500);
+        } else if (res.type === 'error') {
+          setOAuthAuthenticating(false);
+          setButtonLoading(false);
+          onError?.(res.error?.message || 'Google sign-in was cancelled or encountered an error.');
+        }
       }
     } catch (err: any) {
+      setOAuthAuthenticating(false);
+      setButtonLoading(false);
       onError?.(err?.message || 'Google authentication could not be completed.');
-    } finally {
-      if (Platform.OS === 'web') {
-        setIsLoading(false);
-      }
     }
   };
 

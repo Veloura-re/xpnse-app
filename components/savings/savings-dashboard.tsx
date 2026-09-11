@@ -44,6 +44,7 @@ import { MoneyRequestModal } from './money-request-modal';
 import { PendingTransferPrompt } from './pending-transfer-prompt';
 import { RoundUpSettingsModal } from './round-up-settings-modal';
 import { ScheduledStashModal } from './scheduled-stash-modal';
+import { VaultNotificationsRadar } from './vault-notifications-radar';
 import { formatCurrency } from '@/utils/currency-utils';
 
 interface SavingsDashboardProps {
@@ -201,6 +202,9 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         onRequestMoney={() => setShowRequestMoney(true)}
         onOpenRoundUp={() => setShowRoundUpModal(true)}
       />
+
+      {/* 2. Real-Time In-Context Vault Telemetry Radar */}
+      <VaultNotificationsRadar businessId={business.id} />
 
       {/* Money Requests Quick Access Dispatch Strip */}
       <TouchableOpacity

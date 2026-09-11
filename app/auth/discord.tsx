@@ -2,23 +2,32 @@ import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
+import { useAuth } from '@/providers/auth-provider';
 
 export default function DiscordAuthCallback() {
+  const { user, setOAuthAuthenticating } = useAuth();
+
   useEffect(() => {
-    // Complete the auth session for popup or in-app browser
+    setOAuthAuthenticating(true, 'Discord');
     try {
       WebBrowser.maybeCompleteAuthSession();
     } catch (e) {
       console.warn('[DiscordAuthCallback] Auth session completion notice:', e);
     }
 
-    // Safety timeout: If window does not auto-close within 2.5s, redirect to app tabs
-    const timer = setTimeout(() => {
+    if (user) {
       router.replace('/(tabs)');
-    }, 2500);
+    }
+  }, [user, setOAuthAuthenticating]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!user) {
+        router.replace('/(auth)/login');
+      }
+    }, 8000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [user]);
 
   return (
     <View style={styles.container}>

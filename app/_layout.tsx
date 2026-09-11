@@ -7,7 +7,7 @@ import React, { useEffect, useCallback } from "react";
 
 // Complete OAuth web authentication sessions immediately upon arrival
 WebBrowser.maybeCompleteAuthSession();
-import { StyleSheet, View, Text, TextInput, Platform } from "react-native";
+import { StyleSheet, View, Text, TextInput, Platform, ActivityIndicator } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/providers/auth-provider";
@@ -178,6 +178,55 @@ function DynamicIslandOverlay() {
   );
 }
 
+// Global full-screen transition overlay for OAuth (Google, GitHub, etc.)
+// Guarantees zero flash of login screen while returning from browser and finalizing Firebase session
+function GlobalOAuthTransitionOverlay() {
+  const { isOAuthAuthenticating, oauthProviderName, user, setOAuthAuthenticating } = useAuth();
+  const { isDark } = useTheme();
+
+  // Safety watchdog: If session hangs or user dismissed browser without completing, dismount after 14s
+  useEffect(() => {
+    if (!isOAuthAuthenticating) return;
+    const timer = setTimeout(() => {
+      if (!user) {
+        setOAuthAuthenticating(false);
+      }
+    }, 14000);
+    return () => clearTimeout(timer);
+  }, [isOAuthAuthenticating, user, setOAuthAuthenticating]);
+
+  if (!isOAuthAuthenticating || user) {
+    return null;
+  }
+
+  const cardBg = isDark ? 'rgba(6, 26, 20, 0.95)' : 'rgba(255, 255, 255, 0.96)';
+  const borderColor = isDark ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.22)';
+  const textColor = isDark ? '#ffffff' : '#0f172a';
+  const subtextColor = isDark ? '#94a3b8' : '#64748b';
+
+  return (
+    <View
+      style={[
+        styles.oauthOverlay,
+        {
+          backgroundColor: isDark ? 'rgba(3, 23, 17, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+        },
+      ]}
+      pointerEvents="auto"
+    >
+      <View style={[styles.oauthCard, { backgroundColor: cardBg, borderColor }]}>
+        <ActivityIndicator size="large" color="#10b981" />
+        <Text style={[styles.oauthTitle, { color: textColor }]}>
+          {oauthProviderName ? `Signing in with ${oauthProviderName}...` : 'Signing you in...'}
+        </Text>
+        <Text style={[styles.oauthSubtitle, { color: subtextColor }]}>
+          Finalizing credentials and synchronizing workspace...
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void> }) {
   const { isDark } = useTheme();
 
@@ -191,6 +240,8 @@ function AppContent({ onLayoutRootView }: { onLayoutRootView: () => Promise<void
               <RootLayoutNav />
               {/* Dynamic Island sits above everything */}
               <DynamicIslandOverlay />
+              {/* Global OAuth Transition Overlay to prevent login screen flash */}
+              <GlobalOAuthTransitionOverlay />
             </NotificationProvider>
           </BusinessProvider>
         </AuthProvider>
@@ -252,5 +303,38 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  oauthOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999999,
+    paddingHorizontal: 24,
+  },
+  oauthCard: {
+    paddingHorizontal: 28,
+    paddingVertical: 26,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    maxWidth: 320,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  oauthTitle: {
+    fontSize: 16.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  oauthSubtitle: {
+    fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    textAlign: 'center',
   },
 });

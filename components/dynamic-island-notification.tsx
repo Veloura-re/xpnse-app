@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import {
     TrendingUp,
     TrendingDown,
@@ -29,7 +30,17 @@ import {
     Users,
     Trash2,
     CheckCircle,
+    CheckCircle2,
     Info,
+    Lock,
+    Unlock,
+    Award,
+    Coins,
+    Repeat,
+    ArrowDownLeft,
+    ArrowUpRight,
+    Wallet,
+    Send,
 } from 'lucide-react-native';
 import { Notification } from '@/providers/notification-provider';
 
@@ -45,6 +56,41 @@ const AUTO_DISMISS_MS = 4200;
 
 function getNotifStyle(type?: Notification['type'], title?: string) {
     const t = title?.toLowerCase() ?? '';
+
+    // Savings & Vaults specific types
+    if (type === 'vault_milestone' || t.includes('milestone') || t.includes('goal achieved')) {
+        return { color: '#10b981', bg: 'rgba(16,185,129,0.22)', Icon: Award };
+    }
+    if (type === 'vault_deposit' || t.includes('allocated to vault') || t.includes('vault created')) {
+        return { color: '#8b5cf6', bg: 'rgba(139,92,246,0.22)', Icon: Lock };
+    }
+    if (type === 'vault_withdraw' || type === 'vault_unlocked' || t.includes('released from vault') || t.includes('funds released')) {
+        return { color: '#f59e0b', bg: 'rgba(245,158,11,0.22)', Icon: Unlock };
+    }
+    if (type === 'round_up_stashed' || t.includes('round-up') || t.includes('spare change')) {
+        return { color: '#06b6d4', bg: 'rgba(6,182,212,0.22)', Icon: Coins };
+    }
+    if (type === 'scheduled_stash' || t.includes('scheduled stash')) {
+        return { color: '#8b5cf6', bg: 'rgba(139,92,246,0.22)', Icon: Repeat };
+    }
+    if (type === 'wallet_deposit' || t.includes('wallet deposit') || t.includes('deposit completed')) {
+        return { color: '#10b981', bg: 'rgba(16,185,129,0.22)', Icon: ArrowDownLeft };
+    }
+    if (type === 'wallet_cashout' || t.includes('withdrawal initiated') || t.includes('cash out')) {
+        return { color: '#f59e0b', bg: 'rgba(245,158,11,0.22)', Icon: ArrowUpRight };
+    }
+    if (type === 'transfer_sent' || t.includes('transfer sent')) {
+        return { color: '#6366f1', bg: 'rgba(99,102,241,0.22)', Icon: ArrowUpRight };
+    }
+    if (type === 'transfer_recv' || t.includes('transfer received')) {
+        return { color: '#10b981', bg: 'rgba(16,185,129,0.22)', Icon: ArrowDownLeft };
+    }
+    if (type === 'money_request' || t.includes('money request')) {
+        return { color: '#f59e0b', bg: 'rgba(245,158,11,0.22)', Icon: Wallet };
+    }
+    if (type === 'pending_transfer' || t.includes('incoming transfer')) {
+        return { color: '#6366f1', bg: 'rgba(99,102,241,0.22)', Icon: Send };
+    }
 
     if (type === 'success' || t.includes('received') || t.includes('cash in') || t.includes('money received')) {
         return { color: '#10b981', bg: 'rgba(16,185,129,0.18)', Icon: TrendingUp };
@@ -80,6 +126,7 @@ interface Props {
 
 export function DynamicIslandNotification({ notification, onDismiss }: Props) {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Shared animated values
@@ -104,6 +151,36 @@ export function DynamicIslandNotification({ notification, onDismiss }: Props) {
         setTimeout(onDismiss, 360);
     }, [onDismiss]);
 
+    const handlePress = useCallback(() => {
+        if (!notification) return;
+
+        if (Platform.OS !== 'web') {
+            Haptics.selectionAsync();
+        }
+
+        const data = notification.data || notification.metadata || {};
+        const path = data.path;
+
+        if (path) {
+            router.push(path as any);
+        } else if (
+            notification.type === 'vault_deposit' ||
+            notification.type === 'vault_withdraw' ||
+            notification.type === 'vault_milestone' ||
+            notification.type === 'round_up_stashed' ||
+            notification.type === 'scheduled_stash' ||
+            notification.type === 'wallet_deposit' ||
+            notification.type === 'wallet_cashout' ||
+            data.category === 'savings_vault'
+        ) {
+            router.push('/(tabs)');
+        } else {
+            router.push('/notifications');
+        }
+
+        dismiss();
+    }, [notification, router, dismiss]);
+
     useEffect(() => {
         if (!notification) return;
 
@@ -114,9 +191,13 @@ export function DynamicIslandNotification({ notification, onDismiss }: Props) {
         scale.value    = withSpring(1, { damping: 18, stiffness: 300 });
         progress.value = withSpring(1, { damping: 20, stiffness: 220 });
 
-        // Haptic pop
+        // Celebratory haptics for milestones, standard pop for other events
         if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            if (notification.type === 'vault_milestone') {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }
         }
 
         // Wiggle after expanding
@@ -200,7 +281,7 @@ export function DynamicIslandNotification({ notification, onDismiss }: Props) {
         >
             <TouchableOpacity
                 activeOpacity={0.9}
-                onPress={dismiss}
+                onPress={handlePress}
                 style={styles.touchArea}
             >
                 <Animated.View style={[styles.pill, containerStyle]}>

@@ -29,7 +29,7 @@ import { GitHubSignInButton } from '@/components/auth/github-sign-in-button';
 import * as Haptics from 'expo-haptics';
 
 export default function RegisterScreen() {
-  const { register } = useAuth();
+  const { register, user, isOAuthAuthenticating } = useAuth();
   const { isDark, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -40,8 +40,17 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Navigate immediately when authenticated so user never sees idle register screen
+  React.useEffect(() => {
+    if (user) {
+      router.replace('/(tabs)');
+    }
+  }, [user]);
 
   const handleRegister = async () => {
     if (Platform.OS !== 'web') {
@@ -430,13 +439,29 @@ export default function RegisterScreen() {
             <View style={styles.socialStack}>
               <GoogleSignInButton
                 mode="register"
-                onError={(err) => setError(err)}
+                onError={(err) => {
+                  setIsSocialLoading(false);
+                  setError(err);
+                }}
+                onLoadingChange={(loading) => {
+                  setIsSocialLoading(loading);
+                  if (loading) setSocialProvider('Google');
+                }}
+                disabled={isSubmitting || isSocialLoading || isOAuthAuthenticating}
                 style={{ marginBottom: 10 }}
               />
 
               <GitHubSignInButton
                 mode="register"
-                onError={(err) => setError(err)}
+                onError={(err) => {
+                  setIsSocialLoading(false);
+                  setError(err);
+                }}
+                onLoadingChange={(loading) => {
+                  setIsSocialLoading(loading);
+                  if (loading) setSocialProvider('GitHub');
+                }}
+                disabled={isSubmitting || isSocialLoading || isOAuthAuthenticating}
                 style={{ marginBottom: 4 }}
               />
             </View>
@@ -481,6 +506,29 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Instant Social Auth Loading Transition Overlay */}
+      {isSocialLoading && (
+        <View style={styles.loadingOverlay}>
+          <View
+            style={[
+              styles.loadingCard,
+              {
+                backgroundColor: isDark ? 'rgba(6, 26, 20, 0.94)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)',
+              },
+            ]}
+          >
+            <ActivityIndicator size="large" color="#10b981" />
+            <Text style={[styles.loadingTitle, { color: textPrimary }]}>
+              {socialProvider ? `Signing in with ${socialProvider}...` : 'Signing you in...'}
+            </Text>
+            <Text style={[styles.loadingSubtitle, { color: textSecondary }]}>
+              Finalizing credentials and synchronizing workspace...
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -674,5 +722,38 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontFamily: 'SpaceGrotesk_600SemiBold',
     textDecorationLine: 'underline',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+    paddingHorizontal: 24,
+  },
+  loadingCard: {
+    paddingHorizontal: 28,
+    paddingVertical: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    maxWidth: 300,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  loadingTitle: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginTop: 6,
+  },
+  loadingSubtitle: {
+    fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    textAlign: 'center',
   },
 });
