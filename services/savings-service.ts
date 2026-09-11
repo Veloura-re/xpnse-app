@@ -6,6 +6,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   runTransaction,
   query,
   where,
@@ -29,6 +30,8 @@ import {
   PendingTransfer,
   PendingTransferStatus,
   RoundUpSettings,
+  ScheduledStashRule,
+  ScheduledStashFrequency,
 } from '@/types';
 
 /**
@@ -1511,3 +1514,432 @@ export async function executeRoundUpForEntry(params: {
     };
   }
 }
+
+/**
+ * Calculates the next due date string (YYYY-MM-DD) for a scheduled stash frequency
+ */
+export function calculateNextStashDueDate(
+  frequency: ScheduledStashFrequency,
+  fromDate: Date = new Date()
+): string {
+  const d = new Date(fromDate);
+
+  switch (frequency) {
+    case 'daily':
+      d.setDate(d.getDate() + 1);
+      break;
+    case 'weekly':
+      d.setDate(d.getDate() + 7);
+      break;
+    case 'biweekly':
+      d.setDate(d.getDate() + 14);
+      break;
+    case 'payday': {
+      // 1st or 15th of the month
+      const currentDay = d.getDate();
+      if (currentDay < 15) {
+        d.setDate(15);
+      } else {
+        d.setMonth(d.getMonth() + 1);
+        d.setDate(1);
+      }
+      break;
+    }
+    case 'monthly':
+      d.setMonth(d.getMonth() + 1);
+      break;
+  }
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Create a new scheduled recurring stash rule
+ */
+export async function createScheduledStashRule(params: {
+  businessId: string;
+  userId: string;
+  targetVaultId: string;
+  targetVaultName?: string;
+  amount: number;
+  frequency: ScheduledStashFrequency;
+  startDate?: string;
+}): Promise<{ success: boolean; rule?: ScheduledStashRule; error?: string }> {
+  const {
+    businessId,
+    userId,
+    targetVaultId,
+    targetVaultName,
+    amount,
+    frequency,
+    startDate,
+  } = params;
+
+  if (amount <= 0) {
+    return { success: false, error: 'Stash amount must be greater than zero.' };
+  }
+  if (!targetVaultId) {
+    return { success: false, error: 'Please select a destination vault.' };
+  }
+
+  try {
+    const firestore = getDb();
+    const stashCol = collection(firestore, 'businesses', businessId, 'scheduled_stashes');
+    const newDocRef = doc(stashCol);
+
+    const nextDueDate = startDate || calculateNextStashDueDate(frequency);
+
+    const rule: ScheduledStashRule = {
+      id: newDocRef.id,
+      businessId,
+      userId,
+      targetVaultId,
+      targetVaultName: targetVaultName || 'Savings Vault',
+      amount,
+      frequency,
+      nextDueDate,
+      status: 'active',
+      occurrencesCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await setDoc(newDocRef, rule);
+    return { success: true, rule };
+  } catch (err: any) {
+    console.error('[Savings] Create scheduled stash rule error:', err);
+    return { success: false, error: err?.message || 'Failed to create scheduled stash.' };
+  }
+}
+
+/**
+ * Update an existing scheduled stash rule
+ */
+export async function updateScheduledStashRule(
+  businessId: string,
+  ruleId: string,
+  updates: Partial<ScheduledStashRule>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firestore = getDb();
+    const ruleRef = doc(firestore, 'businesses', businessId, 'scheduled_stashes', ruleId);
+    await updateDoc(ruleRef, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Update scheduled stash rule error:', err);
+    return { success: false, error: err?.message || 'Failed to update scheduled stash.' };
+  }
+}
+
+/**
+ * Delete a scheduled stash rule
+ */
+export async function deleteScheduledStashRule(
+  businessId: string,
+  ruleId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firestore = getDb();
+    const ruleRef = doc(firestore, 'businesses', businessId, 'scheduled_stashes', ruleId);
+    await deleteDoc(ruleRef);
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Delete scheduled stash rule error:', err);
+    return { success: false, error: err?.message || 'Failed to delete scheduled stash.' };
+  }
+}
+
+/**
+ * Toggle pause / active state on a scheduled stash rule
+ */
+export async function togglePauseScheduledStashRule(
+  businessId: string,
+  ruleId: string,
+  currentStatus: ScheduledStashRule['status']
+): Promise<{ success: boolean; error?: string }> {
+  const newStatus = currentStatus === 'active' ? 'paused' : 'active';
+  return updateScheduledStashRule(businessId, ruleId, { status: newStatus });
+}
+
+/**
+ * Subscribe in real-time to active scheduled stash rules for a user
+ */
+export function subscribeToScheduledStashRules(
+  businessId: string,
+  userId: string,
+  callback: (rules: ScheduledStashRule[]) => void
+): Unsubscribe {
+  if (!db) {
+    callback([]);
+    return () => {};
+  }
+
+  const stashCol = collection(db, 'businesses', businessId, 'scheduled_stashes');
+  const q = query(stashCol, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list: ScheduledStashRule[] = [];
+      snap.forEach((d) => list.push(d.data() as ScheduledStashRule));
+      callback(list);
+    },
+    (err) => {
+      console.warn('[Savings] Scheduled stash subscription error:', err);
+      callback([]);
+    }
+  );
+}
+
+/**
+ * Process and execute any due scheduled stashes automatically (catch-up & execution)
+ */
+export async function processDueScheduledStashes(
+  businessId: string,
+  userId: string
+): Promise<{ processedCount: number; totalAmountSaved: number }> {
+  const firestore = getDb();
+  const stashCol = collection(firestore, 'businesses', businessId, 'scheduled_stashes');
+
+  const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Query active rules for user where nextDueDate <= today
+  const q = query(
+    stashCol,
+    where('userId', '==', userId),
+    where('status', '==', 'active'),
+    where('nextDueDate', '<=', todayStr)
+  );
+
+  const snap = await getDocs(q);
+  if (snap.empty) {
+    return { processedCount: 0, totalAmountSaved: 0 };
+  }
+
+  let processedCount = 0;
+  let totalAmountSaved = 0;
+
+  const accountRef = doc(firestore, 'businesses', businessId, 'accounts', userId);
+
+  for (const docSnap of snap.docs) {
+    const rule = docSnap.data() as ScheduledStashRule;
+    const ruleRef = docSnap.ref;
+    const vaultRef = doc(firestore, 'businesses', businessId, 'savings_vaults', rule.targetVaultId);
+    const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
+    const newTxRef = doc(txCol);
+
+    try {
+      await runTransaction(firestore, async (t) => {
+        const accSnap = await t.get(accountRef);
+        if (!accSnap.exists()) return;
+        const account = accSnap.data() as MemberAccount;
+
+        // Skip execution if insufficient funds in spendable balance
+        if (account.mainBalance < rule.amount) {
+          console.warn(`[Savings] Skipped scheduled stash ${rule.id}: insufficient funds.`);
+          return;
+        }
+
+        const vSnap = await t.get(vaultRef);
+        if (!vSnap.exists()) return;
+        const vault = vSnap.data() as SavingsVault;
+
+        // 1. Deduct main, credit locked
+        t.update(accountRef, {
+          mainBalance: account.mainBalance - rule.amount,
+          lockedSavingsBalance: (account.lockedSavingsBalance || 0) + rule.amount,
+          updatedAt: new Date().toISOString(),
+        });
+
+        // 2. Credit vault
+        t.update(vaultRef, {
+          currentAmount: (vault.currentAmount || 0) + rule.amount,
+          updatedAt: new Date().toISOString(),
+        });
+
+        // 3. Register transaction
+        const tx: WalletTransaction = {
+          id: newTxRef.id,
+          businessId,
+          userId,
+          type: 'scheduled_stash_deposit',
+          amount: rule.amount,
+          currency: account.currency || 'USD',
+          vaultId: rule.targetVaultId,
+          vaultName: vault.name,
+          status: 'completed',
+          note: `Recurring ${rule.frequency} stash into ${vault.name}`,
+          createdAt: new Date().toISOString(),
+        };
+        t.set(newTxRef, tx);
+
+        // 4. Advance nextDueDate and increment occurrence count
+        const nextDue = calculateNextStashDueDate(rule.frequency, new Date());
+        t.update(ruleRef, {
+          nextDueDate: nextDue,
+          occurrencesCount: (rule.occurrencesCount || 0) + 1,
+          lastExecutedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        processedCount++;
+        totalAmountSaved += rule.amount;
+      });
+    } catch (e: any) {
+      console.warn(`[Savings] Execution error on stash rule ${rule.id}:`, e?.message);
+    }
+  }
+
+  return { processedCount, totalAmountSaved };
+}
+
+/**
+ * Deduct funds from member spendable wallet when paid via Spndy Wallet for a book expense
+ */
+export async function deductSpendableForBookExpense(params: {
+  businessId: string;
+  userId: string;
+  amount: number;
+  currency?: string;
+  bookEntryId: string;
+  bookName?: string;
+  note?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const {
+    businessId,
+    userId,
+    amount,
+    currency = 'USD',
+    bookEntryId,
+    bookName = 'Book Expense',
+    note,
+  } = params;
+
+  if (amount <= 0) {
+    return { success: false, error: 'Expense amount must be greater than zero.' };
+  }
+
+  try {
+    const firestore = getDb();
+    const accountRef = doc(firestore, 'businesses', businessId, 'accounts', userId);
+    const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
+    const newTxRef = doc(txCol);
+
+    await runTransaction(firestore, async (t) => {
+      const accSnap = await t.get(accountRef);
+      if (!accSnap.exists()) {
+        throw new Error('Member spendable account not found.');
+      }
+      const acc = accSnap.data() as MemberAccount;
+      if (acc.mainBalance < amount) {
+        throw new Error(`Insufficient wallet balance (${acc.mainBalance} < ${amount}).`);
+      }
+
+      t.update(accountRef, {
+        mainBalance: acc.mainBalance - amount,
+        updatedAt: new Date().toISOString(),
+      });
+
+      const tx: WalletTransaction = {
+        id: newTxRef.id,
+        businessId,
+        userId,
+        type: 'book_expense_payment',
+        amount,
+        currency: acc.currency || currency,
+        status: 'completed',
+        note: note || `Payment for ${bookName} entry`,
+        createdAt: new Date().toISOString(),
+      };
+
+      t.set(newTxRef, tx);
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Deduct spendable for book expense error:', err);
+    return { success: false, error: err?.message || 'Failed to deduct spendable wallet balance.' };
+  }
+}
+
+/**
+ * Credit funds to member spendable wallet when receiving income via Spndy Wallet for a book entry
+ */
+export async function creditSpendableForBookIncome(params: {
+  businessId: string;
+  userId: string;
+  amount: number;
+  currency?: string;
+  bookEntryId: string;
+  bookName?: string;
+  note?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const {
+    businessId,
+    userId,
+    amount,
+    currency = 'USD',
+    bookEntryId,
+    bookName = 'Book Income',
+    note,
+  } = params;
+
+  if (amount <= 0) {
+    return { success: false, error: 'Income amount must be greater than zero.' };
+  }
+
+  try {
+    const firestore = getDb();
+    const accountRef = doc(firestore, 'businesses', businessId, 'accounts', userId);
+    const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
+    const newTxRef = doc(txCol);
+
+    await runTransaction(firestore, async (t) => {
+      const accSnap = await t.get(accountRef);
+      const currentMain = accSnap.exists() ? (accSnap.data().mainBalance || 0) : 0;
+      const currentLocked = accSnap.exists() ? (accSnap.data().lockedSavingsBalance || 0) : 0;
+
+      const updatedAccount: Partial<MemberAccount> = {
+        id: userId,
+        businessId,
+        userId,
+        mainBalance: currentMain + amount,
+        lockedSavingsBalance: currentLocked,
+        currency,
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (!accSnap.exists()) {
+        updatedAccount.createdAt = new Date().toISOString();
+      }
+
+      t.set(accountRef, updatedAccount, { merge: true });
+
+      const tx: WalletTransaction = {
+        id: newTxRef.id,
+        businessId,
+        userId,
+        type: 'book_income_deposit',
+        amount,
+        currency,
+        status: 'completed',
+        note: note || `Income credit from ${bookName} entry`,
+        createdAt: new Date().toISOString(),
+      };
+
+      t.set(newTxRef, tx);
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Savings] Credit spendable for book income error:', err);
+    return { success: false, error: err?.message || 'Failed to credit spendable wallet balance.' };
+  }
+}
+

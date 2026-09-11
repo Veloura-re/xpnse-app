@@ -26,6 +26,8 @@ import {
   ShieldCheck,
   TrendingUp,
   Zap,
+  Repeat,
+  Coins,
 } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
 import { SavingsVault } from '@/types';
@@ -43,6 +45,7 @@ interface VaultsListProps {
   spendableBalance: number;
   currency?: string;
   onRefresh: () => void;
+  onOpenScheduledStash?: () => void;
 }
 
 const QUICK_AMOUNTS = [25, 50, 100];
@@ -54,6 +57,7 @@ export const VaultsList: React.FC<VaultsListProps> = ({
   spendableBalance,
   currency = 'USD',
   onRefresh,
+  onOpenScheduledStash,
 }) => {
   const { colors, isDark } = useTheme();
 
@@ -204,21 +208,51 @@ export const VaultsList: React.FC<VaultsListProps> = ({
           </Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => setShowCreateModal(true)}
-          style={styles.addVaultBtnOuter}
-        >
-          <LinearGradient
-            colors={['#10B981', '#059669']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.addVaultBtn}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {onOpenScheduledStash && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenScheduledStash}
+              style={[
+                styles.autoStashBtn,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(16, 185, 129, 0.12)'
+                    : 'rgba(16, 185, 129, 0.08)',
+                  borderColor: isDark
+                    ? 'rgba(16, 185, 129, 0.25)'
+                    : 'rgba(16, 185, 129, 0.2)',
+                },
+              ]}
+            >
+              <Repeat size={12} color="#10b981" />
+              <Text
+                style={[
+                  styles.autoStashBtnText,
+                  { color: isDark ? '#34d399' : '#059669' },
+                ]}
+              >
+                Auto-Stash
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setShowCreateModal(true)}
+            style={styles.addVaultBtnOuter}
           >
-            <Plus size={13} color="#ffffff" strokeWidth={2.5} />
-            <Text style={styles.addVaultBtnText}>New Goal</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={['#10B981', '#059669']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.addVaultBtn}
+            >
+              <Plus size={13} color="#ffffff" strokeWidth={2.5} />
+              <Text style={styles.addVaultBtnText}>New Goal</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Vault Cards Stack */}
@@ -387,6 +421,65 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                     <View style={[styles.tickMark, { left: '50%' }]} />
                     <View style={[styles.tickMark, { left: '75%' }]} />
                   </View>
+                </View>
+
+                {/* Milestone Dynamics & Velocity Indicator */}
+                <View style={styles.milestoneStrip}>
+                  <View
+                    style={[
+                      styles.milestoneBadge,
+                      {
+                        backgroundColor: isCompleted
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : progress >= 50
+                          ? 'rgba(56, 189, 248, 0.12)'
+                          : 'rgba(245, 158, 11, 0.12)',
+                        borderColor: isCompleted
+                          ? 'rgba(16, 185, 129, 0.25)'
+                          : progress >= 50
+                          ? 'rgba(56, 189, 248, 0.25)'
+                          : 'rgba(245, 158, 11, 0.25)',
+                      },
+                    ]}
+                  >
+                    <Sparkles
+                      size={9}
+                      color={
+                        isCompleted
+                          ? '#10B981'
+                          : progress >= 50
+                          ? '#38bdf8'
+                          : '#f59e0b'
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.milestoneBadgeText,
+                        {
+                          color: isCompleted
+                            ? '#10B981'
+                            : progress >= 50
+                            ? '#38bdf8'
+                            : '#f59e0b',
+                        },
+                      ]}
+                    >
+                      {isCompleted
+                        ? '100% Target Reached'
+                        : progress >= 75
+                        ? 'Phase 3: Home Stretch'
+                        : progress >= 50
+                        ? 'Phase 2: Halfway Mark'
+                        : progress >= 25
+                        ? 'Phase 1: Quarter Mark'
+                        : 'Initiation Stage'}
+                    </Text>
+                  </View>
+                  {!isCompleted && (
+                    <Text style={[styles.milestonePaceText, { color: colors.textSecondary }]}>
+                      {progress >= 50 ? 'Velocity: High' : 'Velocity: Building'}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Figures Telemetry */}
@@ -831,6 +924,20 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: -0.2,
   },
+  autoStashBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6.5,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  autoStashBtnText: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.2,
+  },
   addVaultBtnOuter: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -1274,5 +1381,30 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.3,
+  },
+  milestoneStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  milestoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  milestoneBadgeText: {
+    fontSize: 9.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.2,
+  },
+  milestonePaceText: {
+    fontSize: 10,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
 });

@@ -137,6 +137,29 @@ export interface SavingsVault {
   updatedAt: string;
 }
 
+export type ScheduledStashFrequency =
+  | 'daily'
+  | 'weekly'
+  | 'biweekly'
+  | 'payday' // 1st and 15th
+  | 'monthly';
+
+export interface ScheduledStashRule {
+  id: string;
+  businessId: string;
+  userId: string;
+  targetVaultId: string;
+  targetVaultName?: string;
+  amount: number;
+  frequency: ScheduledStashFrequency;
+  nextDueDate: string; // YYYY-MM-DD
+  status: 'active' | 'paused' | 'completed';
+  occurrencesCount: number;
+  lastExecutedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type WalletTransactionType =
   | 'deposit'
   | 'withdrawal'
@@ -145,7 +168,10 @@ export type WalletTransactionType =
   | 'vault_deposit'
   | 'vault_withdraw'
   | 'pool_contribution'
-  | 'round_up_deposit';
+  | 'round_up_deposit'
+  | 'scheduled_stash_deposit'
+  | 'book_expense_payment'
+  | 'book_income_deposit';
 
 export interface WalletTransaction {
   id: string;

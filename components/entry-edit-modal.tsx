@@ -191,7 +191,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     return Math.round(rawNumericAmount * exchangeRate * 100) / 100;
   }, [rawNumericAmount, exchangeRate, selectedCurrency, baseCurrency]);
 
-  const paymentOptions = ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Custom'];
+  const paymentOptions = ['Cash', 'Spndy Wallet', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Custom'];
 
   const handlePickImage = async () => {
     try {

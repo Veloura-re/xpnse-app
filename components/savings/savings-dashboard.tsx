@@ -32,6 +32,7 @@ import {
   subscribeToMemberAccount,
   subscribeToVaults,
   subscribeToWalletTransactions,
+  processDueScheduledStashes,
 } from '@/services/savings-service';
 import { WalletCard } from './wallet-card';
 import { AddMoneyModal } from './add-money-modal';
@@ -42,6 +43,7 @@ import { GroupPoolCard } from './group-pool-card';
 import { MoneyRequestModal } from './money-request-modal';
 import { PendingTransferPrompt } from './pending-transfer-prompt';
 import { RoundUpSettingsModal } from './round-up-settings-modal';
+import { ScheduledStashModal } from './scheduled-stash-modal';
 import { formatCurrency } from '@/utils/currency-utils';
 
 interface SavingsDashboardProps {
@@ -64,6 +66,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   const [showCashOut, setShowCashOut] = useState(false);
   const [showRequestMoney, setShowRequestMoney] = useState(false);
   const [showRoundUpModal, setShowRoundUpModal] = useState(false);
+  const [showScheduledStashModal, setShowScheduledStashModal] = useState(false);
 
   const userId = user?.id || '';
   const currency = business.currency || 'USD';
@@ -71,6 +74,11 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   // Initialize and subscribe
   useEffect(() => {
     if (!business.id || !userId) return;
+
+    // Process any due recurring stashes in background
+    processDueScheduledStashes(business.id, userId).catch((err) => {
+      console.warn('[ScheduledStash] Auto-process notice:', err?.message);
+    });
 
     // Ensure account exists
     getOrCreateMemberAccount(business.id, userId, currency).then((acc) => {
@@ -108,6 +116,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (business.id && userId) {
+      await processDueScheduledStashes(business.id, userId).catch(() => {});
       const acc = await getOrCreateMemberAccount(business.id, userId, currency);
       setAccount(acc);
     }
@@ -251,6 +260,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         spendableBalance={account?.mainBalance || 0}
         currency={currency}
         onRefresh={onRefresh}
+        onOpenScheduledStash={() => setShowScheduledStashModal(true)}
       />
 
       {/* 3. Syndicate Reserve Pool (Collective Treasury) */}
@@ -443,6 +453,17 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
           }
           onRefresh();
         }}
+      />
+
+      {/* Scheduled Auto-Stash Modal */}
+      <ScheduledStashModal
+        visible={showScheduledStashModal}
+        businessId={business.id}
+        userId={userId}
+        currency={currency}
+        vaults={vaults}
+        onClose={() => setShowScheduledStashModal(false)}
+        onSuccess={onRefresh}
       />
 
       {/* Pending Transfer Prompt — real-time inbound confirmations */}

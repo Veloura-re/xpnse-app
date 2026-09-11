@@ -12,7 +12,12 @@ import { collection, query, where, getDocs, getDoc, limit, onSnapshot, doc, setD
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 import { PushNotificationService } from '@/services/push-notification-service';
 import { CurrencyService } from '@/services/currency-service';
-import { getOrCreateMemberAccount, executeRoundUpForEntry } from '@/services/savings-service';
+import {
+  getOrCreateMemberAccount,
+  executeRoundUpForEntry,
+  deductSpendableForBookExpense,
+  creditSpendableForBookIncome,
+} from '@/services/savings-service';
 
 interface BusinessState {
   // Existing state
@@ -1226,6 +1231,40 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           totalCashOut: entryData.type === 'cash_out' ? increment(amount) : increment(0),
           balance: entryData.type === 'cash_in' ? increment(amount) : increment(-amount)
         });
+      }
+
+      // Execute Spendable Wallet payment deduction or income credit if selected
+      const isWalletMode =
+        entryData.paymentMode === 'Spndy Wallet' ||
+        entryData.paymentMode === 'Spendable Balance' ||
+        entryData.paymentMode === 'Wallet';
+
+      if (isWalletMode && amount > 0 && user.id) {
+        if (entryData.type === 'cash_out') {
+          deductSpendableForBookExpense({
+            businessId: currentBusiness.id,
+            userId: user.id,
+            amount,
+            currency: entryData.originalCurrency || currentBusiness.currency || 'USD',
+            bookEntryId: newEntryId,
+            bookName: context?.bookName,
+            note: entryData.description,
+          }).catch((walletErr) => {
+            console.warn('[WalletExpense] Deduction notice:', walletErr?.message);
+          });
+        } else if (entryData.type === 'cash_in') {
+          creditSpendableForBookIncome({
+            businessId: currentBusiness.id,
+            userId: user.id,
+            amount,
+            currency: entryData.originalCurrency || currentBusiness.currency || 'USD',
+            bookEntryId: newEntryId,
+            bookName: context?.bookName,
+            note: entryData.description,
+          }).catch((walletErr) => {
+            console.warn('[WalletIncome] Credit notice:', walletErr?.message);
+          });
+        }
       }
 
       // Execute Automated Round-Up for cash_out expenses if enabled
