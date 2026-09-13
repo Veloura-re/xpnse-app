@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Coins,
   Repeat,
+  Zap,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/providers/theme-provider';
@@ -34,6 +35,8 @@ import {
   deleteScheduledStashRule,
   togglePauseScheduledStashRule,
   subscribeToScheduledStashRules,
+  executeScheduledStashRuleNow,
+  createSavingsVault,
 } from '@/services/savings-service';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
@@ -156,7 +159,51 @@ export const ScheduledStashModal: React.FC<ScheduledStashModalProps> = ({
       } catch (e) {}
     }
 
-    await togglePauseScheduledStashRule(businessId, rule.id, rule.status);
+    await togglePauseScheduledStashRule(businessId, rule.id);
+  };
+
+  const handleExecuteNow = async (rule: ScheduledStashRule) => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (e) {}
+    }
+    const res = await executeScheduledStashRuleNow(businessId, userId, rule.id);
+    if (res.success) {
+      if (Platform.OS !== 'web') {
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (e) {}
+      }
+      Alert.alert(
+        'Stash Executed',
+        `Successfully transferred ${formatCurrency(rule.amount, currency)} to "${rule.targetVaultName || 'Vault'}".`
+      );
+      onSuccess();
+    } else {
+      Alert.alert('Execution Notice', res.error || 'Could not execute scheduled stash.');
+    }
+  };
+
+  const handleQuickCreateVault = async () => {
+    try {
+      setIsSubmitting(true);
+      const res = await createSavingsVault({
+        businessId,
+        userId,
+        name: 'Emergency Reserve Vault',
+        targetAmount: 1000,
+        currency,
+        isLocked: true,
+      });
+      if (res.success && res.vault) {
+        setSelectedVaultId(res.vault.id);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not provision vault.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const textPrimary = isDark ? '#ffffff' : '#0f172a';
@@ -295,18 +342,30 @@ export const ScheduledStashModal: React.FC<ScheduledStashModalProps> = ({
                         styles.emptyVaultNotice,
                         {
                           backgroundColor: isDark
-                            ? 'rgba(239, 68, 68, 0.08)'
-                            : '#fef2f2',
+                            ? 'rgba(16, 185, 129, 0.08)'
+                            : '#ecfdf5',
                           borderColor: isDark
-                            ? 'rgba(239, 68, 68, 0.25)'
-                            : '#fecaca',
+                            ? 'rgba(16, 185, 129, 0.25)'
+                            : '#a7f3d0',
                         },
                       ]}
                     >
-                      <PiggyBank size={18} color="#ef4444" />
-                      <Text style={[styles.emptyVaultText, { color: '#ef4444' }]}>
-                        No target vaults available. Please create a vault first.
-                      </Text>
+                      <PiggyBank size={18} color="#10B981" />
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={[styles.emptyVaultText, { color: textPrimary }]}>
+                          No target vaults available.
+                        </Text>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={handleQuickCreateVault}
+                          style={styles.quickCreateVaultBtn}
+                        >
+                          <Plus size={12} color="#ffffff" />
+                          <Text style={styles.quickCreateVaultBtnText}>
+                            Quick Initialize Emergency Vault
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ) : (
                     <View style={styles.vaultList}>
@@ -610,6 +669,22 @@ export const ScheduledStashModal: React.FC<ScheduledStashModalProps> = ({
                           <View style={styles.ruleActions}>
                             <TouchableOpacity
                               activeOpacity={0.7}
+                              onPress={() => handleExecuteNow(rule)}
+                              style={[
+                                styles.actionBtn,
+                                {
+                                  backgroundColor: isDark
+                                    ? 'rgba(16, 185, 129, 0.15)'
+                                    : 'rgba(16, 185, 129, 0.1)',
+                                  borderColor: 'rgba(16, 185, 129, 0.3)',
+                                },
+                              ]}
+                            >
+                              <Zap size={14} color="#10b981" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              activeOpacity={0.7}
                               onPress={() => handleTogglePause(rule)}
                               style={[
                                 styles.actionBtn,
@@ -783,7 +858,22 @@ const styles = StyleSheet.create({
   emptyVaultText: {
     fontSize: 13,
     fontFamily: 'SpaceGrotesk_500Medium',
-    flex: 1,
+  },
+  quickCreateVaultBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  quickCreateVaultBtnText: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#ffffff',
   },
   vaultList: {
     gap: 8,

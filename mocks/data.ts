@@ -69,6 +69,30 @@ export const mockBusinessMembers: BusinessMember[] = [
     user: mockUsers[0],
     joinedAt: '2024-01-01T00:00:00Z',
   },
+  {
+    id: '5',
+    userId: '1',
+    businessId: '3',
+    role: 'owner',
+    user: mockUsers[0],
+    joinedAt: '2024-03-01T00:00:00Z',
+  },
+  {
+    id: '6',
+    userId: '2',
+    businessId: '3',
+    role: 'partner',
+    user: mockUsers[1],
+    joinedAt: '2024-03-02T00:00:00Z',
+  },
+  {
+    id: '7',
+    userId: '3',
+    businessId: '3',
+    role: 'viewer',
+    user: mockUsers[2],
+    joinedAt: '2024-03-03T00:00:00Z',
+  },
 ];
 
 export const mockBusinesses: Business[] = [
@@ -85,6 +109,16 @@ export const mockBusinesses: Business[] = [
     ownerId: '1',
     createdAt: '2024-02-01T00:00:00Z',
     members: mockBusinessMembers.filter(m => m.businessId === '2'),
+  },
+  {
+    id: '3',
+    name: 'Apex Syndicate Treasury',
+    ownerId: '1',
+    type: 'savings_group',
+    createdAt: '2024-03-01T00:00:00Z',
+    currency: 'USD',
+    groupPoolBalance: 4850,
+    members: mockBusinessMembers.filter(m => m.businessId === '3'),
   },
 ];
 

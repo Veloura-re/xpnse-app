@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { X, HandCoins, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
-import { requestMoney } from '@/services/savings-service';
+import { requestMoney, getEligibleRecipients } from '@/services/savings-service';
 import { BusinessMember } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
@@ -47,7 +47,7 @@ export const MoneyRequestModal: React.FC<MoneyRequestModalProps> = ({
 
   const currencySymbol = getCurrencySymbol(currency);
   const numericAmount = parseFloat(amountStr) || 0;
-  const eligibleMembers = members.filter((m) => m.userId !== requesterId);
+  const eligibleMembers = getEligibleRecipients(members, requesterId);
   const selectedPayer = eligibleMembers.find((m) => m.userId === selectedPayerId);
 
   const reset = () => {

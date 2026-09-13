@@ -28,13 +28,17 @@ import {
   Zap,
   Repeat,
   Coins,
+  Trash2,
 } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/providers/theme-provider';
 import { SavingsVault } from '@/types';
 import {
   createSavingsVault,
   transferToVault,
   withdrawFromVault,
+  toggleVaultLock,
+  deleteSavingsVault,
 } from '@/services/savings-service';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
@@ -115,6 +119,50 @@ export const VaultsList: React.FC<VaultsListProps> = ({
     }
   };
 
+  const handleToggleLock = async (vault: SavingsVault) => {
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (e) {}
+    }
+    const res = await toggleVaultLock(businessId, userId, vault.id);
+    if (res.success) {
+      onRefresh();
+    } else {
+      Alert.alert('Lock Update Failed', res.error || 'Could not update lock status.');
+    }
+  };
+
+  const handleDeleteVault = (vault: SavingsVault) => {
+    Alert.alert(
+      'Delete Savings Vault',
+      `Are you sure you want to delete "${vault.name}"? ${
+        vault.currentAmount > 0
+          ? `All ${formatCurrency(vault.currentAmount, currency)} in this vault will be returned to your spendable wallet immediately.`
+          : ''
+      }`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Vault',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await deleteSavingsVault(
+              businessId,
+              userId,
+              vault.id
+            );
+            if (res.success) {
+              onRefresh();
+            } else {
+              Alert.alert('Delete Failed', res.error || 'Could not delete vault.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleVaultAction = async () => {
     if (!activeVault) return;
 
@@ -135,6 +183,46 @@ export const VaultsList: React.FC<VaultsListProps> = ({
       Alert.alert(
         'Insufficient Vault Funds',
         `This vault only contains ${formatCurrency(activeVault.currentAmount, currency)}.`
+      );
+      return;
+    }
+
+    if (actionType === 'withdraw' && activeVault.isLocked) {
+      Alert.alert(
+        'Protected Discipline Mode',
+        `"${activeVault.name}" is locked. Would you like to unlock it and withdraw ${formatCurrency(actionNumericAmount, currency)}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unlock & Withdraw',
+            style: 'default',
+            onPress: async () => {
+              try {
+                setIsActionLoading(true);
+                await toggleVaultLock(businessId, userId, activeVault.id);
+                const res = await withdrawFromVault({
+                  businessId,
+                  userId,
+                  vaultId: activeVault.id,
+                  vaultName: activeVault.name,
+                  amount: actionNumericAmount,
+                  currency,
+                });
+                if (res.success) {
+                  setActiveVault(null);
+                  setActionAmountStr('');
+                  onRefresh();
+                } else {
+                  Alert.alert('Withdrawal Failed', res.error || 'Unable to withdraw funds.');
+                }
+              } catch (err: any) {
+                Alert.alert('Action Error', err.message || 'An error occurred.');
+              } finally {
+                setIsActionLoading(false);
+              }
+            },
+          },
+        ]
       );
       return;
     }
@@ -348,7 +436,9 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                         {vault.name}
                       </Text>
                       <View style={styles.podBadgeRow}>
-                        <View
+                        <TouchableOpacity
+                          activeOpacity={0.75}
+                          onPress={() => handleToggleLock(vault)}
                           style={[
                             styles.lockStatusChip,
                             {
@@ -384,7 +474,7 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                           >
                             {vault.isLocked ? 'PROTECTED LOCK' : 'FLEXIBLE'}
                           </Text>
-                        </View>
+                        </TouchableOpacity>
 
                         {isCompleted && (
                           <View style={styles.completedTag}>
@@ -589,6 +679,25 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                     >
                       Draw
                     </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => handleDeleteVault(vault)}
+                    style={[
+                      styles.podBtnDelete,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(239, 68, 68, 0.08)'
+                          : '#fef2f2',
+                        borderColor: isDark
+                          ? 'rgba(239, 68, 68, 0.2)'
+                          : '#fecaca',
+                      },
+                    ]}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Trash2 size={13} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1225,6 +1334,14 @@ const styles = StyleSheet.create({
   podBtnSecondaryText: {
     fontSize: 12,
     fontFamily: 'SpaceGrotesk_600SemiBold',
+  },
+  podBtnDelete: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalBackdrop: {
     flex: 1,

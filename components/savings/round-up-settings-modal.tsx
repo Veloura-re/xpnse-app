@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -22,11 +23,16 @@ import {
   Sliders,
   HelpCircle,
   Coins,
+  Plus,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/providers/theme-provider';
 import { SavingsVault, RoundUpSettings, RoundUpStep, RoundUpMultiplier } from '@/types';
-import { updateRoundUpSettings, calculateRoundUp } from '@/services/savings-service';
+import {
+  updateRoundUpSettings,
+  calculateRoundUp,
+  createSavingsVault,
+} from '@/services/savings-service';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
 interface RoundUpSettingsModalProps {
@@ -103,6 +109,27 @@ export const RoundUpSettingsModal: React.FC<RoundUpSettingsModalProps> = ({
   };
   const previewRoundUp = calculateRoundUp(simExpenseNum, previewSettings);
 
+  const handleQuickCreateVault = async () => {
+    try {
+      setIsSaving(true);
+      const res = await createSavingsVault({
+        businessId,
+        userId,
+        name: 'Emergency Reserve Vault',
+        targetAmount: 1000,
+        currency,
+        isLocked: true,
+      });
+      if (res.success && res.vault) {
+        setSelectedVaultId(res.vault.id);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not provision vault.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (Platform.OS !== 'web') {
       try {
@@ -110,17 +137,24 @@ export const RoundUpSettingsModal: React.FC<RoundUpSettingsModalProps> = ({
       } catch (e) {}
     }
 
-    if (enabled && !selectedVaultId) {
+    const targetId = selectedVaultId || (vaults[0]?.id ?? '');
+    if (enabled && !targetId) {
+      Alert.alert(
+        'Select Destination Vault',
+        'Please initialize a destination vault for your spare change.'
+      );
       return;
     }
 
     setIsSaving(true);
     const safetyFloor = Math.max(0, parseFloat(safetyFloorStr) || 0);
 
+    const targetVault = vaults.find((v) => v.id === targetId) || vaults[0];
+
     const updated: RoundUpSettings = {
       enabled,
-      targetVaultId: selectedVaultId,
-      targetVaultName: selectedVault?.name || 'Primary Vault',
+      targetVaultId: targetId,
+      targetVaultName: targetVault?.name || 'Primary Vault',
       step,
       multiplier,
       safetyFloor,
@@ -137,9 +171,12 @@ export const RoundUpSettingsModal: React.FC<RoundUpSettingsModalProps> = ({
         }
         onSuccess(updated);
         onClose();
+      } else {
+        Alert.alert('Save Failed', result.error || 'Unable to update settings.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating round-up settings:', err);
+      Alert.alert('Error', err?.message || 'Unable to save round-up settings.');
     } finally {
       setIsSaving(false);
     }
@@ -263,18 +300,30 @@ export const RoundUpSettingsModal: React.FC<RoundUpSettingsModalProps> = ({
                         styles.emptyVaultNotice,
                         {
                           backgroundColor: isDark
-                            ? 'rgba(239, 68, 68, 0.08)'
-                            : '#fef2f2',
+                            ? 'rgba(16, 185, 129, 0.08)'
+                            : '#ecfdf5',
                           borderColor: isDark
-                            ? 'rgba(239, 68, 68, 0.25)'
-                            : '#fecaca',
+                            ? 'rgba(16, 185, 129, 0.25)'
+                            : '#a7f3d0',
                         },
                       ]}
                     >
-                      <PiggyBank size={18} color="#ef4444" />
-                      <Text style={[styles.emptyVaultText, { color: '#ef4444' }]}>
-                        No savings vaults found. Please create a target vault first.
-                      </Text>
+                      <PiggyBank size={18} color="#10B981" />
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={[styles.emptyVaultText, { color: textPrimary }]}>
+                          No savings vaults found.
+                        </Text>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={handleQuickCreateVault}
+                          style={styles.quickCreateVaultBtn}
+                        >
+                          <Plus size={12} color="#ffffff" />
+                          <Text style={styles.quickCreateVaultBtnText}>
+                            Quick Initialize Emergency Vault
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ) : (
                     <View style={styles.vaultList}>
@@ -665,7 +714,22 @@ const styles = StyleSheet.create({
   emptyVaultText: {
     fontSize: 13,
     fontFamily: 'SpaceGrotesk_500Medium',
-    flex: 1,
+  },
+  quickCreateVaultBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  quickCreateVaultBtnText: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#ffffff',
   },
   vaultList: {
     gap: 8,

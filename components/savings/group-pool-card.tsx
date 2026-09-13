@@ -19,10 +19,16 @@ import {
   HeartHandshake,
   ShieldCheck,
   Zap,
+  ArrowDownLeft,
+  ArrowUpRight,
+  HandCoins,
 } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
 import { Business } from '@/types';
-import { contributeToGroupPool } from '@/services/savings-service';
+import {
+  contributeToGroupPool,
+  disburseFromGroupPool,
+} from '@/services/savings-service';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
 interface GroupPoolCardProps {
@@ -46,6 +52,7 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
   const [showModal, setShowModal] = useState(false);
+  const [mode, setMode] = useState<'contribute' | 'draw'>('contribute');
   const [amountStr, setAmountStr] = useState('25');
   const [note, setNote] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,13 +63,13 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
   const currencySymbol = getCurrencySymbol(currency);
   const numericAmount = parseFloat(amountStr) || 0;
 
-  const handleContribute = async () => {
+  const handleSubmit = async () => {
     if (numericAmount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a contribution greater than 0.');
+      Alert.alert('Invalid Amount', 'Please enter an amount greater than 0.');
       return;
     }
 
-    if (numericAmount > spendableBalance) {
+    if (mode === 'contribute' && numericAmount > spendableBalance) {
       Alert.alert(
         'Insufficient Balance',
         `Your spendable wallet balance is ${formatCurrency(spendableBalance, currency)}.`
@@ -70,24 +77,52 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
       return;
     }
 
+    if (mode === 'draw' && numericAmount > poolBalance) {
+      Alert.alert(
+        'Insufficient Pool Funds',
+        `The collective treasury only contains ${formatCurrency(poolBalance, currency)}.`
+      );
+      return;
+    }
+
     try {
       setIsLoading(true);
-      const res = await contributeToGroupPool({
-        businessId: business.id,
-        userId,
-        userName,
-        amount: numericAmount,
-        currency,
-        note: note.trim() || undefined,
-      });
+      if (mode === 'contribute') {
+        const res = await contributeToGroupPool({
+          businessId: business.id,
+          userId,
+          userName,
+          amount: numericAmount,
+          currency,
+          note: note.trim() || undefined,
+        });
 
-      if (res.success) {
-        setShowModal(false);
-        setAmountStr('25');
-        setNote('');
-        onRefresh();
+        if (res.success) {
+          setShowModal(false);
+          setAmountStr('25');
+          setNote('');
+          onRefresh();
+        } else {
+          Alert.alert('Contribution Failed', res.error || 'Could not process contribution.');
+        }
       } else {
-        Alert.alert('Contribution Failed', res.error || 'Could not process contribution.');
+        const res = await disburseFromGroupPool({
+          businessId: business.id,
+          userId,
+          userName,
+          amount: numericAmount,
+          currency,
+          note: note.trim() || undefined,
+        });
+
+        if (res.success) {
+          setShowModal(false);
+          setAmountStr('25');
+          setNote('');
+          onRefresh();
+        } else {
+          Alert.alert('Draw Failed', res.error || 'Could not draw funds from treasury.');
+        }
       }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'An error occurred.');
@@ -97,6 +132,7 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
   };
 
   const openPresetPledge = (amt: number) => {
+    setMode('contribute');
     setAmountStr(amt.toString());
     setShowModal(true);
   };
@@ -217,22 +253,53 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
           </View>
         </View>
 
-        {/* Primary Action Button */}
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={() => setShowModal(true)}
-          style={styles.pledgeBtnOuter}
-        >
-          <LinearGradient
-            colors={['#10B981', '#059669']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.pledgeBtn}
+        {/* Action Buttons Row (Pledge & Draw) */}
+        <View style={styles.cardActionsRow}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => {
+              setMode('contribute');
+              setAmountStr('25');
+              setShowModal(true);
+            }}
+            style={styles.pledgeBtnOuter}
           >
-            <Plus size={14} color="#ffffff" strokeWidth={2.5} />
-            <Text style={styles.pledgeBtnText}>Contribute to Shared Pool</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={['#10B981', '#059669']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.pledgeBtn}
+            >
+              <Plus size={14} color="#ffffff" strokeWidth={2.5} />
+              <Text style={styles.pledgeBtnText}>Pledge Funds</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => {
+              setMode('draw');
+              setAmountStr(poolBalance > 0 ? Math.min(100, Math.floor(poolBalance / 2)).toString() : '25');
+              setShowModal(true);
+            }}
+            style={[
+              styles.drawBtn,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.05)'
+                  : '#f1f5f9',
+                borderColor: isDark
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : colors.border,
+              },
+            ]}
+          >
+            <ArrowUpRight size={14} color={isDark ? '#34d399' : '#059669'} strokeWidth={2} />
+            <Text style={[styles.drawBtnText, { color: isDark ? '#e2e8f0' : '#1e293b' }]}>
+              Draw Funds
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Contribution Modal */}
@@ -258,14 +325,20 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
                 <View style={styles.modalIconPod}>
-                  <HeartHandshake size={17} color="#10B981" />
+                  {mode === 'contribute' ? (
+                    <HeartHandshake size={17} color="#10B981" />
+                  ) : (
+                    <HandCoins size={17} color="#10B981" />
+                  )}
                 </View>
                 <View>
                   <Text style={[styles.modalTitle, { color: colors.text }]}>
-                    Syndicate Pool Contribution
+                    {mode === 'contribute' ? 'Syndicate Contribution' : 'Treasury Disbursement'}
                   </Text>
                   <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                    Co-fund shared reserve buffer
+                    {mode === 'contribute'
+                      ? 'Co-fund shared reserve buffer'
+                      : 'Draw funds to your spendable wallet'}
                   </Text>
                 </View>
               </View>
@@ -274,6 +347,59 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
                 style={styles.closeBtn}
               >
                 <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Segment Toggle */}
+            <View style={styles.modalSegmentRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setMode('contribute')}
+                style={[
+                  styles.modalSegmentBtn,
+                  {
+                    backgroundColor:
+                      mode === 'contribute'
+                        ? '#10b981'
+                        : isDark
+                        ? 'rgba(255, 255, 255, 0.04)'
+                        : '#f1f5f9',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalSegmentText,
+                    { color: mode === 'contribute' ? '#ffffff' : colors.textSecondary },
+                  ]}
+                >
+                  Pledge to Pool
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setMode('draw')}
+                style={[
+                  styles.modalSegmentBtn,
+                  {
+                    backgroundColor:
+                      mode === 'draw'
+                        ? '#10b981'
+                        : isDark
+                        ? 'rgba(255, 255, 255, 0.04)'
+                        : '#f1f5f9',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalSegmentText,
+                    { color: mode === 'draw' ? '#ffffff' : colors.textSecondary },
+                  ]}
+                >
+                  Draw to Wallet
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -288,10 +414,10 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
                 ]}
               >
                 <Text style={[styles.liquidityCalloutLabel, { color: colors.textSecondary }]}>
-                  AVAILABLE SPENDABLE WALLET
+                  {mode === 'contribute' ? 'AVAILABLE SPENDABLE WALLET' : 'TOTAL TREASURY RESERVE'}
                 </Text>
                 <Text style={[styles.liquidityCalloutVal, { color: colors.text }]}>
-                  {formatCurrency(spendableBalance, currency)}
+                  {formatCurrency(mode === 'contribute' ? spendableBalance : poolBalance, currency)}
                 </Text>
               </View>
 
@@ -361,7 +487,7 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
               </View>
 
               {/* Note */}
-              <Text style={styles.inputCategoryCaption}>CONTRIBUTION MEMO (OPTIONAL)</Text>
+              <Text style={styles.inputCategoryCaption}>MEMO (OPTIONAL)</Text>
               <TextInput
                 style={[
                   styles.noteInput,
@@ -371,7 +497,7 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
                     borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
                   },
                 ]}
-                placeholder="e.g. Monthly team reserve contribution"
+                placeholder={mode === 'contribute' ? 'e.g. Monthly team pledge' : 'e.g. Project emergency expense'}
                 placeholderTextColor={colors.textSecondary}
                 value={note}
                 onChangeText={setNote}
@@ -380,7 +506,7 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
               <TouchableOpacity
                 activeOpacity={0.88}
                 disabled={isLoading || numericAmount <= 0}
-                onPress={handleContribute}
+                onPress={handleSubmit}
                 style={styles.submitBtnOuter}
               >
                 <LinearGradient
@@ -397,7 +523,9 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
                     <ActivityIndicator color="#ffffff" size="small" />
                   ) : (
                     <Text style={styles.submitBtnText}>
-                      Transfer {formatCurrency(numericAmount, currency)} to Syndicate
+                      {mode === 'contribute'
+                        ? `Pledge ${formatCurrency(numericAmount, currency)} to Syndicate`
+                        : `Draw ${formatCurrency(numericAmount, currency)} to Wallet`}
                     </Text>
                   )}
                 </LinearGradient>
@@ -574,7 +702,14 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10B981',
   },
+  cardActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+  },
   pledgeBtnOuter: {
+    flex: 1,
     borderRadius: 13,
     overflow: 'hidden',
   },
@@ -588,6 +723,42 @@ const styles = StyleSheet.create({
   pledgeBtnText: {
     fontSize: 12.5,
     color: '#ffffff',
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.2,
+  },
+  drawBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  drawBtnText: {
+    fontSize: 12.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.2,
+  },
+  modalSegmentRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 4,
+    padding: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  modalSegmentBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSegmentText: {
+    fontSize: 12,
     fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.2,
   },

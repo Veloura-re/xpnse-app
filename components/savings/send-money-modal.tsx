@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { X, Send, UserCheck, AlertCircle, Clock } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
-import { initiatePendingTransfer } from '@/services/savings-service';
+import { initiatePendingTransfer, getEligibleRecipients } from '@/services/savings-service';
 import { BusinessMember } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
@@ -51,8 +51,8 @@ export const SendMoneyModal: React.FC<SendMoneyModalProps> = ({
   const currencySymbol = getCurrencySymbol(currency);
   const numericAmount = parseFloat(amountStr) || 0;
 
-  // Filter out current user from recipients
-  const eligibleRecipients = members.filter((m) => m.userId !== senderId);
+  // Filter out current user from recipients with demo teammates fallback
+  const eligibleRecipients = getEligibleRecipients(members, senderId);
 
   const selectedRecipient = eligibleRecipients.find(
     (m) => m.userId === selectedRecipientId
