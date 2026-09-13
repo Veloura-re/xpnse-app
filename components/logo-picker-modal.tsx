@@ -263,10 +263,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 4,
     },
     subtitle: {
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     closeButton: {
         width: 36,
@@ -292,6 +294,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         height: '100%',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     listContent: {
         paddingHorizontal: 20,
@@ -318,6 +321,7 @@ const styles = StyleSheet.create({
         fontSize: 11,
         textAlign: 'center',
         width: '100%',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     bottomGradient: {
         position: 'absolute',

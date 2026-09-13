@@ -157,25 +157,25 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   // Helper function to find user by email
   const findUserByEmail = async (email: string): Promise<User | undefined> => {
     try {
-      console.log('🔍 [findUserByEmail] Starting search for:', email);
+      console.log('[findUserByEmail] Starting search for:', email);
 
       // First try Firebase if initialized
       if (firebaseInitialized && db) {
         const normalizedEmail = email.trim().toLowerCase();
-        console.log('🔍 [findUserByEmail] Normalized email:', normalizedEmail);
+        console.log('[findUserByEmail] Normalized email:', normalizedEmail);
 
         // Query Firestore users collection by email
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('email', '==', normalizedEmail), limit(1));
 
-        console.log('🔍 [findUserByEmail] Executing Firestore query...');
+        console.log('[findUserByEmail] Executing Firestore query...');
         const querySnapshot = await getDocs(q);
-        console.log('🔍 [findUserByEmail] Query completed. Empty?', querySnapshot.empty, 'Size:', querySnapshot.size);
+        console.log('[findUserByEmail] Query completed. Empty?', querySnapshot.empty, 'Size:', querySnapshot.size);
 
         if (!querySnapshot.empty) {
           const docSnapshot = querySnapshot.docs[0];
           const userData = docSnapshot.data();
-          console.log('✅ [findUserByEmail] User found in Firestore:', { id: docSnapshot.id, email: userData.email });
+          console.log('[findUserByEmail] User found in Firestore:', { id: docSnapshot.id, email: userData.email });
 
           return {
             id: docSnapshot.id,
@@ -187,25 +187,25 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           } as User;
         }
 
-        console.log('⚠️ [findUserByEmail] User not found in Firestore, checking mock users...');
+        console.log('[findUserByEmail] User not found in Firestore, checking mock users...');
         // If not found in Firestore, check mock users as fallback
         const mockUser = mockUsers.find(u => u.email.toLowerCase() === normalizedEmail);
         if (mockUser) {
-          console.log('✅ [findUserByEmail] User found in mock data:', mockUser.email);
+          console.log('[findUserByEmail] User found in mock data:', mockUser.email);
           return mockUser;
         }
 
-        console.log('❌ [findUserByEmail] User not found anywhere');
+        console.log('[findUserByEmail] User not found anywhere');
         return undefined;
       } else {
-        console.log('⚠️ [findUserByEmail] Firebase not initialized, using mock data only');
+        console.log('[findUserByEmail] Firebase not initialized, using mock data only');
         // Fallback to mock data if Firebase not initialized
         return mockUsers.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
       }
     } catch (error: any) {
-      console.error('❌ [findUserByEmail] Error occurred:', error);
-      console.error('❌ [findUserByEmail] Error code:', error?.code);
-      console.error('❌ [findUserByEmail] Error message:', error?.message);
+      console.error('[findUserByEmail] Error occurred:', error);
+      console.error('[findUserByEmail] Error code:', error?.code);
+      console.error('[findUserByEmail] Error message:', error?.message);
 
       // Fallback to mock data on error
       return mockUsers.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
@@ -372,7 +372,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
     try {
       if (isCurrencyProvided) {
-        console.log(`💱 Recalculating and synchronizing all books & entries to currency: ${newCurrency}`);
+        console.log(`[Recalculate] Recalculating and synchronizing all books & entries to currency: ${newCurrency}`);
 
         const batchList: any[] = [];
         let currentBatch = writeBatch(firestore);
@@ -953,7 +953,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       };
 
       if (rawNewCurrency && newCurrency !== oldCurrency) {
-        console.log(`💱 Recalculating book entries from ${oldCurrency} to ${newCurrency} for book ${bookId}`);
+        console.log(`[Recalculate] Recalculating book entries from ${oldCurrency} to ${newCurrency} for book ${bookId}`);
 
         // Fetch all entries for this book
         const entriesQuery = query(

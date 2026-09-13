@@ -120,13 +120,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#0f172a',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
     color: '#475569',
     textAlign: 'center',
     marginBottom: 16,
@@ -146,18 +147,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#e2e8f0',
     color: '#0f172a',
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     textAlign: 'center',
     textAlignVertical: 'center',
   },
   stepText: {
     flex: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
     color: '#0f172a',
   },
   message: {
     marginTop: 12,
     textAlign: 'center',
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   messageSuccess: {
     color: '#16a34a',
@@ -187,11 +189,11 @@ const styles = StyleSheet.create({
   },
   buttonTextPrimary: {
     color: 'white',
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   buttonTextSecondary: {
     color: '#0f172a',
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   linkRow: {
     marginTop: 16,
@@ -199,6 +201,6 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: '#10b981',
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 });

@@ -44,9 +44,6 @@ export default function TeamManagementScreen() {
     // Invite modal state
     const [showInviteModal, setShowInviteModal] = useState(false);
 
-    // Expanded member for role editing
-    const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
-
     const members = getTeamMembers();
 
     const filteredMembers = useMemo(() => {
@@ -59,23 +56,12 @@ export default function TeamManagementScreen() {
         );
     }, [members, searchQuery]);
 
-
-
     // Leave / Remove confirmation modal state
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
     const [targetMember, setTargetMember] = useState<{ id: string; name: string; isSelf: boolean } | null>(null);
     const [confirmInput, setConfirmInput] = useState('');
     const [isExecutingAction, setIsExecutingAction] = useState(false);
     const [isInputFocused, setIsInputFocused] = useState(false);
-
-    const handleChangeRole = async (memberId: string, newRole: UserRole) => {
-        const { success, message } = await updateTeamMemberRole(memberId, newRole);
-        if (!success) {
-            Alert.alert('Error', message);
-        } else {
-            setExpandedMemberId(null);
-        }
-    };
 
     const handleOpenConfirmModal = (memberId: string, memberName: string) => {
         const currentUserId = user?.uid || user?.id;
@@ -113,7 +99,6 @@ export default function TeamManagementScreen() {
                     } catch (e) {}
                 }
                 setConfirmModalVisible(false);
-                setExpandedMemberId(null);
                 if (targetMember.isSelf) {
                     router.replace('/(tabs)');
                 }
@@ -126,86 +111,63 @@ export default function TeamManagementScreen() {
     };
 
     const renderMember = ({ item }: { item: typeof members[0] }) => {
-        const isExpanded = expandedMemberId === item.id;
-        const canEdit = userRole === 'owner' && item.role !== 'owner';
+        const canRemove = userRole === 'owner' && item.role !== 'owner';
         const isCurrentUser = user?.uid === item.userId || user?.id === item.userId;
         const canLeave = isCurrentUser && item.role !== 'owner';
 
         return (
-            <View style={[styles.memberCard, { backgroundColor: colors.cardGlass, borderColor: isExpanded ? colors.primary : colors.borderGlass }, isExpanded && styles.memberCardExpanded]}>
-                <TouchableOpacity
-                    style={styles.memberHeader}
-                    onPress={() => (canEdit || canLeave) && setExpandedMemberId(isExpanded ? null : item.id)}
-                    activeOpacity={(canEdit || canLeave) ? 0.7 : 1}
-                >
+            <View style={[styles.memberCard, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass }]}>
+                <View style={styles.memberHeader}>
                     <View style={styles.memberInfo}>
                         <View style={[styles.avatar, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4' }]}>
-                            <User size={24} color={colors.primary} />
+                            <User size={22} color={colors.primary} />
                         </View>
                         <View style={styles.memberDetails}>
-                            <Text style={[styles.memberName, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>{item.user.name || item.user.displayName}</Text>
-                            <Text style={[styles.memberEmail, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>{item.user.email}</Text>
+                            <Text style={[styles.memberName, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                {item.user.name || item.user.displayName || item.user.email}
+                            </Text>
+                            <Text style={[styles.memberEmail, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                                {item.user.email}
+                            </Text>
                         </View>
                     </View>
                     <View style={styles.memberActions}>
                         <RoleBadge role={item.role} size="small" />
-                        {(canEdit || canLeave) && (
-                            <ChevronDown
-                                size={20}
-                                color="#9ca3af"
-                                style={{ transform: [{ rotate: isExpanded ? '180deg' : '0deg' }], marginLeft: 8 }}
-                            />
+                        {canRemove && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionDeleteBtn,
+                                    {
+                                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEE2E2',
+                                        borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FECACA',
+                                    }
+                                ]}
+                                onPress={() => handleOpenConfirmModal(item.userId, item.user.name || item.user.displayName || item.user.email)}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Trash2 size={15} color="#EF4444" />
+                            </TouchableOpacity>
+                        )}
+                        {canLeave && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.leavePillBtn,
+                                    {
+                                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEE2E2',
+                                        borderColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FECACA',
+                                    }
+                                ]}
+                                onPress={() => handleOpenConfirmModal(item.userId, item.user.name || item.user.displayName || item.user.email)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.leavePillBtnText}>
+                                    Leave
+                                </Text>
+                            </TouchableOpacity>
                         )}
                     </View>
-                </TouchableOpacity>
-
-                {isExpanded && canEdit && (
-                    <View style={[styles.expandedContent, { backgroundColor: colors.inputBackground, borderTopColor: colors.border }]}>
-                        <Text style={[styles.expandedTitle, { color: colors.textSecondary }]}>Change Role</Text>
-                        <View style={styles.roleOptions}>
-                            {(['partner', 'viewer'] as UserRole[]).map((role) => (
-                                <TouchableOpacity
-                                    key={role}
-                                    style={[
-                                        styles.roleOption,
-                                        { backgroundColor: colors.surface, borderColor: colors.border },
-                                        item.role === role && [styles.roleOptionSelected, { backgroundColor: theme === 'dark' ? 'rgba(33, 201, 141, 0.1)' : '#eff6ff', borderColor: colors.primary }],
-                                    ]}
-                                    onPress={() => handleChangeRole(item.userId, role)}
-                                >
-                                    <Text style={[
-                                        styles.roleOptionText,
-                                        { color: colors.textSecondary },
-                                        item.role === role && [styles.roleOptionTextSelected, { color: colors.primary }],
-                                    ]}>
-                                        {role === 'partner' ? 'Partner' : 'Viewer'}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.removeButton}
-                            onPress={() => handleOpenConfirmModal(item.userId, item.user.name || item.user.displayName || item.user.email)}
-                            activeOpacity={0.7}
-                        >
-                            <Trash2 size={16} color="#ef4444" />
-                            <Text style={styles.removeButtonText}>Remove from Team</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-                {isExpanded && canLeave && !canEdit && (
-                    <View style={styles.expandedContent}>
-                        <TouchableOpacity
-                            style={styles.removeButton}
-                            onPress={() => handleOpenConfirmModal(item.userId, item.user.name || item.user.displayName || item.user.email)}
-                            activeOpacity={0.7}
-                        >
-                            <Trash2 size={16} color="#ef4444" />
-                            <Text style={styles.removeButtonText}>Leave Team</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                </View>
             </View>
         );
     };
@@ -813,21 +775,28 @@ const styles = StyleSheet.create({
         color: '#10b981',
         fontFamily: 'SpaceGrotesk_700Bold',
     },
-    removeButton: {
-        flexDirection: 'row',
+    actionDeleteBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 9,
+        borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: 12,
-        backgroundColor: 'rgba(239, 68, 68, 0.08)',
-        borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.2)',
-        gap: 10,
+        marginLeft: 10,
     },
-    removeButtonText: {
-        fontSize: 14,
-        color: '#ef4444',
-        fontFamily: 'SpaceGrotesk_600SemiBold',
+    leavePillBtn: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginLeft: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    leavePillBtnText: {
+        color: '#EF4444',
+        fontSize: 11,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     emptyContainer: {
         flex: 1,

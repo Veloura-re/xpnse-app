@@ -371,6 +371,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   unreadBadge: {
     backgroundColor: 'rgba(16, 185, 129, 0.22)',
@@ -385,10 +386,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#10b981',
     letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   statusSubtitle: {
     fontSize: 12,
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   headerRight: {
     marginLeft: 8,
@@ -421,6 +424,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     paddingHorizontal: 20,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   feedList: {
     gap: 8,
@@ -454,16 +458,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     flex: 1,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   itemTime: {
     fontSize: 10,
     color: '#64748b',
     fontWeight: '500',
     marginLeft: 6,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   itemMessage: {
     fontSize: 11,
     lineHeight: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   checkButton: {
     width: 22,
@@ -492,5 +499,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#10b981',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

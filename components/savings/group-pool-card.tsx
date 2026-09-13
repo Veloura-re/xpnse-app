@@ -694,6 +694,7 @@ const styles = StyleSheet.create({
   },
   presetChipText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   inputCategoryCaption: {
     fontSize: 10,

@@ -817,10 +817,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   headerSubtitle: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginTop: 2,
   },
   adminBadge: {
@@ -831,7 +832,7 @@ const styles = StyleSheet.create({
   },
   adminBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#ffffff',
     letterSpacing: 0.5,
   },
@@ -853,11 +854,12 @@ const styles = StyleSheet.create({
   },
   privacyBannerTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 3,
   },
   privacyBannerText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
     lineHeight: 17,
   },
   card: {
@@ -881,10 +883,11 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   cardDescription: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
     lineHeight: 18,
     marginBottom: 14,
   },
@@ -895,11 +898,12 @@ const styles = StyleSheet.create({
   },
   operatorEmail: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     marginBottom: 2,
   },
   operatorDetail: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   operatorStatusPill: {
     flexDirection: 'row',
@@ -918,7 +922,7 @@ const styles = StyleSheet.create({
   },
   operatorStatusText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
     letterSpacing: 0.5,
   },
@@ -939,10 +943,11 @@ const styles = StyleSheet.create({
   },
   defenseModeTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   defenseModeSub: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginLeft: 16,
   },
   invariantsBox: {
@@ -952,7 +957,7 @@ const styles = StyleSheet.create({
   },
   invariantsTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.5,
     marginBottom: 2,
   },
@@ -962,12 +967,13 @@ const styles = StyleSheet.create({
   },
   invariantText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginLeft: 8,
     flex: 1,
   },
   invariantStatus: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
     letterSpacing: 0.5,
   },
@@ -980,7 +986,7 @@ const styles = StyleSheet.create({
   },
   pingButtonText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
   },
   telemetryGrid: {
@@ -1002,16 +1008,16 @@ const styles = StyleSheet.create({
   },
   telemetryTileName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   telemetryValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 4,
   },
   telemetryStatusGreen: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
     letterSpacing: 0.5,
   },
@@ -1027,6 +1033,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1,
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   searchButton: {
     width: 44,
@@ -1048,11 +1055,12 @@ const styles = StyleSheet.create({
   },
   targetAccountEmail: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 2,
   },
   targetAccountUid: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   badgePill: {
     paddingHorizontal: 8,
@@ -1061,7 +1069,7 @@ const styles = StyleSheet.create({
   },
   badgePillText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.5,
   },
   targetAccountMeta: {
@@ -1077,11 +1085,12 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginBottom: 2,
   },
   metaVal: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   targetActionsRow: {
     flexDirection: 'row',
@@ -1097,12 +1106,12 @@ const styles = StyleSheet.create({
   },
   accountActionBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   actionFeedbackText: {
     fontSize: 12,
     color: '#10b981',
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -1120,11 +1129,12 @@ const styles = StyleSheet.create({
   },
   runtimeBtnTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 2,
   },
   runtimeBtnDesc: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   specsBox: {
     padding: 10,
@@ -1133,6 +1143,7 @@ const styles = StyleSheet.create({
   },
   specsLine: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
     lineHeight: 16,
   },
 });

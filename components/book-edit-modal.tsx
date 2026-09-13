@@ -33,6 +33,7 @@ import {
     BookOpen,
     AlertTriangle,
     ArrowRightLeft,
+    Paperclip,
 } from 'lucide-react-native';
 import { Book } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
@@ -64,6 +65,7 @@ export const BookEditModal = React.memo(function BookEditModal({
     const [bookName, setBookName] = useState('');
     const [showPaymentMode, setShowPaymentMode] = useState(true);
     const [showCategory, setShowCategory] = useState(true);
+    const [showAttachments, setShowAttachments] = useState(true);
     const [bookCurrency, setBookCurrency] = useState(currentBusiness?.currency || 'USD');
     const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
 
@@ -94,11 +96,13 @@ export const BookEditModal = React.memo(function BookEditModal({
                 setBookCurrency(book.currency || book.settings?.currency || currentBusiness?.currency || 'USD');
                 setShowPaymentMode(book.settings?.showPaymentMode ?? true);
                 setShowCategory(book.settings?.showCategory ?? true);
+                setShowAttachments(book.settings?.showAttachments ?? true);
             } else {
                 setBookName('');
                 setBookCurrency(currentBusiness?.currency || 'USD');
                 setShowPaymentMode(true);
                 setShowCategory(true);
+                setShowAttachments(true);
             }
         }
     }, [visible, book, currentBusiness]);
@@ -119,7 +123,7 @@ export const BookEditModal = React.memo(function BookEditModal({
             currency: bookCurrency,
             showPaymentMode,
             showCategory,
-            showAttachments: book?.settings?.showAttachments ?? false,
+            showAttachments,
         };
 
         try {
@@ -512,6 +516,52 @@ export const BookEditModal = React.memo(function BookEditModal({
                                         <Switch
                                             value={showCategory}
                                             onValueChange={setShowCategory}
+                                            trackColor={{ false: '#3e3e3e', true: colors.primary }}
+                                            thumbColor="#FFFFFF"
+                                        />
+                                    </TouchableOpacity>
+
+                                    <View style={[styles.preferenceDivider, { backgroundColor: cardBorder }]} />
+
+                                    {/* Attachments Setting */}
+                                    <TouchableOpacity
+                                        style={styles.preferenceRow}
+                                        onPress={() => setShowAttachments(!showAttachments)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.preferenceIconBox,
+                                                {
+                                                    backgroundColor: isDark
+                                                        ? 'rgba(16, 185, 129, 0.18)'
+                                                        : 'rgba(16, 185, 129, 0.12)',
+                                                },
+                                            ]}
+                                        >
+                                            <Paperclip size={18} color={colors.primary} />
+                                        </View>
+                                        <View style={styles.preferenceTextCol}>
+                                            <Text
+                                                style={[
+                                                    styles.preferenceTitle,
+                                                    { color: textColor, fontFamily: 'SpaceGrotesk_700Bold' },
+                                                ]}
+                                            >
+                                                Attachments
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.preferenceSubtitle,
+                                                    { color: subTextColor, fontFamily: 'SpaceGrotesk_400Regular' },
+                                                ]}
+                                            >
+                                                Upload receipts and invoice snapshots
+                                            </Text>
+                                        </View>
+                                        <Switch
+                                            value={showAttachments}
+                                            onValueChange={setShowAttachments}
                                             trackColor={{ false: '#3e3e3e', true: colors.primary }}
                                             thumbColor="#FFFFFF"
                                         />
@@ -1137,10 +1187,12 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     headerSubtitle: {
         fontSize: 12,
         marginTop: 2,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     closeButton: {
         width: 34,
@@ -1160,6 +1212,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 10,
         letterSpacing: 0.8,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     inputWrapper: {
         flexDirection: 'row',
@@ -1173,6 +1226,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         padding: 0,
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     currencyCard: {
         flexDirection: 'row',
@@ -1197,10 +1251,12 @@ const styles = StyleSheet.create({
     },
     currencyCodeText: {
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     currencySubText: {
         fontSize: 11,
         marginTop: 2,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     currencyChangeBadge: {
         flexDirection: 'row',
@@ -1213,6 +1269,7 @@ const styles = StyleSheet.create({
     },
     currencyChangeText: {
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     preferencesCard: {
         borderRadius: 18,
@@ -1240,9 +1297,11 @@ const styles = StyleSheet.create({
     preferenceTitle: {
         fontSize: 14,
         marginBottom: 2,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     preferenceSubtitle: {
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     preferenceDivider: {
         height: 1,
@@ -1259,6 +1318,7 @@ const styles = StyleSheet.create({
     primarySaveBtnText: {
         color: '#FFFFFF',
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     managementSection: {
         marginTop: 4,
@@ -1289,9 +1349,11 @@ const styles = StyleSheet.create({
     managementToggleTitle: {
         fontSize: 14,
         marginBottom: 2,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     managementToggleSubtitle: {
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     managementOptionsList: {
         marginTop: 10,
@@ -1315,9 +1377,11 @@ const styles = StyleSheet.create({
     managementOptionTitle: {
         fontSize: 14,
         marginBottom: 2,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     managementOptionSubtitle: {
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     // Sub-Modals
     subModalOverlay: {
@@ -1356,12 +1420,14 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 8,
         textAlign: 'center',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     subModalSubtitle: {
         fontSize: 13,
         textAlign: 'center',
         marginBottom: 18,
         lineHeight: 18,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     deleteConfirmInputBox: {
         width: '100%',
@@ -1376,6 +1442,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
         padding: 0,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     subModalButtonRow: {
         flexDirection: 'row',
@@ -1392,6 +1459,7 @@ const styles = StyleSheet.create({
     },
     subModalCancelBtnText: {
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     subModalDeleteBtn: {
         flex: 1.2,
@@ -1403,6 +1471,7 @@ const styles = StyleSheet.create({
     subModalDeleteBtnText: {
         fontSize: 14,
         color: '#FFFFFF',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     subModalPrimaryBtn: {
         flex: 1.4,
@@ -1414,6 +1483,7 @@ const styles = StyleSheet.create({
     subModalPrimaryBtnText: {
         fontSize: 14,
         color: '#FFFFFF',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     businessListScroll: {
         maxHeight: 240,
@@ -1438,12 +1508,15 @@ const styles = StyleSheet.create({
     businessChoiceAvatarText: {
         color: '#FFFFFF',
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     businessChoiceName: {
         fontSize: 14,
         marginBottom: 2,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     businessChoiceMeta: {
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
 });

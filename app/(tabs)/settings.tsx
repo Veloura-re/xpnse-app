@@ -374,7 +374,7 @@ export default function SettingsScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginRight: 8 }}>
+                    <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text, marginRight: 8 }}>
                       Developer Admin Console
                     </Text>
                     <View
@@ -385,12 +385,12 @@ export default function SettingsScreen() {
                         backgroundColor: '#6366f1',
                       }}
                     >
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: '#ffffff', letterSpacing: 0.5 }}>
+                      <Text style={{ fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold', color: '#ffffff', letterSpacing: 0.5 }}>
                         ADMIN
                       </Text>
                     </View>
                   </View>
-                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                  <Text style={{ fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary }}>
                     Attack defense, system health, and runtime diagnostics
                   </Text>
                 </View>
@@ -607,7 +607,7 @@ export default function SettingsScreen() {
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <TouchableOpacity style={[styles.modalCancel, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', borderRadius: 16, height: 56, justifyContent: 'center' }]} onPress={() => setShowLogoutModal(false)}>
-                  <Text style={[styles.modalCancelText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={{ flex: 1, borderRadius: 16, overflow: 'hidden' }} onPress={confirmLogout} activeOpacity={0.9}>
                   <LinearGradient
@@ -616,7 +616,7 @@ export default function SettingsScreen() {
                     end={{ x: 1, y: 0 }}
                     style={{ height: 56, alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <Text style={[styles.modalDestructiveText, { fontSize: 16, fontWeight: '700' }]}>Sign Out</Text>
+                    <Text style={[styles.modalDestructiveText, { fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Sign Out</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -674,14 +674,14 @@ export default function SettingsScreen() {
                 }}>
                   <Trash2 size={32} color="#EF4444" />
                 </View>
-                <Text style={{ fontSize: 24, fontFamily: getFontFamily(deviceFont), color: colors.text, marginBottom: 8, textAlign: 'center' }}>Delete Business</Text>
-                <Text style={{ fontSize: 16, color: '#EF4444', textAlign: 'center', fontWeight: '500' }}>
+                <Text style={{ fontSize: 24, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text, marginBottom: 8, textAlign: 'center' }}>Delete Business</Text>
+                <Text style={{ fontSize: 16, color: '#EF4444', textAlign: 'center', fontFamily: 'SpaceGrotesk_500Medium' }}>
                   This action is irreversible.
                 </Text>
               </View>
 
               <Text style={[styles.deleteModalHint, { color: colors.textSecondary, marginBottom: 12 }]}>
-                Type <Text style={{ fontWeight: '700', color: colors.text }}>{businessToDelete?.name}</Text> to confirm
+                Type <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }}>{businessToDelete?.name}</Text> to confirm
               </Text>
 
               <TextInput
@@ -691,6 +691,7 @@ export default function SettingsScreen() {
                     backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC',
                     borderColor: isDark ? '#333' : '#e2e8f0',
                     color: colors.text,
+                    fontFamily: 'SpaceGrotesk_500Medium',
                     borderWidth: 1,
                     borderRadius: 16,
                     padding: 18,
@@ -706,7 +707,7 @@ export default function SettingsScreen() {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.modalCancel, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', borderRadius: 16, height: 56, justifyContent: 'center' }]} onPress={() => setShowDeleteBusinessModal(false)}>
-                  <Text style={[styles.modalCancelText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{
@@ -739,7 +740,7 @@ export default function SettingsScreen() {
                     {isDeletingBusiness ? (
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
-                      <Text style={[styles.modalDestructiveText, { fontSize: 16, fontWeight: '700' }]}>Delete</Text>
+                      <Text style={[styles.modalDestructiveText, { fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Delete</Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -825,7 +826,7 @@ export default function SettingsScreen() {
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <TouchableOpacity style={[styles.modalCancel, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', borderRadius: 16, height: 56, justifyContent: 'center' }]} onPress={() => setShowEditBusinessNameModal(false)}>
-                  <Text style={[styles.modalCancelText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1, borderRadius: 16, overflow: 'hidden', opacity: !editBusinessName.trim() ? 0.5 : 1 }}
@@ -844,7 +845,7 @@ export default function SettingsScreen() {
                     end={{ x: 1, y: 0 }}
                     style={{ height: 56, alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <Text style={[styles.modalConfirmText, { fontSize: 16, fontWeight: '700' }]}>Save</Text>
+                    <Text style={[styles.modalConfirmText, { fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Save</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -876,7 +877,7 @@ export default function SettingsScreen() {
             <ScrollView contentContainerStyle={{ padding: 20 }}>
               {['Sort By', 'Time Filter'].map((group) => (
                 <View key={group} style={{ marginBottom: 20 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>{group}</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_700Bold', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>{group}</Text>
                   <View style={{ gap: 8 }}>
                     {ANALYTICS_SORT_OPTIONS.filter(opt => opt.group === group).map(option => {
                       const isActive = group === 'Sort By' ? selectedSort === option.value : timeRange === option.value;
@@ -896,7 +897,7 @@ export default function SettingsScreen() {
                             setSortModalVisible(false);
                           }}
                         >
-                          <Text style={[{ fontSize: 15, color: colors.textSecondary }, isActive && { color: colors.text, fontWeight: '600' }]}>
+                          <Text style={[{ fontSize: 15, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_500Medium' }, isActive && { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                             {option.label}
                           </Text>
                           {isActive && <Check size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />}
@@ -930,7 +931,7 @@ export default function SettingsScreen() {
 
             <View style={{ padding: 24 }}>
               <View style={{ marginBottom: 20 }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 8, textTransform: 'uppercase' }}>Filename</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.textSecondary, marginBottom: 8, textTransform: 'uppercase' }}>Filename</Text>
                 <TextInput
                   style={[styles.modalInput, { backgroundColor: isDark ? '#1C1C1E' : '#F8FAFC', borderColor: colors.border, color: colors.text, margin: 0 }]}
                   value={exportFileName}
@@ -939,7 +940,7 @@ export default function SettingsScreen() {
                   placeholderTextColor={colors.textSecondary}
                   autoFocus={true}
                 />
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>.pdf will be added automatically</Text>
+                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>.pdf will be added automatically</Text>
               </View>
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -993,8 +994,8 @@ export default function SettingsScreen() {
             {/* Title and Close */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 }}>
               <View>
-                <Text style={{ fontFamily: getFontFamily(deviceFont), fontSize: 28, color: colors.text }}>Choose Logo</Text>
-                <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>Select an icon or upload a photo</Text>
+                <Text style={{ fontFamily: 'SpaceGrotesk_700Bold', fontSize: 28, color: colors.text }}>Choose Logo</Text>
+                <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 4 }}>Select an icon or upload a photo</Text>
               </View>
               <TouchableOpacity
                 style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? colors.surface : '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
@@ -1027,8 +1028,8 @@ export default function SettingsScreen() {
                 : <Camera size={20} color="#6366f1" />
               }
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#6366f1' }}>Use a Photo</Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Upload from your gallery</Text>
+                <Text style={{ fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold', color: '#6366f1' }}>Use a Photo</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 2 }}>Upload from your gallery</Text>
               </View>
               {currentBusiness?.photoUrl && (
                 <Image
@@ -1070,8 +1071,8 @@ export default function SettingsScreen() {
                       <Icon size={32} color={iconColor} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>SELECTED</Text>
-                      <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{selectedLogo?.label || 'None'}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_700Bold', color: colors.textSecondary, marginBottom: 2 }}>SELECTED</Text>
+                      <Text style={{ fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }}>{selectedLogo?.label || 'None'}</Text>
                     </View>
                   </>
                 );
@@ -1100,6 +1101,7 @@ export default function SettingsScreen() {
                     flex: 1,
                     marginLeft: 12,
                     fontSize: 16,
+                    fontFamily: 'SpaceGrotesk_500Medium',
                     color: colors.text,
                     height: '100%',
                     textAlignVertical: 'center',
@@ -1136,8 +1138,8 @@ export default function SettingsScreen() {
                 ListEmptyComponent={
                   <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
                     <Search size={40} color={colors.textSecondary} style={{ marginBottom: 12, opacity: 0.5 }} />
-                    <Text style={{ color: colors.textSecondary, fontSize: 16 }}>No logos found</Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 4 }}>Try a different search term</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 16, fontFamily: 'SpaceGrotesk_500Medium' }}>No logos found</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 4 }}>Try a different search term</Text>
                   </View>
                 }
                 renderItem={({ item }) => {
@@ -1166,7 +1168,7 @@ export default function SettingsScreen() {
                         fontSize: 11,
                         color: isSelected ? colors.text : colors.textSecondary,
                         textAlign: 'center',
-                        fontWeight: isSelected ? '600' : '500'
+                        fontFamily: isSelected ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_500Medium'
                       }} numberOfLines={1}>
                         {item.label}
                       </Text>
@@ -1198,7 +1200,7 @@ export default function SettingsScreen() {
                   end={{ x: 1, y: 0 }}
                   style={{ padding: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                 >
-                  <Text style={{ fontSize: 17, fontWeight: '700', color: '#fff' }}>Save Changes</Text>
+                  <Text style={{ fontSize: 17, fontFamily: 'SpaceGrotesk_700Bold', color: '#fff' }}>Save Changes</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -1243,8 +1245,8 @@ export default function SettingsScreen() {
               />
               <View style={[styles.modalHeader, { borderBottomColor: colors.border, padding: 20 }]}>
                 <View>
-                  <Text style={[styles.modalTitle, { fontFamily: getFontFamily(deviceFont), color: colors.text, fontSize: 22 }]}>Contact Support</Text>
-                  <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>We'd love to hear from you!</Text>
+                  <Text style={[styles.modalTitle, { fontFamily: 'SpaceGrotesk_700Bold', color: colors.text, fontSize: 22 }]}>Contact Support</Text>
+                  <Text style={[styles.modalMessage, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }]}>We'd love to hear from you!</Text>
                 </View>
                 <TouchableOpacity onPress={() => setShowFeedbackModal(false)} style={[styles.closeButton, { backgroundColor: isDark ? colors.surface : '#f1f5f9' }]}>
                   <X size={20} color={colors.textSecondary} />
@@ -1272,10 +1274,10 @@ export default function SettingsScreen() {
                   }}>
                     <Mail size={28} color={colors.primary} />
                   </View>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
+                  <Text style={{ fontSize: 18, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text, marginBottom: 6 }}>
                     lucyosck21@gmail.com
                   </Text>
-                  <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
+                  <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
                     Send us your questions, feedback, or just say hello!
                   </Text>
                 </View>
@@ -1294,7 +1296,7 @@ export default function SettingsScreen() {
                     end={{ x: 1, y: 0 }}
                     style={{ padding: 18, alignItems: 'center' }}
                   >
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Open Mail App</Text>
+                    <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', color: '#fff' }}>Open Mail App</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -1357,7 +1359,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
     marginBottom: 8,
@@ -1369,7 +1371,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginTop: 32,
     marginBottom: 16,
     marginLeft: 4,
@@ -1440,18 +1442,19 @@ const styles = StyleSheet.create({
   avatarText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   profileInfo: {
     flex: 1,
   },
   profileName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 2,
   },
   profileEmail: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   editProfileButton: {
     paddingHorizontal: 16,
@@ -1460,7 +1463,7 @@ const styles = StyleSheet.create({
   },
   editProfileText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   businessCardHeader: {
     flexDirection: 'row',
@@ -1484,7 +1487,7 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 2,
   },
   roleContainer: {
@@ -1516,11 +1519,12 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     marginBottom: 0,
   },
   rowSubLabel: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   logoutButton: {
     flexDirection: 'row',
@@ -1547,12 +1551,13 @@ const styles = StyleSheet.create({
   logoutText: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#ef4444',
   },
   versionText: {
     textAlign: 'center',
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_500Medium',
     marginTop: 24,
     marginBottom: 12,
   },
@@ -1587,6 +1592,7 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginTop: 4,
   },
   closeButton: {
@@ -1606,7 +1612,7 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   modalDestructive: {
     flex: 1,
@@ -1617,7 +1623,7 @@ const styles = StyleSheet.create({
   },
   modalDestructiveText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#fff',
   },
   modalConfirm: {
@@ -1629,7 +1635,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#fff',
   },
   modalInput: {
@@ -1638,9 +1644,11 @@ const styles = StyleSheet.create({
     padding: 12,
     margin: 16,
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   headerSubtitle: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginTop: 4,
   },
 
@@ -1667,10 +1675,12 @@ const styles = StyleSheet.create({
   },
   fontPreview: {
     fontSize: 20,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 4,
   },
   fontDescription: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   emptyState: {
     padding: 40,
@@ -1678,6 +1688,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   saveButton: {
     backgroundColor: '#10b981',
@@ -1689,7 +1700,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   // Delete Modal Styles
   deleteModalContent: {
@@ -1708,6 +1719,7 @@ const styles = StyleSheet.create({
   },
   deleteModalHint: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginBottom: 0,
     marginTop: 10,
     marginLeft: 4,
@@ -1727,6 +1739,7 @@ const styles = StyleSheet.create({
   warningText: {
     flex: 1,
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_500Medium',
     lineHeight: 18,
   },
   modalSaveButton: {
@@ -1743,6 +1756,7 @@ const styles = StyleSheet.create({
     padding: 12,
     width: '100%',
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_500Medium',
     color: '#0f172a',
     marginBottom: 16,
     textAlign: 'center',

@@ -664,9 +664,11 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   headerTitle: {
     fontSize: 18,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   headerRight: {
     flexDirection: 'row',
@@ -714,10 +716,12 @@ const styles = StyleSheet.create({
   },
   singleButtonTitle: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   singleButtonSubtitle: {
     fontSize: 11,
     marginTop: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   dueDotBadge: {
     backgroundColor: '#EF4444',
@@ -728,6 +732,7 @@ const styles = StyleSheet.create({
   dueDotText: {
     color: '#FFFFFF',
     fontSize: 9,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   chevronBadge: {
     width: 26,
@@ -758,12 +763,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     marginBottom: 6,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   emptySub: {
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 20,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   createEmptyBtn: {
     flexDirection: 'row',
@@ -775,6 +782,7 @@ const styles = StyleSheet.create({
   createEmptyBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalOverlay: {
     flex: 1,
@@ -798,10 +806,12 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 18,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   sheetSubtitle: {
     fontSize: 12,
     marginTop: 2,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   closeSheetBtn: {
     width: 32,
@@ -834,14 +844,17 @@ const styles = StyleSheet.create({
   modalStatLabel: {
     fontSize: 9,
     letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalStatValue: {
     fontSize: 15,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   filterSectionTitle: {
     fontSize: 10,
     letterSpacing: 0.8,
     marginBottom: 10,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   filterOptionsList: {
     gap: 8,
@@ -865,6 +878,7 @@ const styles = StyleSheet.create({
   },
   filterOptionLabel: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   filterOptionCountBadge: {
     paddingHorizontal: 8,
@@ -873,5 +887,6 @@ const styles = StyleSheet.create({
   },
   filterOptionCountText: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

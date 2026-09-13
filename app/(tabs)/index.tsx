@@ -996,10 +996,11 @@ const styles = StyleSheet.create({
   },
   bannerTitle: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   bannerText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginTop: 2,
   },
   bannerActions: {
@@ -1010,7 +1011,7 @@ const styles = StyleSheet.create({
   },
   bannerLink: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   loadingContainer: {
     flex: 1,
@@ -1021,6 +1022,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   emptyContainer: {
     flex: 1,
@@ -1038,11 +1040,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 24,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyText: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -1059,7 +1063,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
     fontSize: 16,
   },
   emptyList: {
@@ -1076,10 +1080,12 @@ const styles = StyleSheet.create({
   },
   emptyListTitle: {
     fontSize: 18,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 4,
   },
   emptyListText: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_400Regular',
     textAlign: 'center',
   },
   fab: {
@@ -1124,6 +1130,7 @@ const styles = StyleSheet.create({
   },
   bottomSheetTitle: {
     fontSize: 22,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   closeButton: {
     padding: 6,
@@ -1137,7 +1144,7 @@ const styles = StyleSheet.create({
   },
   sortSectionTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1168,9 +1175,10 @@ const styles = StyleSheet.create({
   },
   sortOptionText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   sortOptionTextActive: {
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalOverlay: {
     flex: 1,
@@ -1188,10 +1196,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 22,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 4,
   },
   modalSubtitle: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginBottom: 16,
   },
   input: {
@@ -1199,6 +1209,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     fontSize: 15,
+    fontFamily: 'SpaceGrotesk_500Medium',
     marginBottom: 16,
   },
   modalActions: {
@@ -1213,7 +1224,7 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   modalConfirmWrapper: {
     borderRadius: 12,
@@ -1227,7 +1238,7 @@ const styles = StyleSheet.create({
   modalConfirmText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   disabledButton: {
     opacity: 0.5,
@@ -1248,7 +1259,7 @@ const styles = StyleSheet.create({
   },
   bookCurrencyBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.3,
   },
 });

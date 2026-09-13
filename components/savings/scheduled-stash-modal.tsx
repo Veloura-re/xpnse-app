@@ -537,7 +537,7 @@ export const ScheduledStashModal: React.FC<ScheduledStashModalProps> = ({
                         ? 'twice a month'
                         : 'monthly'}{' '}
                       will deposit approximately{' '}
-                      <Text style={{ color: '#10b981', fontWeight: '700' }}>
+                      <Text style={{ color: '#10b981', fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold' }}>
                         {formatCurrency(
                           frequency === 'daily'
                             ? numericAmount * 30

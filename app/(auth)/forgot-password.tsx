@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
   },
   subtitleText: {
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_400Regular',
     color: '#64748b',
     textAlign: 'center',
     maxWidth: 280,
@@ -212,6 +213,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_500Medium',
     color: '#0f172a',
     height: '100%',
   },
@@ -233,7 +235,7 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 
 });

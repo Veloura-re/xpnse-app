@@ -116,7 +116,7 @@ export const mockBooks: Book[] = [
     settings: {
       showPaymentMode: true,
       showCategory: true,
-      showAttachments: false,
+      showAttachments: true,
     },
   },
   {
@@ -129,7 +129,7 @@ export const mockBooks: Book[] = [
     totalCashOut: 8500,
     netBalance: 1500,
     settings: {
-      showPaymentMode: false,
+      showPaymentMode: true,
       showCategory: true,
       showAttachments: true,
     },

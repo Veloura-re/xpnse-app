@@ -516,6 +516,7 @@ const styles = StyleSheet.create({
   methodName: {
     fontSize: 13,
     marginTop: 2,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   methodSpeed: {
     fontSize: 10,

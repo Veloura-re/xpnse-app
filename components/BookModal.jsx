@@ -183,13 +183,13 @@ export function BookModal({ visible, book, entries, onClose, onAddEntry, onEditE
             <Text style={styles.entryDateText}>{formatDate(entry.date)}</Text>
           </View>
 
-          {entry.category && (
+          {(book?.settings?.showCategory ?? true) && entry.category && (
             <View style={styles.entryTag}>
               <Text style={styles.entryTagText}>{entry.category}</Text>
             </View>
           )}
 
-          {entry.paymentMode && (
+          {(book?.settings?.showPaymentMode ?? true) && entry.paymentMode && (
             <View style={styles.entryTag}>
               <Text style={styles.entryTagText}>{entry.paymentMode}</Text>
             </View>
@@ -462,6 +462,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#111827',
     marginBottom: 4,
     letterSpacing: -0.5,
@@ -470,6 +471,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   headerActions: {
     flexDirection: 'row',
@@ -525,6 +527,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   stats: {
     flexDirection: 'row',
@@ -566,17 +569,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6b7280',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
     marginBottom: 2,
   },
   statValue: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#111827',
     letterSpacing: -0.3,
   },
   netIcon: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   positiveText: {
     color: '#10b981',
@@ -642,16 +648,19 @@ const styles = StyleSheet.create({
   cashInText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#10b981',
   },
   cashOutText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#ef4444',
   },
   entryAmount: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: -0.3,
   },
   cashInAmount: {
@@ -664,6 +673,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#374151',
     lineHeight: 20,
+    fontFamily: 'SpaceGrotesk_400Regular',
     marginBottom: 12,
   },
   entryMeta: {
@@ -682,6 +692,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6b7280',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   entryTag: {
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -693,6 +704,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#10b981',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   entryMenuButton: {
     width: 48,
@@ -740,6 +752,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   emptyState: {
     flex: 1,
@@ -760,6 +773,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#374151',
     marginBottom: 8,
     letterSpacing: -0.3,
@@ -769,6 +783,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 22,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   fab: {
     position: 'absolute',

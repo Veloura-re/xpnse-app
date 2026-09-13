@@ -779,6 +779,7 @@ const styles = StyleSheet.create({
   },
   presetChipText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   modeCard: {
     flexDirection: 'row',

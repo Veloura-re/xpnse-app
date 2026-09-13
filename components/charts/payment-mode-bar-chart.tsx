@@ -43,7 +43,7 @@ export const PaymentModeBarChart = ({ entries }: PaymentModeBarChartProps) => {
                 label: mode,
                 spacing: 2,
                 labelWidth: 30,
-                labelTextStyle: { color: 'gray', fontSize: 10 },
+                labelTextStyle: { color: 'gray', fontSize: 10, fontFamily: 'SpaceGrotesk_500Medium' },
                 frontColor: '#10b981',
             });
             barData.push({
@@ -79,7 +79,7 @@ export const PaymentModeBarChart = ({ entries }: PaymentModeBarChartProps) => {
                     hideRules
                     xAxisThickness={1}
                     yAxisThickness={1}
-                    yAxisTextStyle={{ color: '#6b7280', fontSize: 10 }}
+                    yAxisTextStyle={{ color: '#6b7280', fontSize: 10, fontFamily: 'SpaceGrotesk_500Medium' }}
                     noOfSections={4}
                     maxValue={Math.max(...barData.map(d => d.value)) * 1.2} // Add some headroom
                     height={180}
@@ -115,6 +115,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#1f2937',
         marginBottom: 16,
     },
@@ -142,6 +143,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#6b7280',
         fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     emptyState: {
         height: 150,
@@ -151,5 +153,6 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#9ca3af',
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
 });

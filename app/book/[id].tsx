@@ -809,7 +809,7 @@ export default function BookDetailScreen() {
                 style={styles.headerActionButton}
                 onPress={selectedEntries.size === filteredEntries.length ? deselectAll : selectAll}
               >
-                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                <Text style={{ fontSize: 14, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.primary }}>
                   {selectedEntries.size === filteredEntries.length ? 'Deselect All' : 'Select All'}
                 </Text>
               </TouchableOpacity>
@@ -1085,12 +1085,12 @@ export default function BookDetailScreen() {
                       <Text style={[styles.entryDate, { color: colors.textSecondary }]}>
                         {isToday ? 'Today' : entryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </Text>
-                      {book?.settings?.showPaymentMode && item.paymentMode && (
+                      {(book?.settings?.showPaymentMode ?? true) && item.paymentMode && (
                         <Text style={[styles.entryMetaText, { color: colors.textSecondary }]}>
                           {' '}• {item.paymentMode}
                         </Text>
                       )}
-                      {book?.settings?.showCategory && item.category && (
+                      {(book?.settings?.showCategory ?? true) && item.category && (
                         <Text style={[styles.entryMetaText, { color: colors.textSecondary }]}>
                           {' '}• {item.category}
                         </Text>
@@ -1122,36 +1122,38 @@ export default function BookDetailScreen() {
                         </View>
                       )}
 
-                      {/* Attachment pill — inside card */}
-                      <TouchableOpacity
-                        style={[
-                          styles.attachmentPill,
-                          {
-                            backgroundColor: (item.attachments && item.attachments.length > 0)
-                              ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5')
-                              : (isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc'),
-                            borderColor: (item.attachments && item.attachments.length > 0)
-                              ? (isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0')
-                              : (isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'),
-                          }
-                        ]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleOpenAttachments(item);
-                        }}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        activeOpacity={0.7}
-                      >
-                        <Paperclip
-                          size={11}
-                          color={(item.attachments && item.attachments.length > 0) ? colors.primary : colors.textSecondary}
-                        />
-                        {(item.attachments && item.attachments.length > 0) && (
-                          <Text style={[styles.attachmentPillText, { color: colors.primary }]}>
-                            {item.attachments.length}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
+                      {/* Attachment pill — inside card (If enabled) */}
+                      {(book?.settings?.showAttachments ?? true) && (
+                        <TouchableOpacity
+                          style={[
+                            styles.attachmentPill,
+                            {
+                              backgroundColor: (item.attachments && item.attachments.length > 0)
+                                ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5')
+                                : (isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc'),
+                              borderColor: (item.attachments && item.attachments.length > 0)
+                                ? (isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0')
+                                : (isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'),
+                            }
+                          ]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleOpenAttachments(item);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          activeOpacity={0.7}
+                        >
+                          <Paperclip
+                            size={11}
+                            color={(item.attachments && item.attachments.length > 0) ? colors.primary : colors.textSecondary}
+                          />
+                          {(item.attachments && item.attachments.length > 0) && (
+                            <Text style={[styles.attachmentPillText, { color: colors.primary }]}>
+                              {item.attachments.length}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      )}
 
                       {(userRole === 'owner' || userRole === 'partner') && (
                         <TouchableOpacity
@@ -1606,11 +1608,19 @@ export default function BookDetailScreen() {
             onPress={async () => {
               if (!previewImageUrl) return;
               try {
+                if (Platform.OS === 'web') {
+                  if (typeof window !== 'undefined') {
+                    window.open(previewImageUrl, '_blank');
+                  }
+                  return;
+                }
                 const isAvailable = await Sharing.isAvailableAsync();
                 // Derive a local filename from the URL
                 const ext = previewImageUrl.split('?')[0].split('.').pop() || 'jpg';
                 const filename = `attachment_${Date.now()}.${ext}`;
-                const localUri = `${FileSystem.cacheDirectory}${filename}`;
+                const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+                const separator = cacheDir.endsWith('/') ? '' : '/';
+                const localUri = `${cacheDir}${separator}${filename}`;
 
                 // Download the remote file to the local cache
                 const { uri } = await FileSystem.downloadAsync(previewImageUrl, localUri);
@@ -1981,8 +1991,8 @@ export default function BookDetailScreen() {
                     <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', width: 72, height: 72, borderRadius: 36, marginBottom: 20, alignItems: 'center', justifyContent: 'center' }]}>
                       <Trash2 size={32} color="#EF4444" />
                     </View>
-                    <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 8, textAlign: 'center' }}>Delete Entry?</Text>
-                    <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 28, lineHeight: 24 }}>
+                    <Text style={{ fontSize: 22, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text, marginBottom: 8, textAlign: 'center' }}>Delete Entry?</Text>
+                    <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, textAlign: 'center', marginBottom: 28, lineHeight: 24 }}>
                       Are you sure you want to delete this entry? This action cannot be undone.
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
@@ -1991,7 +2001,7 @@ export default function BookDetailScreen() {
                         onPress={() => setDeleteConfirmation(false)}
                         disabled={isDeleting}
                       >
-                        <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                        <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={{ flex: 1 }}
@@ -2020,7 +2030,7 @@ export default function BookDetailScreen() {
                           {isDeleting ? (
                             <ActivityIndicator size="small" color="#fff" />
                           ) : (
-                            <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>Delete</Text>
+                            <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Delete</Text>
                           )}
                         </LinearGradient>
                       </TouchableOpacity>
@@ -2059,7 +2069,8 @@ export default function BookDetailScreen() {
                   width: '100%',
                   maxWidth: 380,
                   padding: 0,
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  maxHeight: '90%'
                 }
               ]}
             >
@@ -2086,7 +2097,7 @@ export default function BookDetailScreen() {
                 </Text>
               </View>
 
-              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 250 }]} showsVerticalScrollIndicator={false}>
+              <ScrollView style={[styles.bookList, { paddingHorizontal: 20, maxHeight: 300, flexShrink: 1 }]} showsVerticalScrollIndicator={true}>
                 {otherBooks.length === 0 ? (
                   <Text style={[styles.dialogEmpty, { color: colors.textSecondary }]}>No other books available</Text>
                 ) : (
@@ -2101,9 +2112,9 @@ export default function BookDetailScreen() {
                         onPress={() => setTargetBookId(b.id)}
                       >
                         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? (isDark ? '#21C98D' : colors.primary) : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                          <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
                         </View>
-                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
                         {targetBookId === b.id && <Check size={20} color={isDark ? '#21C98D' : '#059669'} />}
                       </TouchableOpacity>
                     </View>
@@ -2116,7 +2127,7 @@ export default function BookDetailScreen() {
                   style={[styles.dialogButton, { backgroundColor: isDark ? '#1C1C1E' : '#F1F5F9', flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }]}
                   onPress={() => setCopyModalVisible(false)}
                 >
-                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1 }}
@@ -2149,7 +2160,7 @@ export default function BookDetailScreen() {
                       }
                     ]}
                   >
-                    <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>Copy</Text>
+                    <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Copy</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -2230,9 +2241,9 @@ export default function BookDetailScreen() {
                         disabled={isTransferring}
                       >
                         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#0EA5E9' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                          <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
                         </View>
-                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
                         {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
                       </TouchableOpacity>
                     </View>
@@ -2246,7 +2257,7 @@ export default function BookDetailScreen() {
                   onPress={() => setTransferModalVisible(false)}
                   disabled={isTransferring}
                 >
-                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1 }}
@@ -2269,7 +2280,7 @@ export default function BookDetailScreen() {
                     {isTransferring ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>Transfer</Text>
+                      <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Transfer</Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -2350,9 +2361,9 @@ export default function BookDetailScreen() {
                         disabled={isBulkOperating}
                       >
                         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? '#0EA5E9' : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                          <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
                         </View>
-                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }, targetBookId === b.id && { color: isDark ? '#0EA5E9' : '#0284c7' }]}>{b.name}</Text>
                         {targetBookId === b.id && <Check size={20} color="#0EA5E9" />}
                       </TouchableOpacity>
                     </View>
@@ -2366,7 +2377,7 @@ export default function BookDetailScreen() {
                   onPress={() => setBulkTransferModalVisible(false)}
                   disabled={isBulkOperating}
                 >
-                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1 }}
@@ -2389,7 +2400,7 @@ export default function BookDetailScreen() {
                     {isBulkOperating ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>Transfer</Text>
+                      <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Transfer</Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -2469,9 +2480,9 @@ export default function BookDetailScreen() {
                         disabled={isBulkOperating}
                       >
                         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: targetBookId === b.id ? (isDark ? '#21C98D' : colors.primary) : (isDark ? '#333' : '#e2e8f0'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                          <Text style={{ fontSize: 16, fontWeight: '700', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
+                          <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold', color: targetBookId === b.id ? '#fff' : colors.text }}>{b.name.charAt(0).toUpperCase()}</Text>
                         </View>
-                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontWeight: '600' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
+                        <Text style={[styles.bookOptionText, { color: colors.text, flex: 1, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }, targetBookId === b.id && { color: isDark ? '#21C98D' : '#059669' }]}>{b.name}</Text>
                         {targetBookId === b.id && <Check size={20} color={isDark ? '#21C98D' : '#059669'} />}
                       </TouchableOpacity>
                     </View>
@@ -2485,7 +2496,7 @@ export default function BookDetailScreen() {
                   onPress={() => setBulkCopyModalVisible(false)}
                   disabled={isBulkOperating}
                 >
-                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                  <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1 }}
@@ -2508,7 +2519,7 @@ export default function BookDetailScreen() {
                     {isBulkOperating ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>Copy</Text>
+                      <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Copy</Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -2595,7 +2606,7 @@ export default function BookDetailScreen() {
                     onPress={() => setBulkDeleteConfirmation(false)}
                     disabled={isBulkOperating}
                   >
-                    <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontWeight: '600' }]}>Cancel</Text>
+                    <Text style={[styles.dialogButtonText, { color: colors.text, fontSize: 16, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>Cancel</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2620,7 +2631,7 @@ export default function BookDetailScreen() {
                       {isBulkOperating ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
-                        <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontWeight: '700' }]}>Delete</Text>
+                        <Text style={[styles.dialogButtonText, { color: '#fff', fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' }]}>Delete</Text>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
@@ -2676,6 +2687,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
@@ -2697,6 +2709,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 13,
     color: '#64748b',
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   headerActions: {
     flexDirection: 'row',
@@ -2725,6 +2738,7 @@ const styles = StyleSheet.create({
   balanceLabel: {
     fontSize: 11,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#64748b',
     marginBottom: 0,
     textTransform: 'uppercase',
@@ -2742,6 +2756,7 @@ const styles = StyleSheet.create({
   currencyConvertText: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.3,
   },
   convertedNetPill: {
@@ -2755,10 +2770,12 @@ const styles = StyleSheet.create({
   convertedNetText: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   balanceValue: {
     fontSize: 20,
     fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 8,
     letterSpacing: -0.5,
   },
@@ -2791,11 +2808,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#64748b',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
     marginBottom: 0,
   },
   miniValue: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 
   // Search
@@ -2815,6 +2834,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 15,
+    fontFamily: 'SpaceGrotesk_500Medium',
     color: '#0f172a',
   },
 
@@ -2890,11 +2910,13 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#10b981',
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.5,
   },
   entryAmount: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   textIn: {
     color: '#10b981',
@@ -2910,10 +2932,12 @@ const styles = StyleSheet.create({
   entryDate: {
     fontSize: 11,
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   entryMetaText: {
     fontSize: 11,
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   entryBalancePill: {
     paddingHorizontal: 7,
@@ -3109,6 +3133,7 @@ const styles = StyleSheet.create({
   fabText: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#fff',
     letterSpacing: 0.5,
   },
@@ -3128,6 +3153,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#0f172a',
     marginBottom: 8,
   },
@@ -3135,6 +3161,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   errorContainer: {
     flex: 1,
@@ -3145,6 +3172,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     color: '#ef4444',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 16,
   },
   backButton: {
@@ -3156,6 +3184,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#0f172a',
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   // Modals & Bottom Sheets
   bottomSheetOverlay: {
@@ -3180,6 +3209,7 @@ const styles = StyleSheet.create({
   bottomSheetTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#0f172a',
   },
   menuItem: {
@@ -3201,12 +3231,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#0f172a',
   },
   // Filters
   filterSectionTitle: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#64748b',
     marginBottom: 12,
     marginTop: 8,
@@ -3229,10 +3261,12 @@ const styles = StyleSheet.create({
   filterChipText: {
     fontSize: 14,
     color: '#64748b',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   filterChipTextActive: {
     color: '#10b981',
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   applyButton: {
     backgroundColor: '#10b981',
@@ -3244,6 +3278,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   // Custom Date
   customDateContainer: {
@@ -3257,6 +3292,7 @@ const styles = StyleSheet.create({
   dateLabel: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#64748b',
     marginBottom: 8,
   },
@@ -3268,6 +3304,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     color: '#0f172a',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   // Dialog (Copy)
   dialogContent: {
@@ -3282,6 +3319,7 @@ const styles = StyleSheet.create({
   dialogTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#0f172a',
     marginBottom: 16,
   },
@@ -3289,6 +3327,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#64748b',
     marginVertical: 20,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   bookList: {
     maxHeight: 200,
@@ -3310,10 +3349,12 @@ const styles = StyleSheet.create({
   bookOptionText: {
     fontSize: 15,
     color: '#0f172a',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   bookOptionTextSelected: {
     color: '#10b981',
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   dialogActions: {
     flexDirection: 'row',
@@ -3329,6 +3370,7 @@ const styles = StyleSheet.create({
   dialogButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#475569',
   },
   // Redesigned Floating Bulk Action Dock
@@ -3387,6 +3429,7 @@ const styles = StyleSheet.create({
   dockBadgeText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   dockCloseBtn: {
     flexDirection: 'row',
@@ -3399,6 +3442,7 @@ const styles = StyleSheet.create({
   dockCloseBtnText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   dockButtonsRow: {
     flexDirection: 'row',
@@ -3425,6 +3469,7 @@ const styles = StyleSheet.create({
   dockActionLabel: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     textAlign: 'center',
   },
 
@@ -3450,6 +3495,7 @@ const styles = StyleSheet.create({
   popupTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#0f172a',
   },
   popupContent: {
@@ -3461,6 +3507,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#64748b',
     marginBottom: 8,
   },
@@ -3472,11 +3519,13 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: '#0f172a',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   helperText: {
     fontSize: 13,
     color: '#94a3b8',
     marginTop: 8,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   popupFooter: {
     flexDirection: 'row',
@@ -3492,6 +3541,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#64748b',
   },
   saveButton: {
@@ -3504,6 +3554,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#fff',
   },
 });

@@ -116,11 +116,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoText: {
+    fontFamily: PACIFICO_FONT,
     fontWeight: 'normal',
     letterSpacing: 0,
     includeFontPadding: false,
   },
   inlineText: {
+    fontFamily: PACIFICO_FONT,
     fontWeight: 'normal',
     letterSpacing: 0,
     includeFontPadding: false,

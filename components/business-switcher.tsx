@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#374151',
     marginRight: 4,
     flex: 1,

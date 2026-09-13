@@ -15,7 +15,7 @@ module.exports = ({ config }) => {
     const messagingSenderId = process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID || DEFAULT_CONFIG.messagingSenderId;
     const appId = process.env.EXPO_PUBLIC_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID || DEFAULT_CONFIG.appId;
 
-    console.log('🔧 Loading App Config...');
+    console.log('[Config] Loading App Config...');
     console.log('   - API Key present:', !!apiKey);
     console.log('   - Project ID present:', !!projectId);
 

@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 10,
         fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         lineHeight: 12,
     },
 });

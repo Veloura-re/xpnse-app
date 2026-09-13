@@ -824,8 +824,8 @@ export default function BusinessSwitcherScreen() {
                           <Icon size={28} color={iconColor} />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 }}>SELECTED ICON</Text>
-                          <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text }}>{selectedLogo?.label || 'None'}</Text>
+                          <Text style={{ fontSize: 11, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 0.5, marginBottom: 2 }}>SELECTED ICON</Text>
+                          <Text style={{ fontSize: 18, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.text }}>{selectedLogo?.label || 'None'}</Text>
                         </View>
                         <View style={{
                           width: 24,
@@ -865,6 +865,7 @@ export default function BusinessSwitcherScreen() {
                       flex: 1,
                       marginLeft: 12,
                       fontSize: 16,
+                      fontFamily: 'SpaceGrotesk_500Medium',
                       color: colors.text,
                       height: '100%',
                       textAlignVertical: 'center',
@@ -915,8 +916,8 @@ export default function BusinessSwitcherScreen() {
                       }}>
                         <Search size={32} color={colors.textSecondary} />
                       </View>
-                      <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>No logos found</Text>
-                      <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>Try a different search term</Text>
+                      <Text style={{ color: colors.text, fontSize: 18, fontFamily: 'SpaceGrotesk_600SemiBold' }}>No logos found</Text>
+                      <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 4 }}>Try a different search term</Text>
                     </View>
                   }
                   renderItem={({ item }) => {
@@ -960,7 +961,7 @@ export default function BusinessSwitcherScreen() {
                           fontSize: 11,
                           color: isSelected ? colors.text : colors.textSecondary,
                           textAlign: 'center',
-                          fontWeight: isSelected ? '600' : '500'
+                          fontFamily: isSelected ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_500Medium'
                         }} numberOfLines={1}>
                           {item.label}
                         </Text>
@@ -1007,7 +1008,7 @@ export default function BusinessSwitcherScreen() {
                     <ActivityIndicator color="#fff" style={{ transform: [{ scale: 1.1 }] }} />
                   ) : (
                     <>
-                      <Text style={{ fontSize: 17, fontWeight: '700', color: '#fff' }}>Select Logo</Text>
+                      <Text style={{ fontSize: 17, fontFamily: 'SpaceGrotesk_700Bold', color: '#fff' }}>Select Logo</Text>
                       <Check size={20} color="#fff" strokeWidth={2.5} />
                     </>
                   )}
@@ -1098,7 +1099,7 @@ export default function BusinessSwitcherScreen() {
 
             <Text style={{
               color: colors.text,
-              fontFamily: getFontFamily(deviceFont),
+              fontFamily: 'SpaceGrotesk_700Bold',
               fontSize: 26,
               textAlign: 'center',
               marginBottom: 4
@@ -1108,6 +1109,7 @@ export default function BusinessSwitcherScreen() {
 
             <Text style={{
               color: colors.textSecondary,
+              fontFamily: 'SpaceGrotesk_400Regular',
               fontSize: 14,
               textAlign: 'center',
               lineHeight: 20,
@@ -1131,7 +1133,7 @@ export default function BusinessSwitcherScreen() {
                   justifyContent: 'center',
                 }}
               >
-                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 }}>Continue</Text>
+                <Text style={{ color: '#fff', fontSize: 15, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 0.5 }}>Continue</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -1196,6 +1198,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10b981',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
@@ -1224,6 +1227,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_500Medium',
     color: '#0f172a',
     height: '100%',
   },
@@ -1276,6 +1280,7 @@ const styles = StyleSheet.create({
   bottomSheetTitle: {
     fontSize: 22,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#0f172a',
   },
   sheetCloseButton: {
@@ -1296,6 +1301,7 @@ const styles = StyleSheet.create({
   sortSectionTitle: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#64748b',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -1328,10 +1334,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#64748b',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   sortOptionTextActive: {
     color: '#0f172a',
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   card: {
     flex: 1,
@@ -1370,6 +1378,7 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     color: '#0f172a',
     marginBottom: 2,
   },
@@ -1382,6 +1391,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748b',
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   checkIcon: {
     width: 24,
@@ -1411,6 +1421,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#10b981',
   },
   // Floating Action Button
@@ -1471,10 +1482,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     color: '#334155',
     marginBottom: 8,
     width: '100%',
@@ -1490,6 +1503,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     backgroundColor: '#f8fafc',
     marginBottom: 24,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   createFormButtons: {
     flexDirection: 'row',
@@ -1508,6 +1522,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#64748b',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   createButton: {
     // Kept for backward compatibility if needed, but overridden in component
@@ -1523,12 +1538,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#0f172a',
     marginBottom: 12,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalMessage: {
     fontSize: 15,
@@ -1536,6 +1553,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   modalButton: {
     paddingHorizontal: 32,
@@ -1549,10 +1567,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   headerSubtitle: {
     fontSize: 14,
     marginTop: 4,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   closeButton: {
     padding: 8,
@@ -1567,6 +1587,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 12,
     marginLeft: 4,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   recentlyActiveList: {
     paddingLeft: 4,
@@ -1592,5 +1613,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     width: '100%',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
 });

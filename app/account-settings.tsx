@@ -611,7 +611,7 @@ export default function AccountSettingsScreen() {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                 }}>
-                                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                                    <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'SpaceGrotesk_700Bold' }}>
                                         {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
                                     </Text>
                                 </View>
@@ -812,7 +812,7 @@ const modalStyles = StyleSheet.create({
     },
     inputLabel: {
         fontSize: 11,
-        fontWeight: '800',
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 6,
         marginLeft: 4,
         textTransform: 'uppercase',
@@ -834,7 +834,7 @@ const modalStyles = StyleSheet.create({
         height: '100%',
         fontSize: 15,
         paddingRight: 12,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     eyeIcon: {
         position: 'absolute',
@@ -869,7 +869,7 @@ const modalStyles = StyleSheet.create({
     },
     modalTitle: {
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         letterSpacing: -0.5,
     },
     closeButton: {
@@ -895,7 +895,7 @@ const modalStyles = StyleSheet.create({
         justifyContent: 'center',
     },
     modalCancelText: {
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         fontSize: 15,
     },
     modalSaveButtonWrapper: {
@@ -911,7 +911,7 @@ const modalStyles = StyleSheet.create({
     },
     modalSaveText: {
         color: '#FFFFFF',
-        fontWeight: '800',
+        fontFamily: 'SpaceGrotesk_700Bold',
         fontSize: 16,
         letterSpacing: 0.5,
     },
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     },
     appName: {
         fontSize: 13,
-        fontWeight: '800',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#10b981',
         textTransform: 'uppercase',
         letterSpacing: 2.5,
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#64748b',
         lineHeight: 22,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     profileCard: {
         borderRadius: 24,
@@ -1043,11 +1043,11 @@ const styles = StyleSheet.create({
     },
     changePhotoPillText: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     avatarText: {
         fontSize: 32,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#fff',
     },
     userInfo: {
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
     },
     userName: {
         fontSize: 22,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#0f172a',
         marginBottom: 6,
         letterSpacing: -0.3,
@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
     userEmail: {
         fontSize: 12,
         color: '#64748b',
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     decorativeLine: {
         height: 1,
@@ -1097,7 +1097,7 @@ const styles = StyleSheet.create({
     statText: {
         fontSize: 12,
         color: '#64748b',
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
@@ -1112,7 +1112,7 @@ const styles = StyleSheet.create({
     },
     logoutText: {
         fontSize: 16,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#ef4444',
     },
     sectionCard: {
@@ -1126,7 +1126,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 11,
-        fontWeight: '800',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#64748b',
         letterSpacing: 1.2,
         textTransform: 'uppercase',
@@ -1164,12 +1164,13 @@ const styles = StyleSheet.create({
     },
     settingLabel: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: '#0f172a',
         marginBottom: 1,
     },
     settingValue: {
         fontSize: 13,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: '#64748b',
     },
     warningBox: {
@@ -1188,6 +1189,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#b91c1c',
         lineHeight: 18,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
 });

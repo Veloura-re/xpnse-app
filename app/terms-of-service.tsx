@@ -86,6 +86,7 @@ const sectionStyles = StyleSheet.create({
   title: {
     fontSize: 15,
     letterSpacing: -0.2,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   body: {
     paddingHorizontal: 16,
@@ -285,6 +286,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     letterSpacing: -0.3,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   headerSub: {
     fontSize: 12,
@@ -319,6 +321,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.3,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   heroBody: {
     fontSize: 14,
@@ -336,6 +339,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 6,
     letterSpacing: -0.2,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   contactBody: {
     fontSize: 14,

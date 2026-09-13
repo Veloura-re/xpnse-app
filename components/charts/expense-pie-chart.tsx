@@ -60,10 +60,10 @@ export const ExpensePieChart = ({ entries }: ExpensePieChartProps) => {
                         focusOnPress
                         centerLabelComponent={() => (
                             <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937' }}>
+                                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937', fontFamily: 'SpaceGrotesk_700Bold' }}>
                                     {totalExpense.toLocaleString()}
                                 </Text>
-                                <Text style={{ fontSize: 10, color: '#6b7280' }}>Total</Text>
+                                <Text style={{ fontSize: 10, color: '#6b7280', fontFamily: 'SpaceGrotesk_500Medium' }}>Total</Text>
                             </View>
                         )}
                     />
@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#1f2937',
         marginBottom: 16,
     },
@@ -128,6 +129,7 @@ const styles = StyleSheet.create({
     legendText: {
         fontSize: 12,
         color: '#4b5563',
+        fontFamily: 'SpaceGrotesk_500Medium',
         flex: 1,
     },
     emptyState: {
@@ -138,5 +140,6 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#9ca3af',
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
 });

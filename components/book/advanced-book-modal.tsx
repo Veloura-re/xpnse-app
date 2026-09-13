@@ -31,6 +31,9 @@ import {
   Info,
   Layers,
   ChevronRight,
+  CreditCard,
+  Tag,
+  Paperclip,
 } from 'lucide-react-native';
 import { Book, RecurringRule } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
@@ -71,10 +74,10 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Settings toggles
+  // Settings toggles (default to enabled)
   const [showPaymentMode, setShowPaymentMode] = useState(true);
   const [showCategory, setShowCategory] = useState(true);
-  const [showAttachments, setShowAttachments] = useState(false);
+  const [showAttachments, setShowAttachments] = useState(true);
 
   // Recurring Modal
   const [recurringModalVisible, setRecurringModalVisible] = useState(false);
@@ -87,7 +90,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
 
       setShowPaymentMode(book.settings?.showPaymentMode ?? true);
       setShowCategory(book.settings?.showCategory ?? true);
-      setShowAttachments(book.settings?.showAttachments ?? false);
+      setShowAttachments(book.settings?.showAttachments ?? true);
 
       const existingValuations = book.settings?.customCurrencyValuations || {};
       const existingTracked = book.settings?.trackedCurrencies || Object.keys(existingValuations);
@@ -733,33 +736,119 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                       },
                     ]}
                   >
-                    <View style={styles.settingRow}>
-                      <Text style={[styles.settingLabel, { color: colors.text }]}>Show Payment Mode</Text>
+                    {/* Show Payment Mode */}
+                    <TouchableOpacity
+                      style={styles.settingRow}
+                      onPress={() => setShowPaymentMode(!showPaymentMode)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <CreditCard size={16} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.settingLabel, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
+                            Show Payment Mode
+                          </Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 1 }}>
+                            Track Cash, Card, Bank, or UPI methods
+                          </Text>
+                        </View>
+                      </View>
                       <Switch
                         value={showPaymentMode}
                         onValueChange={setShowPaymentMode}
-                        trackColor={{ false: colors.border, true: colors.primary }}
+                        trackColor={{ false: isDark ? '#334155' : '#CBD5E1', true: colors.primary }}
                         thumbColor="#FFFFFF"
                       />
-                    </View>
-                    <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9' }]}>
-                      <Text style={[styles.settingLabel, { color: colors.text }]}>Show Category</Text>
+                    </TouchableOpacity>
+
+                    {/* Show Category */}
+                    <TouchableOpacity
+                      style={[
+                        styles.settingRow,
+                        { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9' },
+                      ]}
+                      onPress={() => setShowCategory(!showCategory)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Tag size={16} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.settingLabel, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
+                            Show Category
+                          </Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 1 }}>
+                            Group transactions by category tags
+                          </Text>
+                        </View>
+                      </View>
                       <Switch
                         value={showCategory}
                         onValueChange={setShowCategory}
-                        trackColor={{ false: colors.border, true: colors.primary }}
+                        trackColor={{ false: isDark ? '#334155' : '#CBD5E1', true: colors.primary }}
                         thumbColor="#FFFFFF"
                       />
-                    </View>
-                    <View style={[styles.settingRow, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9' }]}>
-                      <Text style={[styles.settingLabel, { color: colors.text }]}>Show Attachments</Text>
+                    </TouchableOpacity>
+
+                    {/* Show Attachments */}
+                    <TouchableOpacity
+                      style={[
+                        styles.settingRow,
+                        { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9' },
+                      ]}
+                      onPress={() => setShowAttachments(!showAttachments)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                        <View
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Paperclip size={16} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.settingLabel, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
+                            Show Attachments
+                          </Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 1 }}>
+                            Upload receipts and invoice snapshots
+                          </Text>
+                        </View>
+                      </View>
                       <Switch
                         value={showAttachments}
                         onValueChange={setShowAttachments}
-                        trackColor={{ false: colors.border, true: colors.primary }}
+                        trackColor={{ false: isDark ? '#334155' : '#CBD5E1', true: colors.primary }}
                         thumbColor="#FFFFFF"
                       />
-                    </View>
+                    </TouchableOpacity>
                   </View>
 
                   <View style={{ height: 20 }} />
@@ -887,10 +976,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 17,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalSubtitle: {
     fontSize: 12,
     marginTop: 2,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   closeBtn: {
     width: 32,
@@ -912,10 +1003,12 @@ const styles = StyleSheet.create({
   baseBannerLabel: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.5,
   },
   baseBannerValue: {
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginTop: 2,
   },
   basePill: {
@@ -926,11 +1019,13 @@ const styles = StyleSheet.create({
   basePillText: {
     fontSize: 10,
     fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   baseBannerDesc: {
     fontSize: 12,
     marginTop: 8,
     lineHeight: 16,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -940,6 +1035,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   syncBtn: {
     flexDirection: 'row',
@@ -950,6 +1046,7 @@ const styles = StyleSheet.create({
   syncBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   currencyCard: {
     padding: 14,
@@ -973,12 +1070,15 @@ const styles = StyleSheet.create({
   currSymbolText: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   currCodeText: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   currNameText: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
     maxWidth: 180,
   },
   deleteCurrBtn: {
@@ -991,6 +1091,7 @@ const styles = StyleSheet.create({
   },
   inputFieldLabel: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_500Medium',
     marginBottom: 4,
   },
   rateInputWrapper: {
@@ -1005,11 +1106,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     paddingVertical: 0,
   },
   baseSuffix: {
     fontSize: 11,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     marginLeft: 4,
   },
   resetBtn: {
@@ -1023,6 +1126,7 @@ const styles = StyleSheet.create({
   resetBtnText: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   addCurrBtn: {
     flexDirection: 'row',
@@ -1036,6 +1140,7 @@ const styles = StyleSheet.create({
   },
   addCurrBtnText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   emptyCurrenciesBox: {
     padding: 16,
@@ -1047,12 +1152,14 @@ const styles = StyleSheet.create({
   },
   emptyCurrenciesTitle: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 4,
   },
   emptyCurrenciesText: {
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 16,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   emptyRecurringBox: {
     padding: 16,
@@ -1063,6 +1170,7 @@ const styles = StyleSheet.create({
   emptyRecurringText: {
     fontSize: 12,
     textAlign: 'center',
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   recurringRow: {
     flexDirection: 'row',
@@ -1075,6 +1183,7 @@ const styles = StyleSheet.create({
   },
   recurringTitle: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   frequencyBadge: {
     paddingHorizontal: 6,
@@ -1084,11 +1193,13 @@ const styles = StyleSheet.create({
   frequencyBadgeText: {
     fontSize: 9,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     textTransform: 'uppercase',
   },
   recurringSub: {
     fontSize: 11,
     marginTop: 3,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   postNowBtn: {
     paddingHorizontal: 10,
@@ -1099,6 +1210,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   settingsCard: {
     borderRadius: 16,
@@ -1115,6 +1227,7 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   footer: {
     flexDirection: 'row',
@@ -1133,6 +1246,7 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   saveBtn: {
     flexDirection: 'row',
@@ -1149,5 +1263,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

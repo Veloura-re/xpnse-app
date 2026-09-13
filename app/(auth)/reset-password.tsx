@@ -165,12 +165,13 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 28,
-        fontWeight: 'bold',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#1e293b',
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: '#64748b',
         textAlign: 'center',
     },
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: '#374151',
         marginBottom: 8,
     },
@@ -199,6 +200,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 14,
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_500Medium',
         color: '#1f2937',
     },
     eyeIcon: {
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
     buttonText: {
         color: 'white',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     buttonDisabled: {
         opacity: 0.6,
@@ -222,6 +224,7 @@ const styles = StyleSheet.create({
     errorText: {
         color: '#dc2626',
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_500Medium',
         textAlign: 'center',
         marginBottom: 20,
     },

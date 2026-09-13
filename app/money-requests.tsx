@@ -366,6 +366,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   list: {
     paddingHorizontal: 16,

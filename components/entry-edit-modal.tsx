@@ -46,8 +46,6 @@ import { useTheme } from '@/providers/theme-provider';
 import { CurrencyPickerModal } from '@/components/currency/currency-picker-modal';
 import { CurrencyService } from '@/services/currency-service';
 
-const ENABLE_ATTACHMENTS = false;
-
 interface EntryEditModalProps {
   visible: boolean;
   entry: BookEntry | null;
@@ -744,78 +742,80 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                     </View>
                   )}
 
-                  {/* Attachments Section */}
-                  <View style={styles.inputGroup}>
-                    <View style={styles.labelRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Paperclip size={13} color={colors.text} />
-                        <Text style={[styles.inputLabel, { color: colors.text, marginBottom: 0 }]}>
-                          Attachments {attachments.length > 0 ? `(${attachments.length})` : ''}
-                        </Text>
-                      </View>
-                      {uploading && (
+                  {/* Attachments Section (If enabled) */}
+                  {(book?.settings?.showAttachments ?? true) && (
+                    <View style={styles.inputGroup}>
+                      <View style={styles.labelRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <ActivityIndicator size="small" color={colors.primary} />
-                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>Uploading...</Text>
+                          <Paperclip size={13} color={colors.text} />
+                          <Text style={[styles.inputLabel, { color: colors.text, marginBottom: 0 }]}>
+                            Attachments {attachments.length > 0 ? `(${attachments.length})` : ''}
+                          </Text>
                         </View>
-                      )}
+                        {uploading && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                            <Text style={{ fontSize: 11, color: colors.textSecondary }}>Uploading...</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Telegram-style Horizontal Media Reel: Camera & Add tiles beside Photos */}
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+                      >
+                        {/* Camera Tile (beside photos) */}
+                        <TouchableOpacity
+                          style={[
+                            styles.telegramTile,
+                            {
+                              backgroundColor: isDark ? 'rgba(99, 102, 241, 0.12)' : '#EEF2FF',
+                              borderColor: isDark ? 'rgba(99, 102, 241, 0.25)' : '#C7D2FE',
+                            }
+                          ]}
+                          onPress={handleTakePhoto}
+                          disabled={uploading}
+                          activeOpacity={0.7}
+                        >
+                          <Camera size={16} color="#6366F1" />
+                          <Text style={[styles.telegramTileText, { color: '#6366F1' }]}>Camera</Text>
+                        </TouchableOpacity>
+
+                        {/* Add Photo / Gallery Tile */}
+                        <TouchableOpacity
+                          style={[
+                            styles.telegramTile,
+                            {
+                              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
+                              borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#A7F3D0',
+                            }
+                          ]}
+                          onPress={handlePickImage}
+                          disabled={uploading}
+                          activeOpacity={0.7}
+                        >
+                          <ImageIcon size={16} color="#10B981" />
+                          <Text style={[styles.telegramTileText, { color: '#10B981' }]}>Gallery</Text>
+                        </TouchableOpacity>
+
+                        {/* Attached Photo Thumbnails */}
+                        {attachments.map((url, idx) => (
+                          <View key={idx} style={styles.modalThumbWrap}>
+                            <Image source={{ uri: url }} style={styles.modalThumbImg} resizeMode="cover" />
+                            <TouchableOpacity
+                              style={styles.modalThumbDelete}
+                              onPress={() => handleRemoveAttachment(idx)}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                            >
+                              <X size={10} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </ScrollView>
                     </View>
-
-                    {/* Telegram-style Horizontal Media Reel: Camera & Add tiles beside Photos */}
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-                    >
-                      {/* Camera Tile (beside photos) */}
-                      <TouchableOpacity
-                        style={[
-                          styles.telegramTile,
-                          {
-                            backgroundColor: isDark ? 'rgba(99, 102, 241, 0.12)' : '#EEF2FF',
-                            borderColor: isDark ? 'rgba(99, 102, 241, 0.25)' : '#C7D2FE',
-                          }
-                        ]}
-                        onPress={handleTakePhoto}
-                        disabled={uploading}
-                        activeOpacity={0.7}
-                      >
-                        <Camera size={16} color="#6366F1" />
-                        <Text style={[styles.telegramTileText, { color: '#6366F1' }]}>Camera</Text>
-                      </TouchableOpacity>
-
-                      {/* Add Photo / Gallery Tile */}
-                      <TouchableOpacity
-                        style={[
-                          styles.telegramTile,
-                          {
-                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
-                            borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#A7F3D0',
-                          }
-                        ]}
-                        onPress={handlePickImage}
-                        disabled={uploading}
-                        activeOpacity={0.7}
-                      >
-                        <ImageIcon size={16} color="#10B981" />
-                        <Text style={[styles.telegramTileText, { color: '#10B981' }]}>Gallery</Text>
-                      </TouchableOpacity>
-
-                      {/* Attached Photo Thumbnails */}
-                      {attachments.map((url, idx) => (
-                        <View key={idx} style={styles.modalThumbWrap}>
-                          <Image source={{ uri: url }} style={styles.modalThumbImg} resizeMode="cover" />
-                          <TouchableOpacity
-                            style={styles.modalThumbDelete}
-                            onPress={() => handleRemoveAttachment(idx)}
-                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          >
-                            <X size={10} color="#FFFFFF" />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  </View>
+                  )}
 
                   <View style={{ height: 16 }} />
                 </ScrollView>
@@ -915,10 +915,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalSubtitle: {
     fontSize: 11,
     marginTop: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   closeButton: {
     width: 30,
@@ -950,6 +952,7 @@ const styles = StyleSheet.create({
   tabBtnText: {
     fontSize: 12,
     letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   amountCard: {
     padding: 16,
@@ -973,15 +976,18 @@ const styles = StyleSheet.create({
   },
   currencyPillText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   currencyPrefixText: {
     fontSize: 26,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginRight: 4,
   },
   amountInputField: {
     fontSize: 32,
     fontWeight: '800',
+    fontFamily: 'SpaceGrotesk_700Bold',
     minWidth: 100,
     paddingVertical: 0,
   },
@@ -1002,6 +1008,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   liveRateButton: {
     flexDirection: 'row',
@@ -1014,6 +1021,7 @@ const styles = StyleSheet.create({
   liveRateButtonText: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   fxRateInputRow: {
     flexDirection: 'row',
@@ -1024,6 +1032,7 @@ const styles = StyleSheet.create({
   fxRateLabel: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   fxRateInputWrapper: {
     flex: 1,
@@ -1038,11 +1047,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
     paddingVertical: 0,
   },
   fxRateSuffix: {
     fontSize: 11,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     marginLeft: 4,
   },
   fxCalculationRow: {
@@ -1056,10 +1067,12 @@ const styles = StyleSheet.create({
   fxCalcText: {
     fontSize: 11,
     fontWeight: '500',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   fxCalcHighlight: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   inputGroup: {
     marginBottom: 14,
@@ -1074,11 +1087,13 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   errorTag: {
     fontSize: 11,
     color: '#EF4444',
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   inputBox: {
     flexDirection: 'row',
@@ -1092,6 +1107,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     paddingVertical: 0,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   paymentPill: {
     paddingHorizontal: 12,
@@ -1101,6 +1117,7 @@ const styles = StyleSheet.create({
   },
   paymentPillText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   footer: {
     paddingHorizontal: 20,
@@ -1120,6 +1137,7 @@ const styles = StyleSheet.create({
   submitText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   telegramTile: {
     width: 52,
@@ -1133,6 +1151,7 @@ const styles = StyleSheet.create({
   telegramTileText: {
     fontSize: 9,
     fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalThumbWrap: {
     position: 'relative',

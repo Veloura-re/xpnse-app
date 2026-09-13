@@ -219,11 +219,11 @@ export default function BusinessSettingsScreen() {
                                 )}
                             </View>
                             <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>
+                                <Text style={{ fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.text }}>
                                     {isEditing && selectedLogo ? selectedLogo.label : (LOGO_OPTIONS.find(l => l.icon === currentBusiness.icon)?.label || 'Store')}
                                 </Text>
                                 {isEditing && (
-                                    <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '500', marginTop: 2 }}>
+                                    <Text style={{ fontSize: 14, color: colors.primary, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 2 }}>
                                         Tap to change icon
                                     </Text>
                                 )}
@@ -440,8 +440,8 @@ export default function BusinessSettingsScreen() {
                                     : <Camera size={20} color="#6366f1" />
                                 }
                                 <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#6366f1' }}>Use a Photo</Text>
-                                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Upload from your gallery</Text>
+                                    <Text style={{ fontSize: 15, fontFamily: 'SpaceGrotesk_600SemiBold', color: '#6366f1' }}>Use a Photo</Text>
+                                    <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 2 }}>Upload from your gallery</Text>
                                 </View>
                                 {currentBusiness?.photoUrl && (
                                     <Image
@@ -484,8 +484,8 @@ export default function BusinessSettingsScreen() {
                                                     <Icon size={28} color={iconColor} />
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 }}>SELECTED ICON</Text>
-                                                    <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text }}>{selectedLogo.label}</Text>
+                                                    <Text style={{ fontSize: 11, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 0.5, marginBottom: 2 }}>SELECTED ICON</Text>
+                                                    <Text style={{ fontSize: 18, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.text }}>{selectedLogo.label}</Text>
                                                 </View>
                                                 <View style={{
                                                     width: 24,
@@ -598,7 +598,7 @@ export default function BusinessSettingsScreen() {
                                                     fontSize: 11,
                                                     color: isSelected ? colors.text : colors.textSecondary,
                                                     textAlign: 'center',
-                                                    fontWeight: isSelected ? '600' : '500'
+                                                    fontFamily: isSelected ? 'SpaceGrotesk_600SemiBold' : 'SpaceGrotesk_500Medium'
                                                 }} numberOfLines={1}>
                                                     {item.label}
                                                 </Text>
@@ -638,7 +638,7 @@ export default function BusinessSettingsScreen() {
                                         end={{ x: 1, y: 0 }}
                                         style={{ padding: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                                     >
-                                        <Text style={{ fontSize: 17, fontWeight: '700', color: '#fff' }}>Select Logo</Text>
+                                        <Text style={{ fontSize: 17, fontFamily: 'SpaceGrotesk_700Bold', color: '#fff' }}>Select Logo</Text>
                                         <Check size={20} color="#fff" strokeWidth={2.5} />
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -665,11 +665,11 @@ const styles = StyleSheet.create({
     },
     circle2: {
         position: 'absolute',
-        bottom: -100,
+        bottom: -50,
         left: -50,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
+        width: 250,
+        height: 250,
+        borderRadius: 125,
     },
     scrollContainer: {
         flex: 1,
@@ -687,17 +687,19 @@ const styles = StyleSheet.create({
     },
     appName: {
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         textTransform: 'uppercase',
         letterSpacing: 1.5,
         marginBottom: 8,
     },
     headerTitle: {
         fontSize: 36,
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 8,
     },
     headerSubtitle: {
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     card: {
         borderRadius: 20,
@@ -712,7 +714,7 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         fontSize: 11,
-        fontWeight: '800',
+        fontFamily: 'SpaceGrotesk_700Bold',
         letterSpacing: 0.8,
         textTransform: 'uppercase',
     },
@@ -726,7 +728,7 @@ const styles = StyleSheet.create({
     },
     editButtonText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     logoContainer: {
         flexDirection: 'row',
@@ -751,16 +753,17 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         padding: 18,
         fontSize: 17,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
         borderWidth: 1,
         marginTop: 8,
     },
     inputText: {
         fontSize: 17,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     helperText: {
         fontSize: 13,
+        fontFamily: 'SpaceGrotesk_400Regular',
         marginTop: 8,
     },
     buttonContainer: {
@@ -777,7 +780,7 @@ const styles = StyleSheet.create({
     },
     cancelButtonText: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     saveButtonGradient: {
         borderRadius: 18,
@@ -788,7 +791,7 @@ const styles = StyleSheet.create({
     },
     saveButtonText: {
         fontSize: 16,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#fff',
     },
     emptyContainer: {
@@ -798,6 +801,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     modalOverlay: {
         flex: 1,

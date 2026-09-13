@@ -16,23 +16,23 @@ export default function FirebaseDebugScreen() {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.section}>
-                <Text style={styles.title}>🔥 Firebase Configuration Debug</Text>
+                <Text style={styles.title}>Firebase Configuration Debug</Text>
 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>Firebase Initialization Status</Text>
                     <StatusItem
                         label="Initialized"
-                        value={firebaseInitialized ? '✅ Yes' : '❌ No'}
+                        value={firebaseInitialized ? 'Yes' : 'No'}
                         isGood={firebaseInitialized}
                     />
                     <StatusItem
                         label="Auth Object"
-                        value={auth ? '✅ Present' : '❌ Null'}
+                        value={auth ? 'Present' : 'Null'}
                         isGood={!!auth}
                     />
                     <StatusItem
                         label="Firestore Object"
-                        value={db ? '✅ Present' : '❌ Null'}
+                        value={db ? 'Present' : 'Null'}
                         isGood={!!db}
                     />
                     {firebaseError && (
@@ -46,7 +46,7 @@ export default function FirebaseDebugScreen() {
                     <Text style={styles.sectionTitle}>Environment Variables</Text>
                     <StatusItem
                         label="All Variables Present"
-                        value={allVarsPresent ? '✅ Yes' : '❌ No'}
+                        value={allVarsPresent ? 'Yes' : 'No'}
                         isGood={allVarsPresent}
                     />
                     <EnvVarItem label="API Key" value={envVars.apiKey} />
@@ -69,7 +69,7 @@ export default function FirebaseDebugScreen() {
 
                 {!firebaseInitialized && (
                     <View style={styles.fixCard}>
-                        <Text style={styles.fixTitle}>🔧 How to Fix</Text>
+                        <Text style={styles.fixTitle}>How to Fix</Text>
                         <Text style={styles.fixText}>1. Stop the development server (Ctrl+C)</Text>
                         <Text style={styles.fixText}>2. Verify .env file has all variables</Text>
                         <Text style={styles.fixText}>3. Run: npx expo start --clear</Text>
@@ -92,7 +92,7 @@ function StatusItem({ label, value, isGood }: { label: string; value: string; is
 
 function EnvVarItem({ label, value }: { label: string; value?: string }) {
     const isPresent = value && value !== 'undefined';
-    const displayValue = isPresent ? `✅ ${value?.substring(0, 30)}...` : '❌ Missing';
+    const displayValue = isPresent ? `${value?.substring(0, 30)}...` : 'Missing';
 
     return (
         <View style={styles.statusRow}>
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 20,
         textAlign: 'center',
     },
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         marginBottom: 12,
         color: '#333',
     },
@@ -142,12 +142,13 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: '#666',
         flex: 1,
     },
     value: {
         fontSize: 14,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         flex: 2,
     },
     good: {
@@ -165,12 +166,13 @@ const styles = StyleSheet.create({
     errorText: {
         color: '#dc2626',
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     infoText: {
         fontSize: 12,
         color: '#666',
         marginBottom: 4,
-        fontFamily: 'monospace',
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     fixCard: {
         backgroundColor: '#fef3c7',
@@ -181,12 +183,13 @@ const styles = StyleSheet.create({
     },
     fixTitle: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 12,
         color: '#92400e',
     },
     fixText: {
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: '#78350f',
         marginBottom: 6,
     },

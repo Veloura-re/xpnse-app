@@ -73,8 +73,8 @@ export const CashFlowChart = ({ entries, days = 7 }: CashFlowChartProps) => {
                     textFontSize={10}
                     xAxisThickness={1}
                     yAxisThickness={1}
-                    yAxisTextStyle={{ color: '#6b7280', fontSize: 10 }}
-                    xAxisLabelTextStyle={{ color: '#6b7280', fontSize: 10 }}
+                    yAxisTextStyle={{ color: '#6b7280', fontSize: 10, fontFamily: 'SpaceGrotesk_500Medium' }}
+                    xAxisLabelTextStyle={{ color: '#6b7280', fontSize: 10, fontFamily: 'SpaceGrotesk_500Medium' }}
                     hideRules
                     curved
                     isAnimated
@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#1f2937',
         marginBottom: 16,
     },
@@ -137,5 +138,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#6b7280',
         fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
 });

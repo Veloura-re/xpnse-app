@@ -588,6 +588,7 @@ const styles = StyleSheet.create({
     appName: {
         fontSize: 14,
         fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#10b981',
         textTransform: 'uppercase',
         letterSpacing: 1.5,
@@ -609,6 +610,7 @@ const styles = StyleSheet.create({
     markAllText: {
         fontSize: 12,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: '#10b981',
     },
     contentArea: {
@@ -678,6 +680,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 15,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: '#1e293b',
         flex: 1,
         marginRight: 8,
@@ -685,16 +688,19 @@ const styles = StyleSheet.create({
     unreadText: {
         color: '#0f172a',
         fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     time: {
         fontSize: 11,
         color: '#94a3b8',
         fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     message: {
         fontSize: 13,
         color: '#64748b',
         lineHeight: 18,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     messageExpanded: {
         color: '#334155',
@@ -717,6 +723,7 @@ const styles = StyleSheet.create({
     clearAllText: {
         fontSize: 12,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: '#ef4444',
     },
     emptyState: {
@@ -737,6 +744,7 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontSize: 18,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#0f172a',
         marginBottom: 4,
     },
@@ -745,6 +753,7 @@ const styles = StyleSheet.create({
         color: '#64748b',
         textAlign: 'center',
         marginBottom: 18,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     testNotifBtn: {
         flexDirection: 'row',
@@ -758,6 +767,7 @@ const styles = StyleSheet.create({
     testNotifBtnText: {
         color: '#FFFFFF',
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     deleteButton: {
         flexDirection: 'row',
@@ -774,6 +784,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#ef4444',
         marginLeft: 6,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     selectedItem: {
         backgroundColor: '#f8fafc',
@@ -807,6 +818,7 @@ const styles = StyleSheet.create({
     actionText: {
         fontSize: 10,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: '#10b981',
     },
     deleteAction: {
@@ -831,6 +843,7 @@ const styles = StyleSheet.create({
     tabText: {
         fontSize: 12,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     // Celebration Modal
     modalBackdrop: {
@@ -870,12 +883,14 @@ const styles = StyleSheet.create({
         letterSpacing: 1.2,
         marginBottom: 6,
         color: '#10b981',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     celebrationTitle: {
         fontSize: 22,
         fontWeight: '800',
         marginBottom: 8,
         textAlign: 'center',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     celebrationMessage: {
         fontSize: 13,
@@ -883,6 +898,7 @@ const styles = StyleSheet.create({
         lineHeight: 18,
         marginBottom: 24,
         paddingHorizontal: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     celebrationActions: {
         width: '100%',
@@ -898,6 +914,7 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         fontSize: 14,
         fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     celebrationSecondaryBtn: {
         paddingVertical: 10,
@@ -906,5 +923,6 @@ const styles = StyleSheet.create({
     celebrationSecondaryBtnText: {
         fontSize: 13,
         fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
 });

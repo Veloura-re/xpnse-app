@@ -117,7 +117,7 @@ export default function SecurityScreen() {
                     title: 'Security',
                     headerStyle: { backgroundColor: colors.background },
                     headerShadowVisible: false,
-                    headerTitleStyle: { fontSize: 17, fontWeight: '600', color: colors.text },
+                    headerTitleStyle: { fontSize: 17, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.text },
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: -8, padding: 8 }}>
                             <ChevronLeft size={24} color={colors.text} />
@@ -379,12 +379,13 @@ const styles = StyleSheet.create({
     },
     tabText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: 'inherit',
         marginLeft: 8,
     },
     activeTabText: {
         color: 'inherit',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     formContainer: {
         backgroundColor: 'transparent',
@@ -401,12 +402,13 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: 'inherit',
         marginBottom: 8,
     },
     headerSubtitle: {
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: 'inherit',
         lineHeight: 20,
     },
@@ -418,12 +420,13 @@ const styles = StyleSheet.create({
     },
     currentEmailLabel: {
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: 'inherit',
         marginBottom: 4,
     },
     currentEmailValue: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: 'inherit',
     },
     inputGroup: {
@@ -431,12 +434,13 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: 'inherit',
         marginBottom: 8,
     },
     helperText: {
         fontSize: 12,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: 'inherit',
         marginBottom: 8,
         fontStyle: 'italic',
@@ -458,6 +462,7 @@ const styles = StyleSheet.create({
         height: '100%',
         color: 'inherit',
         fontSize: 15,
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     eyeIcon: {
         paddingHorizontal: 12,
@@ -481,7 +486,7 @@ const styles = StyleSheet.create({
     },
     submitButtonText: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         color: '#fff',
     },
     // Modal Styles
@@ -534,6 +539,7 @@ const styles = StyleSheet.create({
     },
     modalMessage: {
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_400Regular',
         color: 'inherit',
         textAlign: 'center',
         marginBottom: 20,
@@ -547,7 +553,7 @@ const styles = StyleSheet.create({
     },
     modalButtonText: {
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#fff',
     },
 });

@@ -964,10 +964,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 16,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   headerSubtitle: {
     fontSize: 12,
     marginTop: 2,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   closeBtn: {
     width: 34,
@@ -1000,6 +1002,7 @@ const styles = StyleSheet.create({
   },
   typeTabText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   heroAmountCard: {
     borderRadius: 18,
@@ -1009,6 +1012,7 @@ const styles = StyleSheet.create({
   heroAmountLabel: {
     fontSize: 10,
     letterSpacing: 0.8,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 8,
   },
   heroAmountInputRow: {
@@ -1026,11 +1030,13 @@ const styles = StyleSheet.create({
   },
   currencyPickerBadgeText: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   heroAmountInput: {
     flex: 1,
     fontSize: 26,
     padding: 0,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   fxRateNotice: {
     paddingHorizontal: 12,
@@ -1041,6 +1047,7 @@ const styles = StyleSheet.create({
   },
   fxRateText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   section: {
     gap: 8,
@@ -1048,6 +1055,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 10,
     letterSpacing: 0.8,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   frequencyGrid: {
     flexDirection: 'row',
@@ -1062,6 +1070,7 @@ const styles = StyleSheet.create({
   },
   frequencyText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   booksScroll: {
     flexDirection: 'row',
@@ -1075,6 +1084,7 @@ const styles = StyleSheet.create({
   },
   bookPillText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   inputFieldWrapper: {
     flexDirection: 'row',
@@ -1088,6 +1098,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     padding: 0,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   twoColRow: {
     flexDirection: 'row',
@@ -1103,10 +1114,12 @@ const styles = StyleSheet.create({
   },
   switchTitle: {
     fontSize: 14,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   switchSubtitle: {
     fontSize: 12,
     marginTop: 2,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   actionButtonsRow: {
     flexDirection: 'row',
@@ -1131,5 +1144,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   memberInitial: { fontSize: 16, fontFamily: 'SpaceGrotesk_700Bold' },
-  memberName: { fontSize: 11, textAlign: 'center' },
+  memberName: { fontSize: 11, textAlign: 'center', fontFamily: 'SpaceGrotesk_500Medium' },
   amountBox: {
     flexDirection: 'row',
     alignItems: 'center',

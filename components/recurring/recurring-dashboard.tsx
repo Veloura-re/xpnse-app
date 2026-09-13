@@ -790,6 +790,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 4,
     textTransform: 'uppercase',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   heroValueRow: {
     flexDirection: 'row',
@@ -799,6 +800,7 @@ const styles = StyleSheet.create({
   heroMainValue: {
     fontSize: 26,
     letterSpacing: -0.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   netTrendBadge: {
     flexDirection: 'row',
@@ -810,6 +812,7 @@ const styles = StyleSheet.create({
   },
   netTrendText: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   sparkleBadge: {
     width: 36,
@@ -846,13 +849,16 @@ const styles = StyleSheet.create({
   splitLabel: {
     fontSize: 9.5,
     letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   splitValue: {
     fontSize: 16,
     marginBottom: 2,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   splitSub: {
     fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   meterContainer: {
     marginTop: 2,
@@ -864,6 +870,7 @@ const styles = StyleSheet.create({
   },
   meterLabel: {
     fontSize: 10.5,
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   meterTrack: {
     height: 6,
@@ -903,10 +910,12 @@ const styles = StyleSheet.create({
   },
   dueRadarTitle: {
     fontSize: 13.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   dueRadarSub: {
     fontSize: 11,
     marginTop: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   postAllBtn: {
     flexDirection: 'row',
@@ -918,6 +927,7 @@ const styles = StyleSheet.create({
   postAllBtnText: {
     fontSize: 12,
     color: '#FFFFFF',
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   upcomingCard: {
     borderRadius: 18,
@@ -944,16 +954,19 @@ const styles = StyleSheet.create({
   },
   upcomingTitle: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   upcomingSub: {
     fontSize: 11,
     marginTop: 1,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   upcomingRightAmount: {
     alignItems: 'flex-end',
   },
   upcomingAmountText: {
     fontSize: 13,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   tilesRow: {
     flexDirection: 'row',
@@ -974,13 +987,16 @@ const styles = StyleSheet.create({
   tileLabel: {
     fontSize: 9,
     letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   tileValue: {
     fontSize: 13.5,
     marginBottom: 2,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   tileSub: {
     fontSize: 10,
+    fontFamily: 'SpaceGrotesk_400Regular',
   },
   filterStrip: {
     flexDirection: 'row',
@@ -999,6 +1015,7 @@ const styles = StyleSheet.create({
   },
   filterPillText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   filterPillBadge: {
     paddingHorizontal: 5,
@@ -1010,5 +1027,6 @@ const styles = StyleSheet.create({
   },
   filterPillBadgeText: {
     fontSize: 10,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

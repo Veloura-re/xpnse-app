@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
     },
     appName: {
         fontSize: 11,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
         textTransform: 'uppercase',
         letterSpacing: 1.2,
         marginBottom: 2,
@@ -790,11 +790,12 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         fontSize: 14,
+        fontFamily: 'SpaceGrotesk_500Medium',
         padding: 0,
     },
     headerTitle: {
         fontSize: 22,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     balanceCard: {
         borderRadius: 20,
@@ -817,11 +818,11 @@ const styles = StyleSheet.create({
     },
     balanceLabel: {
         fontSize: 12,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     balanceValue: {
         fontSize: 24,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 12,
     },
     balanceStats: {
@@ -845,12 +846,12 @@ const styles = StyleSheet.create({
     },
     miniLabel: {
         fontSize: 10,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
         marginBottom: 1,
     },
     miniValue: {
         fontSize: 12,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     statDivider: {
         width: 1,
@@ -893,16 +894,16 @@ const styles = StyleSheet.create({
     },
     trendText: {
         fontSize: 9,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     statValue: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         marginBottom: 2,
     },
     statTitle: {
         fontSize: 11,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     section: {
         marginBottom: 16,
@@ -915,7 +916,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     sectionCard: {
         borderRadius: 16,
@@ -932,13 +933,13 @@ const styles = StyleSheet.create({
     },
     progressLabel: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         flex: 1,
         marginRight: 8,
     },
     progressValue: {
         fontSize: 11,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     progressTrack: {
         height: 6,
@@ -969,12 +970,12 @@ const styles = StyleSheet.create({
     },
     flowLabel: {
         fontSize: 11,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
         marginBottom: 2,
     },
     flowValue: {
         fontSize: 16,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     flowDivider: {
         height: 1,
@@ -1000,7 +1001,7 @@ const styles = StyleSheet.create({
     },
     bottomSheetTitle: {
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     closeButton: {
         width: 36,
@@ -1017,7 +1018,7 @@ const styles = StyleSheet.create({
     },
     sortSectionTitle: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_700Bold',
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: 12,
@@ -1042,10 +1043,10 @@ const styles = StyleSheet.create({
     },
     sortOptionTextItem: {
         fontSize: 13,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     sortOptionTextActive: {
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     activeDot: {
         width: 6,
@@ -1070,7 +1071,7 @@ const styles = StyleSheet.create({
     },
     transactionTitle: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         marginBottom: 2,
     },
     transactionMeta: {
@@ -1080,15 +1081,15 @@ const styles = StyleSheet.create({
     },
     transactionDate: {
         fontSize: 12,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     transactionBook: {
         fontSize: 12,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     transactionAmount: {
         fontSize: 15,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     divider: {
         height: 1,
@@ -1100,7 +1101,7 @@ const styles = StyleSheet.create({
     },
     loadMoreText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     modalOverlay: {
         flex: 1,
@@ -1130,7 +1131,7 @@ const styles = StyleSheet.create({
     },
     popupTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
     },
     popupCloseButton: {
         padding: 4,
@@ -1143,7 +1144,7 @@ const styles = StyleSheet.create({
     },
     inputLabel: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
         marginBottom: 8,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -1154,10 +1155,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         paddingHorizontal: 16,
         fontSize: 16,
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
     helperText: {
         fontSize: 11,
+        fontFamily: 'SpaceGrotesk_400Regular',
         marginTop: 6,
         fontStyle: 'italic',
     },
@@ -1174,7 +1176,7 @@ const styles = StyleSheet.create({
     },
     modalCancelButtonText: {
         fontSize: 15,
-        fontWeight: '600',
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
     modalSaveButton: {
         flex: 2,
@@ -1185,7 +1187,7 @@ const styles = StyleSheet.create({
     },
     modalSaveButtonText: {
         fontSize: 15,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#FFFFFF',
     },
 });

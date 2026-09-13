@@ -537,6 +537,7 @@ const styles = StyleSheet.create({
   recipientName: {
     fontSize: 11,
     textAlign: 'center',
+    fontFamily: 'SpaceGrotesk_500Medium',
   },
   amountBox: {
     flexDirection: 'row',

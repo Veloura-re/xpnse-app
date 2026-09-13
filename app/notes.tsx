@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     },
     appName: {
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#10b981',
         textTransform: 'uppercase',
         letterSpacing: 1.5,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     },
     saveButtonText: {
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#fff',
     },
     saveButtonTextDisabled: {
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     },
     saveButtonTextSuccess: {
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk_700Bold',
         color: '#15803d',
     },
     content: {
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
         lineHeight: 28,
         minHeight: 400,
         textAlignVertical: 'top',
-        fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+        fontFamily: 'SpaceGrotesk_400Regular',
     },
     footer: {
         marginTop: 20,
@@ -272,6 +272,6 @@ const styles = StyleSheet.create({
     hint: {
         fontSize: 13,
         color: '#94a3b8',
-        fontWeight: '500',
+        fontFamily: 'SpaceGrotesk_500Medium',
     },
 });

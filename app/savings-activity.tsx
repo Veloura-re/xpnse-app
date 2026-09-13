@@ -562,6 +562,7 @@ const styles = StyleSheet.create({
   },
   filterPillText: {
     fontSize: 12,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   listContent: {
     padding: 16,
@@ -574,7 +575,6 @@ const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontSize: 16,
-    fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
     marginBottom: 6,
   },
@@ -607,7 +607,6 @@ const styles = StyleSheet.create({
   },
   txItemTitle: {
     fontSize: 14,
-    fontWeight: '600',
     fontFamily: 'SpaceGrotesk_600SemiBold',
   },
   txItemSub: {
@@ -617,6 +616,7 @@ const styles = StyleSheet.create({
   },
   txItemAmount: {
     fontSize: 15,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   statusPill: {
     fontSize: 9,
