@@ -29,6 +29,9 @@ import {
   Repeat,
   Coins,
   Trash2,
+  Calendar,
+  Clock,
+  Check,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/providers/theme-provider';
@@ -54,6 +57,16 @@ interface VaultsListProps {
 
 const QUICK_AMOUNTS = [25, 50, 100];
 
+const LOCK_DURATION_PRESETS = [
+  { id: 'flexible', label: 'Flexible', days: 0 },
+  { id: '30d', label: '30 Days', days: 30 },
+  { id: '90d', label: '90 Days', days: 90 },
+  { id: '180d', label: '6 Months', days: 180 },
+  { id: '365d', label: '1 Year', days: 365 },
+] as const;
+
+type LockDurationId = typeof LOCK_DURATION_PRESETS[number]['id'];
+
 export const VaultsList: React.FC<VaultsListProps> = ({
   vaults,
   businessId,
@@ -70,6 +83,7 @@ export const VaultsList: React.FC<VaultsListProps> = ({
   const [newVaultName, setNewVaultName] = useState('');
   const [newVaultTarget, setNewVaultTarget] = useState('');
   const [isLocked, setIsLocked] = useState(true);
+  const [lockDurationId, setLockDurationId] = useState<LockDurationId>('flexible');
   const [isCreating, setIsCreating] = useState(false);
 
   // Vault Action (Deposit / Withdraw) Modal State
@@ -93,6 +107,14 @@ export const VaultsList: React.FC<VaultsListProps> = ({
       return;
     }
 
+    const preset = LOCK_DURATION_PRESETS.find((p) => p.id === lockDurationId);
+    let lockUntilDate: string | undefined = undefined;
+    if (isLocked && preset && preset.days > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + preset.days);
+      lockUntilDate = d.toISOString();
+    }
+
     try {
       setIsCreating(true);
       const res = await createSavingsVault({
@@ -102,12 +124,14 @@ export const VaultsList: React.FC<VaultsListProps> = ({
         targetAmount,
         currency,
         isLocked,
+        lockUntilDate,
       });
 
       if (res.success) {
         setShowCreateModal(false);
         setNewVaultName('');
         setNewVaultTarget('');
+        setLockDurationId('flexible');
         onRefresh();
       } else {
         Alert.alert('Error', res.error || 'Failed to create vault.');
@@ -120,6 +144,44 @@ export const VaultsList: React.FC<VaultsListProps> = ({
   };
 
   const handleToggleLock = async (vault: SavingsVault) => {
+    const isDateLocked =
+      vault.isLocked &&
+      !!vault.lockUntilDate &&
+      new Date(vault.lockUntilDate).getTime() > Date.now();
+
+    if (isDateLocked) {
+      const formatted = new Date(vault.lockUntilDate!).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      Alert.alert(
+        'Time-Lock in Effect',
+        `This vault is scheduled to remain locked until ${formatted} to safeguard your goals. Do you wish to override and unlock it now?`,
+        [
+          { text: 'Keep Locked', style: 'cancel' },
+          {
+            text: 'Override & Unlock',
+            style: 'destructive',
+            onPress: async () => {
+              if (Platform.OS !== 'web') {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                } catch (e) {}
+              }
+              const res = await toggleVaultLock(businessId, userId, vault.id);
+              if (res.success) {
+                onRefresh();
+              } else {
+                Alert.alert('Lock Update Failed', res.error || 'Could not update lock status.');
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     if (Platform.OS !== 'web') {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -188,14 +250,34 @@ export const VaultsList: React.FC<VaultsListProps> = ({
     }
 
     if (actionType === 'withdraw' && activeVault.isLocked) {
+      const isDateLocked =
+        !!activeVault.lockUntilDate &&
+        new Date(activeVault.lockUntilDate).getTime() > Date.now();
+
+      const lockNotice = isDateLocked
+        ? `"${activeVault.name}" is time-locked until ${new Date(
+            activeVault.lockUntilDate!
+          ).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })}. Overriding the lock early will withdraw ${formatCurrency(
+            actionNumericAmount,
+            currency
+          )}. Proceed?`
+        : `"${activeVault.name}" is locked. Would you like to unlock it and withdraw ${formatCurrency(
+            actionNumericAmount,
+            currency
+          )}?`;
+
       Alert.alert(
-        'Protected Discipline Mode',
-        `"${activeVault.name}" is locked. Would you like to unlock it and withdraw ${formatCurrency(actionNumericAmount, currency)}?`,
+        isDateLocked ? 'Time-Lock Override' : 'Protected Discipline Mode',
+        lockNotice,
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Unlock & Withdraw',
-            style: 'default',
+            text: isDateLocked ? 'Override & Withdraw' : 'Unlock & Withdraw',
+            style: isDateLocked ? 'destructive' : 'default',
             onPress: async () => {
               try {
                 setIsActionLoading(true);
@@ -387,6 +469,14 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                 : 0;
             const remaining = Math.max(0, vault.targetAmount - vault.currentAmount);
             const isCompleted = vault.currentAmount >= vault.targetAmount && vault.targetAmount > 0;
+            const isDateLocked =
+              vault.isLocked &&
+              !!vault.lockUntilDate &&
+              new Date(vault.lockUntilDate).getTime() > Date.now();
+            const isDateMatured =
+              vault.isLocked &&
+              !!vault.lockUntilDate &&
+              new Date(vault.lockUntilDate).getTime() <= Date.now();
 
             return (
               <View
@@ -475,6 +565,26 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                             {vault.isLocked ? 'PROTECTED LOCK' : 'FLEXIBLE'}
                           </Text>
                         </TouchableOpacity>
+
+                        {isDateLocked && (
+                          <View style={styles.timeLockChip}>
+                            <Clock size={9} color="#38bdf8" />
+                            <Text style={styles.timeLockText}>
+                              Until {new Date(vault.lockUntilDate!).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </Text>
+                          </View>
+                        )}
+
+                        {isDateMatured && (
+                          <View style={styles.maturedLockChip}>
+                            <Check size={9} color="#10B981" />
+                            <Text style={styles.maturedLockText}>Lock Matured</Text>
+                          </View>
+                        )}
 
                         {isCompleted && (
                           <View style={styles.completedTag}>
@@ -812,6 +922,59 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                   thumbColor="#ffffff"
                 />
               </View>
+
+              {isLocked && (
+                <View style={styles.durationPlate}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <Calendar size={12} color="#10B981" />
+                    <Text style={styles.durationCaption}>TIME-LOCK COMMITMENT DURATION</Text>
+                  </View>
+                  <View style={styles.durationChipsRow}>
+                    {LOCK_DURATION_PRESETS.map((preset) => {
+                      const isSelected = lockDurationId === preset.id;
+                      return (
+                        <TouchableOpacity
+                          key={preset.id}
+                          activeOpacity={0.8}
+                          onPress={() => setLockDurationId(preset.id)}
+                          style={[
+                            styles.durationChip,
+                            {
+                              backgroundColor: isSelected
+                                ? isDark
+                                  ? 'rgba(16, 185, 129, 0.22)'
+                                  : '#d1fae5'
+                                : isDark
+                                ? 'rgba(255, 255, 255, 0.04)'
+                                : '#f4f4f5',
+                              borderColor: isSelected
+                                ? '#10B981'
+                                : isDark
+                                ? 'rgba(255, 255, 255, 0.08)'
+                                : colors.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.durationChipText,
+                              {
+                                color: isSelected
+                                  ? isDark
+                                    ? '#34d399'
+                                    : '#059669'
+                                  : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {preset.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
 
               <TouchableOpacity
                 activeOpacity={0.88}
@@ -1523,5 +1686,61 @@ const styles = StyleSheet.create({
   milestonePaceText: {
     fontSize: 10,
     fontFamily: 'SpaceGrotesk_500Medium',
+  },
+  durationPlate: {
+    marginBottom: 20,
+  },
+  durationCaption: {
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: '#64748b',
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  durationChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  durationChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9,
+    borderWidth: 1,
+  },
+  durationChipText: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  timeLockChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.28)',
+  },
+  timeLockText: {
+    fontSize: 9.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#38bdf8',
+  },
+  maturedLockChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+  },
+  maturedLockText: {
+    fontSize: 9.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#10B981',
   },
 });

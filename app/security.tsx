@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { Stack, useRouter } from 'expo-router';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Lock, Mail, Eye, EyeOff, Check, X, AlertCircle, CheckCircle } from 'lucide-react-native';
+import { ChevronLeft, Lock, Mail, Eye, EyeOff, Check, X, AlertCircle, CheckCircle, Shield, Camera, Image as ImageIcon, ExternalLink, FileText, Settings } from 'lucide-react-native';
+import { getStoragePermissionStatus, requestMediaLibraryPermissions, requestCameraPermissions } from '@/utils/imageUpload';
 
 export default function SecurityScreen() {
     const { user, updatePassword, updateEmail, reauthenticate } = useAuth();
@@ -13,8 +14,42 @@ export default function SecurityScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const [activeTab, setActiveTab] = useState<'password' | 'email'>('password');
+    const [activeTab, setActiveTab] = useState<'password' | 'email' | 'privacy'>('password');
     const [isLoading, setIsLoading] = useState(false);
+
+    // Permission States
+    const [storageGranted, setStorageGranted] = useState<boolean | null>(null);
+    const [cameraGranted, setCameraGranted] = useState<boolean | null>(null);
+
+    const refreshPermissions = async () => {
+        try {
+            const status = await getStoragePermissionStatus();
+            setStorageGranted(status.mediaLibraryGranted);
+            setCameraGranted(status.cameraGranted);
+        } catch (error) {
+            console.error('Error refreshing permission status:', error);
+        }
+    };
+
+    useEffect(() => {
+        refreshPermissions();
+    }, [activeTab]);
+
+    const handleRequestStorage = async () => {
+        const granted = await requestMediaLibraryPermissions();
+        setStorageGranted(granted);
+    };
+
+    const handleRequestCamera = async () => {
+        const granted = await requestCameraPermissions();
+        setCameraGranted(granted);
+    };
+
+    const handleOpenSettings = () => {
+        if (Platform.OS !== 'web') {
+            Linking.openSettings();
+        }
+    };
 
     // Password State
     const [currentPassword, setCurrentPassword] = useState('');
@@ -139,15 +174,22 @@ export default function SecurityScreen() {
                             style={[styles.tab, activeTab === 'password' && [styles.activeTab, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }]]}
                             onPress={() => setActiveTab('password')}
                         >
-                            <Lock size={18} color={activeTab === 'password' ? colors.primary : colors.textSecondary} />
+                            <Lock size={16} color={activeTab === 'password' ? colors.primary : colors.textSecondary} />
                             <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'password' && [styles.activeTabText, { color: colors.primary }]]}>Password</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.tab, activeTab === 'email' && [styles.activeTab, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }]]}
                             onPress={() => setActiveTab('email')}
                         >
-                            <Mail size={18} color={activeTab === 'email' ? colors.primary : colors.textSecondary} />
+                            <Mail size={16} color={activeTab === 'email' ? colors.primary : colors.textSecondary} />
                             <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'email' && [styles.activeTabText, { color: colors.primary }]]}>Email</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.tab, activeTab === 'privacy' && [styles.activeTab, { backgroundColor: isDark ? 'rgba(33, 201, 141, 0.1)' : '#f0fdf4' }]]}
+                            onPress={() => setActiveTab('privacy')}
+                        >
+                            <Shield size={16} color={activeTab === 'privacy' ? colors.primary : colors.textSecondary} />
+                            <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'privacy' && [styles.activeTabText, { color: colors.primary }]]}>Privacy</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -227,7 +269,7 @@ export default function SecurityScreen() {
                                 )}
                             </TouchableOpacity>
                         </View>
-                    ) : (
+                    ) : activeTab === 'email' ? (
                         <View style={[styles.formContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                             <View style={styles.header}>
                                 <Text style={[styles.headerTitle, { color: colors.text }]}>Change Email</Text>
@@ -289,6 +331,153 @@ export default function SecurityScreen() {
                                     </>
                                 )}
                             </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={[styles.formContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <View style={styles.header}>
+                                <Text style={[styles.headerTitle, { color: colors.text }]}>Permissions & Privacy</Text>
+                                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                                    Manage device storage access for attachments and review savings vault privacy invariants.
+                                </Text>
+                            </View>
+
+                            {/* Storage Permission Card */}
+                            <View style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                <View style={styles.permissionHeader}>
+                                    <View style={styles.permissionLeft}>
+                                        <ImageIcon size={18} color={colors.primary} />
+                                        <Text style={[styles.permissionTitle, { color: colors.text }]}>Photo Library / Storage</Text>
+                                    </View>
+                                    <View style={[
+                                        styles.statusPill,
+                                        { backgroundColor: storageGranted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' }
+                                    ]}>
+                                        <Text style={[
+                                            styles.statusPillText,
+                                            { color: storageGranted ? '#10b981' : '#ef4444' }
+                                        ]}>
+                                            {storageGranted ? 'Granted' : 'Needs Access'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <Text style={[styles.permissionDescription, { color: colors.textSecondary }]}>
+                                    Used to select and attach bill receipts, invoices, and transaction images to spndy book entries.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.permissionButton,
+                                        { backgroundColor: storageGranted ? (isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9') : colors.primary }
+                                    ]}
+                                    onPress={handleRequestStorage}
+                                >
+                                    <Text style={[
+                                        styles.permissionButtonText,
+                                        { color: storageGranted ? colors.textSecondary : '#fff' }
+                                    ]}>
+                                        {storageGranted ? 'Storage Access Configured' : 'Grant Storage Access'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Camera Permission Card */}
+                            <View style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                <View style={styles.permissionHeader}>
+                                    <View style={styles.permissionLeft}>
+                                        <Camera size={18} color={colors.primary} />
+                                        <Text style={[styles.permissionTitle, { color: colors.text }]}>Camera Access</Text>
+                                    </View>
+                                    <View style={[
+                                        styles.statusPill,
+                                        { backgroundColor: cameraGranted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' }
+                                    ]}>
+                                        <Text style={[
+                                            styles.statusPillText,
+                                            { color: cameraGranted ? '#10b981' : '#ef4444' }
+                                        ]}>
+                                            {cameraGranted ? 'Granted' : 'Needs Access'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <Text style={[styles.permissionDescription, { color: colors.textSecondary }]}>
+                                    Used to capture live paper receipts and documentation directly inside the expense sheet.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.permissionButton,
+                                        { backgroundColor: cameraGranted ? (isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9') : colors.primary }
+                                    ]}
+                                    onPress={handleRequestCamera}
+                                >
+                                    <Text style={[
+                                        styles.permissionButtonText,
+                                        { color: cameraGranted ? colors.textSecondary : '#fff' }
+                                    ]}>
+                                        {cameraGranted ? 'Camera Access Configured' : 'Grant Camera Access'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Open Settings Button */}
+                            {Platform.OS !== 'web' && (
+                                <TouchableOpacity
+                                    style={[styles.settingsButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                                    onPress={handleOpenSettings}
+                                >
+                                    <Settings size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                                    <Text style={[styles.settingsButtonText, { color: colors.textSecondary }]}>
+                                        Open System Settings
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Savings & Vault Governance */}
+                            <View style={[styles.vaultInfoCard, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 16 }]}>
+                                <Text style={[styles.vaultInfoTitle, { color: colors.text }]}>
+                                    Savings & Vault Governance
+                                </Text>
+                                <View style={styles.vaultBulletItem}>
+                                    <View style={[styles.vaultBulletDot, { backgroundColor: colors.primary }]} />
+                                    <Text style={[styles.vaultBulletText, { color: colors.textSecondary }]}>
+                                        Strict Member Isolation: Member vaults are cryptographically bound to authenticated user accounts and cannot be inspected by external tenants.
+                                    </Text>
+                                </View>
+                                <View style={styles.vaultBulletItem}>
+                                    <View style={[styles.vaultBulletDot, { backgroundColor: colors.primary }]} />
+                                    <Text style={[styles.vaultBulletText, { color: colors.textSecondary }]}>
+                                        Non-Depository Commitments: Vault balances reflect local and cloud tracking for goal discipline and financial commitments, without third-party bank holding risks.
+                                    </Text>
+                                </View>
+                                <View style={styles.vaultBulletItem}>
+                                    <View style={[styles.vaultBulletDot, { backgroundColor: colors.primary }]} />
+                                    <Text style={[styles.vaultBulletText, { color: colors.textSecondary }]}>
+                                        Treasury Role Permissions: Only account owners can disburse collective group pools, protecting communal syndicate funds against unauthorized withdrawals.
+                                    </Text>
+                                </View>
+                                <View style={styles.vaultBulletItem}>
+                                    <View style={[styles.vaultBulletDot, { backgroundColor: colors.primary }]} />
+                                    <Text style={[styles.vaultBulletText, { color: colors.textSecondary }]}>
+                                        Zero-Telemetry Privacy: Vault targets, emergency stash deposits, and goal milestones are never monetized or exposed to ad networks.
+                                    </Text>
+                                </View>
+                            </View>
+
+                            {/* Legal Links */}
+                            <View style={styles.policyLinksRow}>
+                                <TouchableOpacity
+                                    style={[styles.policyLinkButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                    onPress={() => router.push('/privacy-policy')}
+                                >
+                                    <FileText size={16} color={colors.primary} />
+                                    <Text style={[styles.policyLinkText, { color: colors.text }]}>Privacy Policy</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.policyLinkButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                    onPress={() => router.push('/terms-of-service')}
+                                >
+                                    <ExternalLink size={16} color={colors.primary} />
+                                    <Text style={[styles.policyLinkText, { color: colors.text }]}>Terms of Service</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     )}
 
@@ -555,5 +744,117 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'SpaceGrotesk_700Bold',
         color: '#fff',
+    },
+    // Permission & Privacy Styles
+    permissionCard: {
+        padding: 16,
+        borderRadius: 14,
+        marginBottom: 14,
+        borderWidth: 1,
+    },
+    permissionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    permissionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    permissionTitle: {
+        fontSize: 15,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
+    },
+    statusPill: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+    },
+    statusPillText: {
+        fontSize: 11,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    permissionDescription: {
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_400Regular',
+        lineHeight: 18,
+        marginBottom: 12,
+    },
+    permissionButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    permissionButtonText: {
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
+    },
+    settingsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 4,
+    },
+    settingsButtonText: {
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
+    },
+    vaultInfoCard: {
+        padding: 16,
+        borderRadius: 14,
+        borderWidth: 1,
+        marginBottom: 20,
+    },
+    vaultInfoTitle: {
+        fontSize: 15,
+        fontFamily: 'SpaceGrotesk_700Bold',
+        marginBottom: 12,
+    },
+    vaultBulletItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 10,
+        gap: 10,
+    },
+    vaultBulletDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        marginTop: 6,
+    },
+    vaultBulletText: {
+        flex: 1,
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_400Regular',
+        lineHeight: 18,
+    },
+    policyLinksRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 4,
+    },
+    policyLinkButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 8,
+    },
+    policyLinkText: {
+        fontSize: 13,
+        fontFamily: 'SpaceGrotesk_600SemiBold',
     },
 });

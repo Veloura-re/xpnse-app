@@ -86,8 +86,23 @@ service cloud.firestore {
       allow read, write: if isMember(businessId);
     }
 
-    // Savings Vaults subcollection
+    // Savings Vaults subcollection (Personal member vaults & target lock vaults)
     match /businesses/{businessId}/vaults/{vaultId} {
+      allow read: if isMember(businessId);
+      allow create: if isMember(businessId) &&
+                       request.resource.data.memberId == request.auth.uid;
+      allow update, delete: if isMember(businessId) &&
+                               (resource.data.memberId == request.auth.uid ||
+                                request.auth.uid == get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId);
+    }
+
+    // Scheduled Stashes subcollection (Automated recurring savings rules)
+    match /businesses/{businessId}/scheduled_stashes/{stashId} {
+      allow read, write: if isMember(businessId);
+    }
+
+    // Collective Group Pools subcollection
+    match /businesses/{businessId}/group_pools/{poolId} {
       allow read, write: if isMember(businessId);
     }
 

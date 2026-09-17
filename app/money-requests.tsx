@@ -143,10 +143,11 @@ export default function MoneyRequestsScreen() {
   };
 
   const renderItem = ({ item: req }: { item: MoneyRequest }) => {
-    const cfg = STATUS_CONFIG[req.status];
+    const isExpired = req.status === 'pending' && new Date(req.expiresAt).getTime() < Date.now();
+    const effectiveStatus = isExpired ? 'expired' : req.status;
+    const cfg = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.pending;
     const StatusIcon = cfg.Icon;
     const isProcessing = processingId === req.id;
-    const isExpired = new Date(req.expiresAt) < new Date();
 
     return (
       <View
@@ -189,6 +190,7 @@ export default function MoneyRequestsScreen() {
           {req.status === 'pending' && !isExpired && (
             <Text> · expires {formatDistanceToNow(new Date(req.expiresAt), { addSuffix: true })}</Text>
           )}
+          {isExpired && <Text> · expired</Text>}
         </Text>
 
         {/* Actions */}

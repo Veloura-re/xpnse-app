@@ -177,7 +177,8 @@ export default function SettingsScreen() {
       await exportToPDF(currentBusiness, transactions, {
         fileName: exportFileName || 'Business_Export',
         isBusiness: true,
-        rangeLabel
+        rangeLabel,
+        books,
       });
     } catch (error) {
       console.error('Error exporting PDF:', error);

@@ -542,10 +542,10 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                           </View>
                         </View>
 
-                        {/* Calculated Ledger Converted Amount Preview */}
+                        {/* Calculated Converted Amount Preview */}
                         <View style={[styles.fxCalculationRow, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#E2E8F0' }]}>
                           <Text style={[styles.fxCalcText, { color: colors.textSecondary }]}>
-                            Converted Ledger Total:
+                            Converted Total:
                           </Text>
                           <Text style={[styles.fxCalcHighlight, { color: type === 'cash_in' ? '#10B981' : '#EF4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
                             {formatCurrency(convertedBaseAmount, baseCurrency)}
@@ -742,8 +742,8 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                     </View>
                   )}
 
-                  {/* Attachments Section (If enabled) */}
-                  {(book?.settings?.showAttachments ?? true) && (
+                  {/* Attachments Section (Always accessible for receipts and invoices) */}
+                  {(book?.settings?.showAttachments !== false) && (
                     <View style={styles.inputGroup}>
                       <View style={styles.labelRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

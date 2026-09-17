@@ -1,5 +1,53 @@
 export type UserRole = 'owner' | 'partner' | 'viewer';
 
+export interface RolePermissions {
+  canManageBusiness: boolean;
+  canManageBooks: boolean;
+  canRecordEntries: boolean;
+  canExportReports: boolean;
+  canAccessVaults: boolean;
+  canManageVaults: boolean;
+  canContributeGroupPool: boolean;
+  canDisburseGroupPool: boolean;
+  canInitiateMoneyRequests: boolean;
+}
+
+export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
+  owner: {
+    canManageBusiness: true,
+    canManageBooks: true,
+    canRecordEntries: true,
+    canExportReports: true,
+    canAccessVaults: true,
+    canManageVaults: true,
+    canContributeGroupPool: true,
+    canDisburseGroupPool: true,
+    canInitiateMoneyRequests: true,
+  },
+  partner: {
+    canManageBusiness: false,
+    canManageBooks: true,
+    canRecordEntries: true,
+    canExportReports: true,
+    canAccessVaults: true,
+    canManageVaults: true,
+    canContributeGroupPool: true,
+    canDisburseGroupPool: false,
+    canInitiateMoneyRequests: true,
+  },
+  viewer: {
+    canManageBusiness: false,
+    canManageBooks: false,
+    canRecordEntries: false,
+    canExportReports: true,
+    canAccessVaults: true,
+    canManageVaults: false,
+    canContributeGroupPool: false,
+    canDisburseGroupPool: false,
+    canInitiateMoneyRequests: false,
+  },
+};
+
 export interface Profile {
   firstName: string;
   lastName: string;

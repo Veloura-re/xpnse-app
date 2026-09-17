@@ -36,13 +36,13 @@ const roleOptions: { label: string; value: UserRole; description: string; icon: 
   {
     label: 'Partner',
     value: 'partner',
-    description: 'Can record, edit, and export book entries and manage day-to-day transactions.',
+    description: 'Can record, edit, and export book entries, create personal savings vaults, stash funds, and contribute to group treasury.',
     icon: Shield,
   },
   {
     label: 'Viewer',
     value: 'viewer',
-    description: 'Read-only access. Can inspect ledgers, balances, and analytics without modifying data.',
+    description: 'Read-only access. Can inspect books, savings balances, and analytics without modifying data.',
     icon: Eye,
   },
 ];

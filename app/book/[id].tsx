@@ -1122,34 +1122,40 @@ export default function BookDetailScreen() {
                         </View>
                       )}
 
-                      {/* Attachment pill — inside card (If enabled) */}
-                      {(book?.settings?.showAttachments ?? true) && (
+                      {/* Attachment pill — inside card (Always visible and accessible) */}
+                      {(book?.settings?.showAttachments !== false) && (
                         <TouchableOpacity
                           style={[
                             styles.attachmentPill,
                             {
                               backgroundColor: (item.attachments && item.attachments.length > 0)
-                                ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5')
-                                : (isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc'),
+                                ? (isDark ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5')
+                                : (isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9'),
                               borderColor: (item.attachments && item.attachments.length > 0)
-                                ? (isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0')
-                                : (isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'),
+                                ? (isDark ? 'rgba(16, 185, 129, 0.35)' : '#a7f3d0')
+                                : (isDark ? 'rgba(255, 255, 255, 0.14)' : '#cbd5e1'),
+                              minHeight: 22,
+                              paddingHorizontal: 7,
                             }
                           ]}
                           onPress={(e) => {
                             e.stopPropagation();
                             handleOpenAttachments(item);
                           }}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                           activeOpacity={0.7}
                         >
                           <Paperclip
-                            size={11}
+                            size={12}
                             color={(item.attachments && item.attachments.length > 0) ? colors.primary : colors.textSecondary}
                           />
-                          {(item.attachments && item.attachments.length > 0) && (
+                          {(item.attachments && item.attachments.length > 0) ? (
                             <Text style={[styles.attachmentPillText, { color: colors.primary }]}>
                               {item.attachments.length}
+                            </Text>
+                          ) : (
+                            <Text style={[styles.attachmentPillText, { color: colors.textSecondary, fontSize: 10 }]}>
+                              Attach
                             </Text>
                           )}
                         </TouchableOpacity>
@@ -1509,7 +1515,7 @@ export default function BookDetailScreen() {
 
                 {/* Telegram-style media grid: Camera & Gallery tiles beside photo thumbnails */}
                 <ScrollView contentContainerStyle={styles.attachGrid} showsVerticalScrollIndicator={false}>
-                  {(userRole === 'owner' || userRole === 'partner') && (
+                  {(userRole !== 'viewer') && (
                     <>
                       {/* Camera Tile (beside photos) */}
                       <TouchableOpacity
@@ -1556,7 +1562,7 @@ export default function BookDetailScreen() {
                       onPress={() => setPreviewImageUrl(url)}
                     >
                       <Image source={{ uri: url }} style={styles.attachThumbLarge} resizeMode="cover" />
-                      {(userRole === 'owner' || userRole === 'partner') && (
+                      {(userRole !== 'viewer') && (
                         <TouchableOpacity
                           style={styles.attachThumbDelete}
                           onPress={(e) => {
@@ -1570,6 +1576,14 @@ export default function BookDetailScreen() {
                       )}
                     </TouchableOpacity>
                   ))}
+
+                  {(!attachmentEntry?.attachments || attachmentEntry.attachments.length === 0) && userRole === 'viewer' && (
+                    <View style={{ width: '100%', paddingVertical: 24, alignItems: 'center' }}>
+                      <Text style={[styles.attachEmptySub, { color: colors.textSecondary }]}>
+                        No receipts or attachments found for this entry.
+                      </Text>
+                    </View>
+                  )}
                 </ScrollView>
 
                 {isUploadingAttachment && (
@@ -1944,6 +1958,27 @@ export default function BookDetailScreen() {
                         <Edit3 size={20} color={isDark ? colors.textSecondary : '#475569'} />
                       </View>
                       <Text style={[styles.menuText, { color: colors.text }]}>Edit Entry</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => {
+                        if (menuEntry) {
+                          const target = menuEntry;
+                          setMenuEntry(null);
+                          handleOpenAttachments(target);
+                        }
+                      }}
+                    >
+                      <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5' }]}>
+                        <Paperclip size={20} color="#10b981" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.menuText, { color: colors.text }]}>Receipts & Attachments</Text>
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }}>
+                          {menuEntry?.attachments?.length ? `${menuEntry.attachments.length} attached receipt(s)` : 'View or upload receipts'}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
 
                     <TouchableOpacity

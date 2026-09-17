@@ -289,7 +289,8 @@ export default function AnalyticsScreen() {
             await exportToPDF(currentBusiness, validTransactions, { 
                 fileName: exportFileName || 'Business_Export', 
                 isBusiness: true, 
-                rangeLabel 
+                rangeLabel,
+                books,
             });
         } catch (error) {
             console.error('Error exporting PDF:', error);

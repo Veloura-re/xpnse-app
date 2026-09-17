@@ -25,6 +25,7 @@ import {
   Receipt,
   CheckCircle2,
   Copy,
+  Sparkles,
 } from 'lucide-react-native';
 import { useTheme } from '@/providers/theme-provider';
 import { useBusiness } from '@/providers/business-provider';
@@ -80,7 +81,8 @@ export default function SavingsActivityScreen() {
       if (
         activeFilter === 'vaults' &&
         tx.type !== 'vault_deposit' &&
-        tx.type !== 'vault_withdraw'
+        tx.type !== 'vault_withdraw' &&
+        tx.type !== 'round_up_deposit'
       )
         return false;
       if (activeFilter === 'cashouts' && tx.type !== 'withdrawal') return false;
@@ -112,8 +114,14 @@ export default function SavingsActivityScreen() {
         return <PiggyBank size={16} color="#6366f1" />;
       case 'vault_withdraw':
         return <PiggyBank size={16} color="#10B981" />;
+      case 'round_up_deposit':
+        return <Sparkles size={16} color="#10B981" />;
       case 'pool_contribution':
         return <Users size={16} color="#3b82f6" />;
+      case 'book_expense_payment':
+        return <Receipt size={16} color="#ef4444" />;
+      case 'book_income_deposit':
+        return <Receipt size={16} color="#10B981" />;
       default:
         return <Clock size={16} color={colors.textSecondary} />;
     }
@@ -133,15 +141,26 @@ export default function SavingsActivityScreen() {
         return `Allocated to ${tx.vaultName || 'Vault'}`;
       case 'vault_withdraw':
         return `Released from ${tx.vaultName || 'Vault'}`;
+      case 'round_up_deposit':
+        return `Round-Up Stash (${tx.vaultName || 'Vault'})`;
       case 'pool_contribution':
         return 'Pool Contribution';
+      case 'book_expense_payment':
+        return 'Book Expense';
+      case 'book_income_deposit':
+        return 'Book Income';
       default:
         return 'Wallet Activity';
     }
   };
 
   const isPositiveTx = (type: WalletTransaction['type']) => {
-    return type === 'deposit' || type === 'transfer_recv' || type === 'vault_withdraw';
+    return (
+      type === 'deposit' ||
+      type === 'transfer_recv' ||
+      type === 'vault_withdraw' ||
+      type === 'book_income_deposit'
+    );
   };
 
   const filters: { label: string; key: FilterCategory }[] = [

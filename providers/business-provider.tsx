@@ -62,6 +62,9 @@ interface BusinessState {
   // Permissions
   getUserRole: (businessId?: string) => UserRole | null;
   hasPermission: (requiredRole: UserRole) => boolean;
+  canManageVaults: () => boolean;
+  canDisburseGroupPool: () => boolean;
+  canInitiateMoneyRequests: () => boolean;
   autoCategorize: (description: string) => string | undefined;
 
   // Party management
@@ -244,6 +247,19 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
     return (roleHierarchy[member.role] || 1) >= (roleHierarchy[requiredRole] || 1);
   }, [currentBusiness, user]);
+
+  // Savings and Vault capability helpers
+  const canManageVaults = useCallback((): boolean => {
+    return hasPermission('partner');
+  }, [hasPermission]);
+
+  const canDisburseGroupPool = useCallback((): boolean => {
+    return hasPermission('owner');
+  }, [hasPermission]);
+
+  const canInitiateMoneyRequests = useCallback((): boolean => {
+    return hasPermission('partner');
+  }, [hasPermission]);
 
   // User lost access, switch to first available business or clear
   useEffect(() => {
@@ -2858,6 +2874,9 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     // Permissions
     getUserRole,
     hasPermission,
+    canManageVaults,
+    canDisburseGroupPool,
+    canInitiateMoneyRequests,
     autoCategorize,
     touchBook,
   };

@@ -35,6 +35,7 @@ import {
   NotificationType,
   BusinessMember,
   User,
+  UserRole,
 } from '@/types';
 import { mockUsers } from '@/mocks/data';
 
@@ -151,6 +152,7 @@ class ReactiveSavingsStore {
     outgoingTransfers: new Map<string, Set<(pts: PendingTransfer[]) => void>>(),
     moneyRequests: new Map<string, Set<(reqs: MoneyRequest[]) => void>>(),
     scheduledStashes: new Map<string, Set<(rules: ScheduledStashRule[]) => void>>(),
+    groupPool: new Map<string, Set<(bal: number) => void>>(),
   };
 
   private initializedKeys = new Set<string>();
@@ -462,6 +464,7 @@ class ReactiveSavingsStore {
   public setGroupPoolBalance(bizId: string, balance: number) {
     this.state.groupPoolBalances[bizId || 'default'] = balance;
     this.persistKey(bizId, 'pool');
+    this.notifyGroupPoolSubscribers(bizId);
   }
 
   public getMoneyRequests(bizId: string): MoneyRequest[] {
@@ -593,6 +596,18 @@ class ReactiveSavingsStore {
     };
   }
 
+  public subscribeGroupPool(bizId: string, cb: (bal: number) => void) {
+    const key = bizId || 'default';
+    if (!this.subscribers.groupPool.has(key)) {
+      this.subscribers.groupPool.set(key, new Set());
+    }
+    this.subscribers.groupPool.get(key)!.add(cb);
+    cb(this.getGroupPoolBalance(bizId));
+    return () => {
+      this.subscribers.groupPool.get(key)?.delete(cb);
+    };
+  }
+
   private notifyAccountSubscribers(bizId: string, userId: string) {
     const key = this.getKey(bizId, userId);
     const acc = this.state.accounts[key] || null;
@@ -646,6 +661,14 @@ class ReactiveSavingsStore {
     const pts = this.state.outgoingTransfers[key] || [];
     this.subscribers.outgoingTransfers.get(key)?.forEach((cb) => {
       try { cb(pts); } catch (e) {}
+    });
+  }
+
+  private notifyGroupPoolSubscribers(bizId: string) {
+    const key = bizId || 'default';
+    const bal = this.getGroupPoolBalance(bizId);
+    this.subscribers.groupPool.get(key)?.forEach((cb) => {
+      try { cb(bal); } catch (e) {}
     });
   }
 }
@@ -1109,8 +1132,23 @@ export async function transferToVault(params: {
   vaultName: string;
   amount: number;
   currency?: string;
+  type?: WalletTransactionType;
+  note?: string;
+  notificationTitle?: string;
+  notificationType?: NotificationType;
 }): Promise<{ success: boolean; error?: string }> {
-  const { businessId, userId, vaultId, vaultName, amount, currency = 'USD' } = params;
+  const {
+    businessId,
+    userId,
+    vaultId,
+    vaultName,
+    amount,
+    currency = 'USD',
+    type: customType,
+    note: customNote,
+    notificationTitle: customNotificationTitle,
+    notificationType: customNotificationType,
+  } = params;
 
   if (amount <= 0) {
     return { success: false, error: 'Stash amount must be greater than zero.' };
@@ -1139,25 +1177,30 @@ export async function transferToVault(params: {
   );
   demoSavingsStore.setVaults(businessId, userId, updatedVaults);
 
-  // Deduct from spendable balance
+  const newLockedTotal = updatedVaults.reduce((sum, v) => sum + v.currentAmount, 0);
+
+  // Deduct from spendable balance and record exact aggregate locked balance
   const updatedAcc: MemberAccount = {
     ...acc,
     mainBalance: acc.mainBalance - amount,
+    lockedSavingsBalance: newLockedTotal,
     updatedAt: new Date().toISOString(),
   };
   demoSavingsStore.setAccount(businessId, userId, updatedAcc);
 
+  const txType = customType || 'vault_deposit';
+  const txNote = customNote || `Allocated to ${vaultName}`;
   const tx: WalletTransaction = {
     id: `tx_${Date.now()}_vault_dep`,
     businessId,
     userId,
-    type: 'vault_deposit',
+    type: txType,
     amount,
     currency,
     vaultId,
     vaultName,
     status: 'completed',
-    note: `Allocated to ${vaultName}`,
+    note: txNote,
     createdAt: new Date().toISOString(),
   };
   demoSavingsStore.addTransaction(businessId, userId, tx);
@@ -1183,9 +1226,9 @@ export async function transferToVault(params: {
   dispatchSavingsNotification({
     userId,
     businessId,
-    title: 'Vault Funds Allocated',
-    message: `Allocated ${currency} ${amount.toFixed(2)} to ${vaultName}.`,
-    type: 'vault_deposit',
+    title: customNotificationTitle || 'Vault Funds Allocated',
+    message: txNote,
+    type: customNotificationType || 'vault_deposit',
     color: '#10b981',
   }).catch(() => {});
 
@@ -1228,11 +1271,14 @@ export async function withdrawFromVault(params: {
   );
   demoSavingsStore.setVaults(businessId, userId, updatedVaults);
 
-  // Credit spendable balance
+  const newLockedTotal = updatedVaults.reduce((sum, v) => sum + v.currentAmount, 0);
+
+  // Credit spendable balance and record exact aggregate locked balance
   const acc = demoSavingsStore.getAccount(businessId, userId, currency);
   const updatedAcc: MemberAccount = {
     ...acc,
     mainBalance: acc.mainBalance + amount,
+    lockedSavingsBalance: newLockedTotal,
     updatedAt: new Date().toISOString(),
   };
   demoSavingsStore.setAccount(businessId, userId, updatedAcc);
@@ -1320,17 +1366,25 @@ export async function deleteSavingsVault(
   const target = vaults.find((v) => v.id === vaultId);
   if (!target) return { success: false, error: 'Vault not found.' };
 
+  const remainingVaults = vaults.filter((v) => v.id !== vaultId);
+  demoSavingsStore.setVaults(businessId, userId, remainingVaults);
+
+  let updatedAcc: MemberAccount | null = null;
+  let tx: WalletTransaction | null = null;
+
   // If vault has funds, return them to spendable balance
   if (target.currentAmount > 0) {
     const acc = demoSavingsStore.getAccount(businessId, userId, target.currency);
-    const updatedAcc: MemberAccount = {
+    const newLockedTotal = remainingVaults.reduce((sum, v) => sum + v.currentAmount, 0);
+    updatedAcc = {
       ...acc,
       mainBalance: acc.mainBalance + target.currentAmount,
+      lockedSavingsBalance: newLockedTotal,
       updatedAt: new Date().toISOString(),
     };
     demoSavingsStore.setAccount(businessId, userId, updatedAcc);
 
-    const tx: WalletTransaction = {
+    tx = {
       id: `tx_${Date.now()}_vault_del_refund`,
       businessId,
       userId,
@@ -1346,13 +1400,23 @@ export async function deleteSavingsVault(
     demoSavingsStore.addTransaction(businessId, userId, tx);
   }
 
-  const remainingVaults = vaults.filter((v) => v.id !== vaultId);
-  demoSavingsStore.setVaults(businessId, userId, remainingVaults);
-
   if (db) {
     try {
-      await deleteDoc(doc(db, 'businesses', businessId, 'vaults', vaultId));
-    } catch (err) {}
+      const vaultRef = doc(db, 'businesses', businessId, 'vaults', vaultId);
+      if (updatedAcc && tx) {
+        const accountRef = doc(db, 'businesses', businessId, 'accounts', userId);
+        const txCol = collection(db, 'businesses', businessId, 'wallet_transactions');
+        await runTransaction(db, async (t) => {
+          t.delete(vaultRef);
+          t.set(accountRef, updatedAcc!, { merge: true });
+          t.set(doc(txCol, tx!.id), tx!);
+        });
+      } else {
+        await deleteDoc(vaultRef);
+      }
+    } catch (err) {
+      console.warn('[Savings] Delete vault cloud sync warning:', err);
+    }
   }
 
   return { success: true };
@@ -1440,8 +1504,13 @@ export async function disburseFromGroupPool(params: {
   amount: number;
   currency?: string;
   note?: string;
+  actorRole?: UserRole;
 }): Promise<{ success: boolean; error?: string }> {
-  const { businessId, userId, userName, amount, currency = 'USD', note } = params;
+  const { businessId, userId, userName, amount, currency = 'USD', note, actorRole } = params;
+
+  if (actorRole && actorRole !== 'owner') {
+    return { success: false, error: 'Administrative ownership permission required to disburse funds from collective pool.' };
+  }
 
   if (amount <= 0) {
     return { success: false, error: 'Draw amount must be greater than zero.' };
@@ -1476,6 +1545,30 @@ export async function disburseFromGroupPool(params: {
     createdAt: new Date().toISOString(),
   };
   demoSavingsStore.addTransaction(businessId, userId, tx);
+
+  if (db) {
+    try {
+      const accountRef = doc(db, 'businesses', businessId, 'accounts', userId);
+      const bizRef = doc(db, 'businesses', businessId);
+      const txCol = collection(db, 'businesses', businessId, 'wallet_transactions');
+      await runTransaction(db, async (t) => {
+        t.set(accountRef, updatedAcc, { merge: true });
+        t.update(bizRef, { groupPoolBalance: currentPool - amount });
+        t.set(doc(txCol, tx.id), tx);
+      });
+    } catch (err) {
+      console.warn('[Savings] Pool disburse cloud sync warning:', err);
+    }
+  }
+
+  dispatchSavingsNotification({
+    userId,
+    businessId,
+    title: 'Pool Disbursement Received',
+    message: `Drawn ${currency} ${amount.toFixed(2)} from Syndicate Collective Treasury into your spendable wallet.`,
+    type: 'wallet_deposit',
+    color: '#10b981',
+  }).catch(() => {});
 
   return { success: true };
 }
@@ -1585,10 +1678,20 @@ export async function respondToPendingTransfer(params: {
   const remaining = incoming.filter((pt) => pt.id !== pendingTransferId);
   demoSavingsStore.setIncomingPendingTransfers(businessId, recipientId, remaining);
 
+  // Also remove from sender's outgoing queue
+  const outgoing = demoSavingsStore.getOutgoingPendingTransfers(businessId, target.senderId);
+  const remainingOutgoing = outgoing.filter((pt) => pt.id !== pendingTransferId);
+  demoSavingsStore.setOutgoingPendingTransfers(businessId, target.senderId, remainingOutgoing);
+
+  let updatedRecip: MemberAccount | null = null;
+  let updatedSender: MemberAccount | null = null;
+  let txRecip: WalletTransaction | null = null;
+  let txSender: WalletTransaction | null = null;
+
   if (decision === 'confirmed') {
     // Credit recipient
     const recipAcc = demoSavingsStore.getAccount(businessId, recipientId, target.currency);
-    const updatedRecip: MemberAccount = {
+    updatedRecip = {
       ...recipAcc,
       mainBalance: recipAcc.mainBalance + target.amount,
       updatedAt: new Date().toISOString(),
@@ -1597,7 +1700,7 @@ export async function respondToPendingTransfer(params: {
 
     // Record transactions
     const now = new Date().toISOString();
-    const txRecip: WalletTransaction = {
+    txRecip = {
       id: `tx_${Date.now()}_recv_claim`,
       businessId,
       userId: recipientId,
@@ -1612,7 +1715,7 @@ export async function respondToPendingTransfer(params: {
     };
     demoSavingsStore.addTransaction(businessId, recipientId, txRecip);
 
-    const txSender: WalletTransaction = {
+    txSender = {
       id: `tx_${Date.now()}_sent_confirmed`,
       businessId,
       userId: target.senderId,
@@ -1638,7 +1741,7 @@ export async function respondToPendingTransfer(params: {
   } else {
     // Declined — refund sender's spendable balance
     const senderAcc = demoSavingsStore.getAccount(businessId, target.senderId, target.currency);
-    const updatedSender: MemberAccount = {
+    updatedSender = {
       ...senderAcc,
       mainBalance: senderAcc.mainBalance + target.amount,
       updatedAt: new Date().toISOString(),
@@ -1656,12 +1759,28 @@ export async function respondToPendingTransfer(params: {
   }
 
   if (db) {
+    const firestore = db;
     try {
-      await updateDoc(doc(db, 'businesses', businessId, 'pending_transfers', pendingTransferId), {
-        status: decision,
-        respondedAt: new Date().toISOString(),
+      const ptRef = doc(firestore, 'businesses', businessId, 'pending_transfers', pendingTransferId);
+      const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
+      const recipRef = doc(firestore, 'businesses', businessId, 'accounts', recipientId);
+      const senderRef = doc(firestore, 'businesses', businessId, 'accounts', target.senderId);
+      await runTransaction(firestore, async (t) => {
+        t.update(ptRef, {
+          status: decision,
+          respondedAt: new Date().toISOString(),
+        });
+        if (decision === 'confirmed' && updatedRecip && txRecip && txSender) {
+          t.set(recipRef, updatedRecip, { merge: true });
+          t.set(doc(txCol, txRecip.id), txRecip);
+          t.set(doc(txCol, txSender.id), txSender);
+        } else if (decision === 'declined' && updatedSender) {
+          t.set(senderRef, updatedSender, { merge: true });
+        }
       });
-    } catch (err) {}
+    } catch (err) {
+      console.warn('[Savings] Pending transfer response cloud sync warning:', err);
+    }
   }
 
   return { success: true };
@@ -1801,6 +1920,15 @@ export async function cancelMoneyRequest(
   requesterId: string
 ): Promise<{ success: boolean; error?: string }> {
   const requests = demoSavingsStore.getMoneyRequests(businessId);
+  const target = requests.find((r) => r.id === requestId);
+  if (!target) return { success: false, error: 'Money request not found.' };
+  if (target.requesterId !== requesterId) {
+    return { success: false, error: 'Unauthorized to cancel this request.' };
+  }
+  if (target.status !== 'pending') {
+    return { success: false, error: 'Only pending requests can be cancelled.' };
+  }
+
   const updated = requests.map((r) =>
     r.id === requestId ? { ...r, status: 'cancelled' as MoneyRequestStatus } : r
   );
@@ -1832,11 +1960,9 @@ export function calculateRoundUp(amount: number, settings?: RoundUpSettings | nu
   const step = settings.step || 1;
   const multiplier = settings.multiplier || 1;
 
-  const nextTarget = Math.ceil(amount / step) * step;
-  const diff = nextTarget - amount;
-  if (diff <= 0.001) {
-    return 0;
-  }
+  const remainder = amount % step;
+  // If exact multiple of step (e.g. $10.00 with $1 step), round up by whole step ($1)
+  const diff = Math.abs(remainder) < 0.001 ? step : step - remainder;
 
   return Math.round(diff * multiplier * 100) / 100;
 }
@@ -1907,6 +2033,10 @@ export async function executeRoundUpForEntry(params: {
     vaultName: settings.targetVaultName || 'Savings Vault',
     amount: roundUpAmount,
     currency: acc.currency,
+    type: 'round_up_deposit',
+    note: `Spare Change from ${bookName}`,
+    notificationTitle: 'Spare Change Stashed',
+    notificationType: 'round_up_stashed',
   });
 
   if (transferRes.success) {
@@ -2077,6 +2207,10 @@ export async function executeScheduledStashRuleNow(
     vaultId: rule.targetVaultId,
     vaultName: rule.targetVaultName || 'Savings Vault',
     amount: rule.amount,
+    type: 'vault_deposit',
+    note: `Auto-Stash execution: ${rule.targetVaultName || 'Vault'}`,
+    notificationTitle: 'Auto-Stash Executed',
+    notificationType: 'scheduled_stash',
   });
 
   if (!stashRes.success) {
@@ -2106,8 +2240,10 @@ export async function processDueScheduledStashes(
   const today = new Date().toISOString().split('T')[0];
   let processedCount = 0;
   let totalAmountSaved = 0;
+  const currentRules = [...rules];
 
-  for (const rule of rules) {
+  for (let i = 0; i < currentRules.length; i++) {
+    const rule = currentRules[i];
     if (rule.status === 'active' && rule.nextDueDate <= today) {
       const stashRes = await transferToVault({
         businessId,
@@ -2115,26 +2251,29 @@ export async function processDueScheduledStashes(
         vaultId: rule.targetVaultId,
         vaultName: rule.targetVaultName || 'Savings Vault',
         amount: rule.amount,
+        type: 'vault_deposit',
+        note: `Auto-Stash (${rule.frequency}) to ${rule.targetVaultName || 'Vault'}`,
+        notificationTitle: 'Auto-Stash Executed',
+        notificationType: 'scheduled_stash',
       });
 
       if (stashRes.success) {
         processedCount++;
         totalAmountSaved += rule.amount;
         const nextDueDate = calculateNextStashDueDate(rule.frequency);
-        const updatedRules = rules.map((r) =>
-          r.id === rule.id
-            ? {
-                ...r,
-                nextDueDate,
-                occurrencesCount: (r.occurrencesCount || 0) + 1,
-                lastExecutedAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            : r
-        );
-        demoSavingsStore.setScheduledStashRules(businessId, userId, updatedRules);
+        currentRules[i] = {
+          ...rule,
+          nextDueDate,
+          occurrencesCount: (rule.occurrencesCount || 0) + 1,
+          lastExecutedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
       }
     }
+  }
+
+  if (processedCount > 0) {
+    demoSavingsStore.setScheduledStashRules(businessId, userId, currentRules);
   }
 
   return { processedCount, totalAmountSaved };
@@ -2182,6 +2321,19 @@ export async function deductSpendableForBookExpense(params: {
   };
   demoSavingsStore.addTransaction(businessId, userId, tx);
 
+  if (db) {
+    try {
+      const accountRef = doc(db, 'businesses', businessId, 'accounts', userId);
+      const txCol = collection(db, 'businesses', businessId, 'wallet_transactions');
+      await runTransaction(db, async (t) => {
+        t.set(accountRef, updatedAcc, { merge: true });
+        t.set(doc(txCol, tx.id), tx);
+      });
+    } catch (err) {
+      console.warn('[Savings] Book expense deduction cloud sync warning:', err);
+    }
+  }
+
   return { success: true };
 }
 
@@ -2218,6 +2370,19 @@ export async function creditSpendableForBookIncome(params: {
     createdAt: new Date().toISOString(),
   };
   demoSavingsStore.addTransaction(businessId, userId, tx);
+
+  if (db) {
+    try {
+      const accountRef = doc(db, 'businesses', businessId, 'accounts', userId);
+      const txCol = collection(db, 'businesses', businessId, 'wallet_transactions');
+      await runTransaction(db, async (t) => {
+        t.set(accountRef, updatedAcc, { merge: true });
+        t.set(doc(txCol, tx.id), tx);
+      });
+    } catch (err) {
+      console.warn('[Savings] Book income credit cloud sync warning:', err);
+    }
+  }
 
   return { success: true };
 }
@@ -2325,6 +2490,31 @@ export function subscribeToScheduledStashRules(
   return demoSavingsStore.subscribeScheduledStashes(businessId, userId, callback);
 }
 
+export function subscribeToGroupPool(
+  businessId: string,
+  callback: (balance: number) => void
+): Unsubscribe {
+  const unsubLocal = demoSavingsStore.subscribeGroupPool(businessId, callback);
+  let unsubCloud: Unsubscribe | null = null;
+  if (db && businessId) {
+    try {
+      const bizRef = doc(db, 'businesses', businessId);
+      unsubCloud = onSnapshot(bizRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && typeof data.groupPoolBalance === 'number') {
+            demoSavingsStore.setGroupPoolBalance(businessId, data.groupPoolBalance);
+          }
+        }
+      });
+    } catch (err) {}
+  }
+  return () => {
+    unsubLocal();
+    if (unsubCloud) unsubCloud();
+  };
+}
+
 export async function checkTransferLimits(
   businessId: string,
   senderId: string,
@@ -2345,4 +2535,23 @@ export async function updateTransferLimits(
   limits: Business['transferLimits']
 ): Promise<{ success: boolean; error?: string }> {
   return { success: true };
+}
+
+/**
+ * Role-based permission validator for savings and vault operations.
+ */
+export function canPerformVaultOperation(
+  role: UserRole,
+  operation: 'view' | 'deposit' | 'withdraw' | 'create' | 'delete'
+): boolean {
+  if (role === 'owner' || role === 'partner') return true;
+  if (role === 'viewer') return operation === 'view';
+  return false;
+}
+
+/**
+ * Role-based permission validator for collective pool disbursement.
+ */
+export function canDisburseCollectivePool(role: UserRole): boolean {
+  return role === 'owner';
 }

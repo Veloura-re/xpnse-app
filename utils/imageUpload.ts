@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, Linking } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Cloudinary configuration
@@ -16,25 +16,60 @@ const CLOUDINARY_UPLOAD_PRESET =
   process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'spndy11';
 
 /**
- * Request camera and media library permissions.
+ * Check active permission status for media library and camera without triggering prompts.
+ */
+export const getStoragePermissionStatus = async (): Promise<{
+  mediaLibraryGranted: boolean;
+  cameraGranted: boolean;
+}> => {
+  try {
+    if (Platform.OS === 'web') {
+      return { mediaLibraryGranted: true, cameraGranted: true };
+    }
+    const media = await ImagePicker.getMediaLibraryPermissionsAsync();
+    const camera = await ImagePicker.getCameraPermissionsAsync();
+    return {
+      mediaLibraryGranted: media.granted,
+      cameraGranted: camera.granted,
+    };
+  } catch (error) {
+    console.error('Error checking permission status:', error);
+    return { mediaLibraryGranted: false, cameraGranted: false };
+  }
+};
+
 /**
- * Request photo library / storage permissions explicitly.
+ * Request photo library / storage permissions explicitly with device settings redirect.
  */
 export const requestMediaLibraryPermissions = async (): Promise<boolean> => {
   try {
-    if (Platform.OS !== 'web') {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (Platform.OS === 'web') return true;
 
-      if (status !== 'granted') {
-        Alert.alert(
-          'Storage Access Required',
-          'Please grant permission to access your photo library to select and attach images.',
-        );
-        return false;
-      }
-    }
-    return true;
+    // Check existing permission state
+    const current = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (current.granted) return true;
+
+    // Request permission from the system
+    const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (result.granted) return true;
+
+    // Permission was denied or cannot be asked again
+    Alert.alert(
+      'Storage Access Required',
+      'spndy requires storage permission to select and attach receipts. Please enable photo/storage access in your device settings to continue.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => {
+            Linking.openSettings().catch(() => {
+              console.warn('Unable to open device settings');
+            });
+          },
+        },
+      ]
+    );
+    return false;
   } catch (error) {
     console.error('Error requesting storage permissions:', error);
     return false;
@@ -42,27 +77,53 @@ export const requestMediaLibraryPermissions = async (): Promise<boolean> => {
 };
 
 /**
- * Request camera permissions explicitly.
+ * Request camera permissions explicitly with device settings redirect.
  */
 export const requestCameraPermissions = async (): Promise<boolean> => {
   try {
-    if (Platform.OS !== 'web') {
-      const { status } =
-        await ImagePicker.requestCameraPermissionsAsync();
+    if (Platform.OS === 'web') return true;
 
-      if (status !== 'granted') {
-        Alert.alert(
-          'Camera Access Required',
-          'Please grant camera permission to take photos of receipts or bills.',
-        );
-        return false;
-      }
-    }
-    return true;
+    // Check existing permission state
+    const current = await ImagePicker.getCameraPermissionsAsync();
+    if (current.granted) return true;
+
+    // Request permission from the system
+    const result = await ImagePicker.requestCameraPermissionsAsync();
+    if (result.granted) return true;
+
+    // Permission was denied or cannot be asked again
+    Alert.alert(
+      'Camera Access Required',
+      'spndy requires camera permission to capture receipt photos and invoices. Please enable camera access in your device settings to continue.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => {
+            Linking.openSettings().catch(() => {
+              console.warn('Unable to open device settings');
+            });
+          },
+        },
+      ]
+    );
+    return false;
   } catch (error) {
     console.error('Error requesting camera permissions:', error);
     return false;
   }
+};
+
+/**
+ * Pre-flight verification for uploading attachments from a specific source.
+ */
+export const ensureUploadPermission = async (
+  source: 'gallery' | 'camera'
+): Promise<boolean> => {
+  if (source === 'gallery') {
+    return await requestMediaLibraryPermissions();
+  }
+  return await requestCameraPermissions();
 };
 
 /**

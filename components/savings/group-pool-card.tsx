@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import { Business } from '@/types';
 import {
   contributeToGroupPool,
   disburseFromGroupPool,
+  subscribeToGroupPool,
 } from '@/services/savings-service';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
 
@@ -56,8 +57,18 @@ export const GroupPoolCard: React.FC<GroupPoolCardProps> = ({
   const [amountStr, setAmountStr] = useState('25');
   const [note, setNote] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [livePoolBalance, setLivePoolBalance] = useState(business.groupPoolBalance || 0);
 
-  const poolBalance = business.groupPoolBalance || 0;
+  useEffect(() => {
+    if (!business.id) return;
+    setLivePoolBalance(business.groupPoolBalance || 0);
+    const unsub = subscribeToGroupPool(business.id, (bal) => {
+      setLivePoolBalance(bal);
+    });
+    return unsub;
+  }, [business.id, business.groupPoolBalance]);
+
+  const poolBalance = livePoolBalance;
   const members = business.members || [];
   const memberCount = members.length > 0 ? members.length : 1;
   const currencySymbol = getCurrencySymbol(currency);

@@ -391,7 +391,7 @@ export default function TeamManagementScreen() {
                                 <Text style={[styles.confirmSubtitle, { color: colors.textSecondary }]}>
                                     {targetMember?.isSelf
                                         ? `Are you sure you want to leave ${currentBusiness.name}? You will immediately lose access to all its books, transactions, and settings.`
-                                        : `Are you sure you want to remove ${targetMember?.name} from ${currentBusiness.name}? They will lose access to all ledgers.`}
+                                        : `Are you sure you want to remove ${targetMember?.name} from ${currentBusiness.name}? They will lose access to all books, savings vaults, and records.`}
                                 </Text>
 
                                 <View style={styles.confirmInputSection}>

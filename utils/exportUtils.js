@@ -49,37 +49,7 @@ const formatExchangeRate = (rate) => {
   return rate.toFixed(4);
 };
 
-// Helper function to group entries by time period
-const groupEntriesByPeriod = (entries) => {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekAgo = new Date(today);
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const monthAgo = new Date(today);
-  monthAgo.setMonth(monthAgo.getMonth() - 1);
 
-  const groups = {
-    today: [],
-    thisWeek: [],
-    thisMonth: [],
-    older: []
-  };
-
-  entries.forEach(entry => {
-    const entryDate = new Date(entry.date || entry.createdAt);
-    if (entryDate >= today) {
-      groups.today.push(entry);
-    } else if (entryDate >= weekAgo) {
-      groups.thisWeek.push(entry);
-    } else if (entryDate >= monthAgo) {
-      groups.thisMonth.push(entry);
-    } else {
-      groups.older.push(entry);
-    }
-  });
-
-  return groups;
-};
 
 // Helper function to calculate totals for a group
 const calculateGroupTotals = (entries) => {
@@ -207,7 +177,7 @@ const triggerWebDownload = (blobOrUrl, fileName, isBlob = true) => {
 // Enhanced Excel Export with Multi-Currency & Cross-Platform Support (Web + iOS + Android)
 export const exportToExcel = async (entity, entries, options = {}) => {
   try {
-    const safeEntity = entity || { name: 'Ledger_Export' };
+    const safeEntity = entity || { name: 'spndy_export' };
     const safeEntries = Array.isArray(entries) ? entries : [];
 
     const isBusiness = Boolean(options.isBusiness);
@@ -240,14 +210,14 @@ export const exportToExcel = async (entity, entries, options = {}) => {
         row['Rate Type'] = entry.isCustomRate ? 'Custom' : (origCurr === baseCurrency ? 'Base' : 'Market');
       }
 
-      row[`Ledger Amount (${baseCurrency})`] = Number(entry.amount) || 0;
+      row[`Amount (${baseCurrency})`] = Number(entry.amount) || 0;
 
       if (!isBusiness) {
         row[`Running Balance (${baseCurrency})`] = entry.displayBalance || 0;
       }
 
       if (isBusiness && entry.bookName) {
-        row['Ledger Book'] = entry.bookName;
+        row['Book'] = entry.bookName;
       }
 
       row['Created At'] = formatDate(entry.createdAt);
@@ -271,12 +241,12 @@ export const exportToExcel = async (entity, entries, options = {}) => {
       mainCols.push({ width: 14 }); // Exchange Rate
       mainCols.push({ width: 12 }); // Rate Type
     }
-    mainCols.push({ width: 20 }); // Ledger Amount
+    mainCols.push({ width: 20 }); // Amount
     if (!isBusiness) {
       mainCols.push({ width: 20 }); // Running Balance
     }
     if (isBusiness) {
-      mainCols.push({ width: 22 }); // Ledger Book
+      mainCols.push({ width: 22 }); // Book
     }
     mainCols.push({ width: 16 }); // Created At
 
@@ -315,7 +285,7 @@ export const exportToExcel = async (entity, entries, options = {}) => {
     // 3. Metadata Sheet
     const totals = calculateGroupTotals(safeEntries);
     const metaData = [
-      { Field: 'Entity Type', Value: isBusiness ? 'Business Organization' : 'Ledger Book' },
+      { Field: 'Entity Type', Value: isBusiness ? 'Business' : 'Book' },
       { Field: 'Entity Name', Value: safeEntity.name || 'N/A' },
       { Field: 'Base Currency', Value: baseCurrency },
       { Field: 'Total Transactions', Value: safeEntries.length },
@@ -377,16 +347,15 @@ export const exportToExcel = async (entity, entries, options = {}) => {
 // Enhanced PDF Export with Executive Financial Styling & Multi-Currency Engine
 export const exportToPDF = async (entity, entries, options = {}) => {
   try {
-    const safeEntity = entity || { name: 'Ledger_Export' };
+    const safeEntity = entity || { name: 'spndy_export' };
     const safeEntries = Array.isArray(entries) ? entries : [];
 
     const isBusiness = Boolean(options.isBusiness);
     const baseCurrency = (safeEntity.currency || safeEntity.settings?.currency || 'USD').toUpperCase();
-    const entityTypeLabel = isBusiness ? 'Business Organization' : 'Ledger Book';
+    const entityTypeLabel = isBusiness ? 'Business' : 'Book';
     const hasForeign = hasForeignCurrencyEntries(safeEntries, baseCurrency);
     const currencyBreakdown = calculateCurrencyBreakdown(safeEntries, baseCurrency);
 
-    const grouped = groupEntriesByPeriod(safeEntries);
     const totals = calculateGroupTotals(safeEntries);
     const displayBalance = isBusiness ? totals.net : (typeof safeEntity.netBalance === 'number' ? safeEntity.netBalance : totals.net);
     const rangeLabel = options.rangeLabel ? `Period: ${options.rangeLabel}` : 'Period: All Time';
@@ -398,11 +367,11 @@ export const exportToPDF = async (entity, entries, options = {}) => {
       minute: '2-digit'
     });
 
-    // Helper to generate section HTML
-    const generateSectionHTML = (sectionTitle, periodEntries, periodTotals) => {
-      if (!periodEntries || periodEntries.length === 0) return '';
+    // Helper to generate section HTML for single book export
+    const generateSectionHTML = (sectionTitle, sectionEntries, sectionTotals) => {
+      if (!sectionEntries || sectionEntries.length === 0) return '';
 
-      const rowsHTML = periodEntries.map(entry => {
+      const rowsHTML = sectionEntries.map(entry => {
         const origCurr = (entry.originalCurrency || baseCurrency).toUpperCase();
         const origAmt = typeof entry.originalAmount === 'number' && entry.originalAmount > 0
           ? entry.originalAmount
@@ -467,7 +436,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
               ${sectionTitle}
             </div>
             <div style="font-size: 11px; color: #64748B; font-weight: 600;">
-              ${periodEntries.length} ${periodEntries.length === 1 ? 'transaction' : 'transactions'}
+              ${sectionEntries.length} ${sectionEntries.length === 1 ? 'transaction' : 'transactions'}
             </div>
           </div>
 
@@ -488,13 +457,192 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           </table>
 
           <div style="display: flex; justify-content: flex-end; gap: 16px; font-size: 11px; background: #F8FAFC; padding: 6px 12px; border-radius: 6px; border: 1px solid #E2E8F0;">
-            <div><span style="color: #64748B;">Inflow:</span> <strong style="color: #059669;">${formatCurrency(periodTotals.cashIn, baseCurrency)}</strong></div>
-            <div><span style="color: #64748B;">Outflow:</span> <strong style="color: #DC2626;">${formatCurrency(periodTotals.cashOut, baseCurrency)}</strong></div>
-            <div><span style="color: #64748B;">Net:</span> <strong style="color: ${periodTotals.net >= 0 ? '#059669' : '#DC2626'};">${formatCurrency(periodTotals.net, baseCurrency)}</strong></div>
+            <div><span style="color: #64748B;">Inflow:</span> <strong style="color: #059669;">+${formatCurrency(sectionTotals.cashIn, baseCurrency)}</strong></div>
+            <div><span style="color: #64748B;">Outflow:</span> <strong style="color: #DC2626;">-${formatCurrency(sectionTotals.cashOut, baseCurrency)}</strong></div>
+            <div><span style="color: #64748B;">Net:</span> <strong style="color: ${sectionTotals.net >= 0 ? '#059669' : '#DC2626'};">${formatCurrency(sectionTotals.net, baseCurrency)}</strong></div>
           </div>
         </div>
       `;
     };
+
+    // Helper for business export grouped by book ("each book then what they had")
+    const generateBookSectionHTML = (bookName, bookEntries, bookTotals) => {
+      const hasEntries = bookEntries && bookEntries.length > 0;
+      const rowsHTML = hasEntries
+        ? bookEntries.map(entry => {
+            const origCurr = (entry.originalCurrency || baseCurrency).toUpperCase();
+            const origAmt = typeof entry.originalAmount === 'number' && entry.originalAmount > 0
+              ? entry.originalAmount
+              : Number(entry.amount) || 0;
+            const rate = typeof entry.exchangeRate === 'number' && entry.exchangeRate > 0
+              ? entry.exchangeRate
+              : (origAmt > 0 ? (Number(entry.amount) / origAmt) : 1.0);
+            const isConverted = origCurr !== baseCurrency;
+
+            const isCashIn = entry.type === 'cash_in';
+            const typeBadgeBg = isCashIn ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
+            const typeBadgeColor = isCashIn ? '#059669' : '#DC2626';
+            const typeLabel = isCashIn ? 'IN' : 'OUT';
+
+            const amountSign = isCashIn ? '+' : '-';
+            const amountColor = isCashIn ? '#059669' : '#DC2626';
+
+            return `
+              <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
+                <td style="padding: 8px 10px; width: 50px;">
+                  <span style="display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: ${typeBadgeBg}; color: ${typeBadgeColor}; text-align: center;">
+                    ${typeLabel}
+                  </span>
+                </td>
+                <td style="padding: 8px 10px; font-size: 11px; color: #475569; width: 75px; white-space: nowrap;">
+                  ${formatDate(entry.date || entry.createdAt)}
+                </td>
+                <td style="padding: 8px 10px; font-size: 12px; color: #0F172A; max-width: 220px; word-break: break-word;">
+                  <div style="font-weight: 700; margin-bottom: 2px;">${entry.description || 'N/A'}</div>
+                  <div style="font-size: 10px; color: #64748B;">
+                    ${entry.category ? `<span style="background: #F1F5F9; padding: 1px 5px; border-radius: 4px; margin-right: 4px;">${entry.category}</span>` : ''}
+                    ${entry.paymentMode ? `<span>${entry.paymentMode}</span>` : ''}
+                  </div>
+                </td>
+                ${hasForeign ? `
+                <td style="padding: 8px 10px; font-size: 11px; text-align: right; width: 125px;">
+                  ${isConverted ? `
+                    <div style="font-weight: 700; color: #0F172A;">${formatForeignAmount(origAmt, origCurr)}</div>
+                    <div style="font-size: 9px; color: #64748B; margin-top: 1px;">
+                      Rate: ${formatExchangeRate(rate)} ${entry.isCustomRate ? '<span style="color: #D97706; font-weight: 700;">[Custom]</span>' : ''}
+                    </div>
+                  ` : `
+                    <span style="color: #94A3B8; font-size: 11px;">-</span>
+                  `}
+                </td>` : ''}
+                <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 110px;">
+                  ${amountSign}${formatCurrency(Number(entry.amount) || 0, baseCurrency)}
+                </td>
+              </tr>
+            `;
+          }).join('')
+        : `
+          <tr>
+            <td colspan="${hasForeign ? 5 : 4}" style="padding: 16px 10px; font-size: 11px; color: #94A3B8; text-align: center; font-style: italic;">
+              No transactions recorded for this book in selected period.
+            </td>
+          </tr>
+        `;
+
+      return `
+        <div style="margin-bottom: 26px; page-break-inside: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 2px solid #10B981; padding-bottom: 6px; page-break-inside: avoid;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 10px; font-weight: 800; color: #059669; background: #ECFDF5; padding: 2px 8px; border-radius: 5px; letter-spacing: 0.5px; text-transform: uppercase;">BOOK</span>
+              <span style="font-size: 14px; font-weight: 700; color: #0F172A;">${bookName}</span>
+            </div>
+            <div style="font-size: 11px; color: #64748B; font-weight: 600;">
+              ${bookEntries.length} ${bookEntries.length === 1 ? 'transaction' : 'transactions'}
+            </div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; margin-bottom: 8px;">
+            <thead>
+              <tr style="background: #F8FAFC; border-bottom: 1.5px solid #E2E8F0;">
+                <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Type</th>
+                <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Date</th>
+                <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Description</th>
+                ${hasForeign ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Foreign Input</th>` : ''}
+                <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Amount (${baseCurrency})</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML}
+            </tbody>
+          </table>
+
+          ${hasEntries ? `
+          <div style="display: flex; justify-content: flex-end; gap: 16px; font-size: 11px; background: #F8FAFC; padding: 6px 12px; border-radius: 6px; border: 1px solid #E2E8F0; margin-bottom: 12px; page-break-inside: avoid;">
+            <div><span style="color: #64748B;">Book Inflow:</span> <strong style="color: #059669;">+${formatCurrency(bookTotals.cashIn, baseCurrency)}</strong></div>
+            <div><span style="color: #64748B;">Book Outflow:</span> <strong style="color: #DC2626;">-${formatCurrency(bookTotals.cashOut, baseCurrency)}</strong></div>
+            <div><span style="color: #64748B;">Book Net:</span> <strong style="color: ${bookTotals.net >= 0 ? '#059669' : '#DC2626'};">${formatCurrency(bookTotals.net, baseCurrency)}</strong></div>
+          </div>
+          ` : ''}
+        </div>
+      `;
+    };
+
+    // Body content compilation
+    let contentHTML = '';
+
+    if (isBusiness) {
+      const providedBooks = Array.isArray(options.books)
+        ? options.books
+        : (Array.isArray(entity?.books) ? entity.books : []);
+
+      const bookMap = new Map();
+
+      // 1. Seed with known books from options or entity
+      providedBooks.forEach((b) => {
+        if (b && (b.id || b.name)) {
+          const key = b.id || b.name;
+          bookMap.set(key, {
+            id: b.id || key,
+            name: b.name || 'Unnamed Book',
+            currency: b.currency || baseCurrency,
+            entries: [],
+          });
+        }
+      });
+
+      // 2. Distribute safeEntries into respective books
+      safeEntries.forEach((entry) => {
+        let matchedKey = null;
+        if (entry.bookId && bookMap.has(entry.bookId)) {
+          matchedKey = entry.bookId;
+        } else if (entry.bookName) {
+          for (const [key, b] of bookMap.entries()) {
+            if (b.name === entry.bookName) {
+              matchedKey = key;
+              break;
+            }
+          }
+        }
+
+        if (!matchedKey) {
+          matchedKey = entry.bookId || entry.bookName || 'general_book';
+          bookMap.set(matchedKey, {
+            id: entry.bookId || matchedKey,
+            name: entry.bookName || 'General Book',
+            currency: baseCurrency,
+            entries: [],
+          });
+        }
+
+        bookMap.get(matchedKey).entries.push(entry);
+      });
+
+      const booksArray = Array.from(bookMap.values());
+      // Sort: books with entries first, then alphabetically
+      booksArray.sort((a, b) => {
+        if (a.entries.length > 0 && b.entries.length === 0) return -1;
+        if (a.entries.length === 0 && b.entries.length > 0) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      contentHTML = booksArray.map(b => {
+        const sortedEntries = [...b.entries].sort((x, y) => {
+          const tA = new Date(x.date || x.createdAt).getTime() || 0;
+          const tB = new Date(y.date || y.createdAt).getTime() || 0;
+          return tB - tA;
+        });
+        const bookTotals = calculateGroupTotals(sortedEntries);
+        return generateBookSectionHTML(b.name, sortedEntries, bookTotals);
+      }).join('');
+    } else {
+      // Single book export: all transactions sorted newest first
+      const sortedEntries = [...safeEntries].sort((x, y) => {
+        const tA = new Date(x.date || x.createdAt).getTime() || 0;
+        const tB = new Date(y.date || y.createdAt).getTime() || 0;
+        return tB - tA;
+      });
+      contentHTML = generateSectionHTML('Transactions', sortedEntries, totals);
+    }
 
     // Multi-Currency Breakdown Summary Block
     let currencySummaryHTML = '';
@@ -554,7 +702,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>${safeEntity.name || 'Statement'} - Financial Statement</title>
+          <title>${safeEntity.name || 'spndy'} - spndy Statement</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
@@ -706,7 +854,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           <div class="header-card">
             <div class="header-top">
               <div>
-                <div class="brand-badge">SPNDY FINANCIAL OS</div>
+                <div class="brand-badge">spndy</div>
                 <h1 class="entity-title">${safeEntity.name || 'Statement'}</h1>
                 <p class="entity-subtitle">${entityTypeLabel} Statement • ${baseCurrency}</p>
               </div>
@@ -749,15 +897,12 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           ${currencySummaryHTML}
 
           <div>
-            ${generateSectionHTML('Today', grouped.today, calculateGroupTotals(grouped.today))}
-            ${generateSectionHTML('This Week', grouped.thisWeek, calculateGroupTotals(grouped.thisWeek))}
-            ${generateSectionHTML('This Month', grouped.thisMonth, calculateGroupTotals(grouped.thisMonth))}
-            ${generateSectionHTML('Older Entries', grouped.older, calculateGroupTotals(grouped.older))}
+            ${contentHTML}
           </div>
 
           <div class="footer-note">
-            <div>${safeEntity.name || 'Ledger'} • Certified Ledger Record</div>
-            <div>Generated by spndy Ledger OS</div>
+            <div>${safeEntity.name || 'spndy'} • Financial Record</div>
+            <div>Generated by spndy</div>
           </div>
         </body>
       </html>
@@ -841,7 +986,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
 // Enhanced CSV Export with Multi-Currency & Cross-Platform Support (Web + iOS + Android)
 export const exportToCSV = async (entity, entries, options = {}) => {
   try {
-    const safeEntity = entity || { name: 'Ledger_Export' };
+    const safeEntity = entity || { name: 'spndy_export' };
     const safeEntries = Array.isArray(entries) ? entries : [];
 
     const isBusiness = Boolean(options.isBusiness);
@@ -863,20 +1008,20 @@ export const exportToCSV = async (entity, entries, options = {}) => {
       headers.push('Rate Type');
     }
 
-    headers.push(`Ledger Amount (${baseCurrency})`);
+    headers.push(`Amount (${baseCurrency})`);
 
     if (!isBusiness) {
       headers.push(`Running Balance (${baseCurrency})`);
     }
 
     if (isBusiness) {
-      headers.push('Ledger Book');
+      headers.push('Book');
     }
 
     headers.push('Created At');
 
     const metaLines = [
-      ['Entity Type', isBusiness ? 'Business Organization' : 'Ledger Book'],
+      ['Entity Type', isBusiness ? 'Business' : 'Book'],
       ['Entity Name', safeEntity.name || 'N/A'],
       ['Base Currency', baseCurrency],
       ['Total Entries', String(safeEntries.length)],

@@ -10,7 +10,7 @@ import {
 import { Stack, router } from 'expo-router';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, FileText, AlertCircle, Shield, Users, Ban, Repeat, TriangleAlert, Scale, Mail } from 'lucide-react-native';
+import { ChevronLeft, FileText, AlertCircle, Shield, Users, Ban, Repeat, TriangleAlert, Scale, Mail, Coins, Lock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BackgroundDecor } from '@/components/ui/background-decor';
 
@@ -183,12 +183,23 @@ export default function TermsOfServiceScreen() {
         <Section icon={FileText} iconColor="#f59e0b" title="3. Permitted Use" isDark={isDark} colors={colors}>
           <Paragraph text={`${APP_NAME} is a personal and small business finance management tool. You may use the service to:`} colors={colors} />
           <Bullet text="Create and manage financial books, budgets, and transaction records." colors={colors} />
-          <Bullet text="Invite team members to collaborate on shared business books." colors={colors} />
-          <Bullet text="Export financial reports for personal or business record-keeping purposes." colors={colors} />
+          <Bullet text="Create personal savings vaults, establish goal milestones, and configure automated round-ups and scheduled stashes." colors={colors} />
+          <Bullet text="Participate in collaborative group pool syndicates and request peer-to-peer transfers with authorized team members." colors={colors} />
+          <Bullet text="Attach photo receipts, invoices, and vouchers to substantiate transaction entries." colors={colors} />
+          <Bullet text="Invite team members with role-based permissions (Owner, Partner, Viewer) to collaborate on business books." colors={colors} />
+          <Bullet text="Export financial reports (PDF, CSV, Excel) for personal or business record-keeping." colors={colors} />
           <Paragraph text="The service is provided for lawful purposes only. You are responsible for ensuring that your use complies with all applicable laws and regulations." colors={colors} />
         </Section>
 
-        <Section icon={Ban} iconColor="#ef4444" title="4. Prohibited Activities" isDark={isDark} colors={colors}>
+        <Section icon={Coins} iconColor="#10b981" title="4. Savings, Vaults & Commitment Rules" isDark={isDark} colors={colors}>
+          <Paragraph text="The savings chambers, vaults, and group pools provided in spndy are subject to the following rules and disclaimers:" colors={colors} />
+          <Bullet text="Record-Keeping Tool: spndy is a financial tracking, accounting, and budgeting software application, not a chartered bank, credit union, or FDIC-insured depository institution." colors={colors} />
+          <Bullet text="Self-Imposed Behavioral Locks: Time-lock dates set on savings vaults represent voluntary behavioral discipline commitments enforced by client software rules. They do not constitute trust or escrow agreements." colors={colors} />
+          <Bullet text="Group Treasury Governance: Contributions made to a business collective group pool become part of the collective business balance. Disbursement authority is governed by ownership permissions." colors={colors} />
+          <Bullet text="Peer Requests: Money requests and peer transfers initiated inside spndy record internal tracking intent between team members and do not execute external wire clearing." colors={colors} />
+        </Section>
+
+        <Section icon={Ban} iconColor="#ef4444" title="5. Prohibited Activities" isDark={isDark} colors={colors}>
           <Paragraph text="You must not:" colors={colors} />
           <Bullet text="Use the service for any unlawful purpose, including money laundering or fraud." colors={colors} />
           <Bullet text="Attempt to reverse engineer, decompile, or extract the source code of the app." colors={colors} />
@@ -198,12 +209,12 @@ export default function TermsOfServiceScreen() {
           <Bullet text="Violate any applicable export control laws or sanctions." colors={colors} />
         </Section>
 
-        <Section icon={Shield} iconColor="#10b981" title="5. Intellectual Property" isDark={isDark} colors={colors}>
+        <Section icon={Shield} iconColor="#10b981" title="6. Intellectual Property" isDark={isDark} colors={colors}>
           <Paragraph text={`All content within ${APP_NAME}, including but not limited to the design, interface, branding, code, and text, is owned by the developer and is protected by copyright and intellectual property laws.`} colors={colors} />
           <Paragraph text="You retain full ownership of all financial data and content you enter into the app. By using the service, you grant us a limited, non-exclusive license to store and process your data solely for the purpose of providing the service." colors={colors} />
         </Section>
 
-        <Section icon={Repeat} iconColor="#6366f1" title="6. Service Availability" isDark={isDark} colors={colors}>
+        <Section icon={Repeat} iconColor="#6366f1" title="7. Service Availability" isDark={isDark} colors={colors}>
           <Paragraph text={`We aim to keep ${APP_NAME} available 24/7, but we cannot guarantee uninterrupted access. The service may be temporarily unavailable due to:`} colors={colors} />
           <Bullet text="Scheduled maintenance or upgrades." colors={colors} />
           <Bullet text="Unexpected technical failures or outages." colors={colors} />
@@ -211,7 +222,7 @@ export default function TermsOfServiceScreen() {
           <Paragraph text="We will make reasonable efforts to notify users of planned downtime in advance." colors={colors} />
         </Section>
 
-        <Section icon={TriangleAlert} iconColor="#f59e0b" title="7. Disclaimer of Warranties" isDark={isDark} colors={colors}>
+        <Section icon={TriangleAlert} iconColor="#f59e0b" title="8. Disclaimer of Warranties" isDark={isDark} colors={colors}>
           <Paragraph text={`${APP_NAME} is provided on an \"as is\" and \"as available\" basis without warranties of any kind, either express or implied. We do not warrant that:`} colors={colors} />
           <Bullet text="The service will meet your specific requirements." colors={colors} />
           <Bullet text="The service will be error-free or uninterrupted." colors={colors} />
@@ -219,17 +230,17 @@ export default function TermsOfServiceScreen() {
           <Paragraph text="Financial records you create in the app are for informational purposes only and do not constitute professional financial, legal, or tax advice." colors={colors} />
         </Section>
 
-        <Section icon={AlertCircle} iconColor="#ef4444" title="8. Limitation of Liability" isDark={isDark} colors={colors}>
+        <Section icon={AlertCircle} iconColor="#ef4444" title="9. Limitation of Liability" isDark={isDark} colors={colors}>
           <Paragraph text="To the maximum extent permitted by law, the developer shall not be liable for any indirect, incidental, consequential, or punitive damages arising from your use of or inability to use the service, including loss of data or financial losses." colors={colors} />
           <Paragraph text="Our total aggregate liability to you for any claims arising out of or relating to these terms or the service shall not exceed the amount you paid for the service in the twelve months preceding the claim." colors={colors} />
         </Section>
 
-        <Section icon={Scale} iconColor="#6366f1" title="9. Termination" isDark={isDark} colors={colors}>
+        <Section icon={Scale} iconColor="#6366f1" title="10. Termination" isDark={isDark} colors={colors}>
           <Paragraph text="We may suspend or terminate your access to the service at any time, with or without notice, if we determine that you have violated these terms." colors={colors} />
           <Paragraph text="You may terminate your account at any time from the Settings screen. Upon termination, your data will be deleted in accordance with our Privacy Policy." colors={colors} />
         </Section>
 
-        <Section icon={Scale} iconColor="#10b981" title="10. Governing Law" isDark={isDark} colors={colors}>
+        <Section icon={Scale} iconColor="#10b981" title="11. Governing Law" isDark={isDark} colors={colors}>
           <Paragraph text="These terms shall be governed by and construed in accordance with applicable law. Any disputes arising from or relating to these terms shall be resolved through good-faith negotiation. If negotiation fails, disputes shall be submitted to binding arbitration." colors={colors} />
         </Section>
 

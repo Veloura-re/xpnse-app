@@ -10,7 +10,7 @@ import {
 import { Stack, router } from 'expo-router';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Shield, Eye, Lock, Trash2, Bell, Globe, Mail } from 'lucide-react-native';
+import { ChevronLeft, Shield, Eye, Lock, Trash2, Bell, Globe, Mail, Paperclip, Coins } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BackgroundDecor } from '@/components/ui/background-decor';
 
@@ -170,27 +170,47 @@ export default function PrivacyPolicyScreen() {
         <Section icon={Eye} iconColor="#6366f1" title="Information We Collect" isDark={isDark} colors={colors}>
           <Paragraph text="We collect the following categories of information solely to provide and improve the service:" colors={colors} />
           <Bullet text="Account information: email address and display name you provide upon registration." colors={colors} />
-          <Bullet text="Financial records: books, transaction entries, amounts, and categories you manually enter." colors={colors} />
-          <Bullet text="Profile photo: only if you voluntarily upload one via the app." colors={colors} />
-          <Bullet text="Push notification token: used only to deliver in-app notifications you opt into." colors={colors} />
-          <Bullet text="Device information: OS version and platform (iOS/Android), collected for crash diagnostics only." colors={colors} />
-          <Paragraph text="We do not collect your bank credentials, payment card numbers, or any external financial account data." colors={colors} />
+          <Bullet text="Financial records: books, transaction entries, amounts, payment modes, and categories you enter." colors={colors} />
+          <Bullet text="Savings & Vaults: personal savings vaults, target amounts, lock commitment dates, automated stash schedules, spare change round-up rules, and group pool contributions." colors={colors} />
+          <Bullet text="Receipt attachments: photos of receipts, invoices, or bills that you voluntarily attach to transaction entries." colors={colors} />
+          <Bullet text="Profile photo: only if you voluntarily select or upload one via the app." colors={colors} />
+          <Bullet text="Push notification token: used only to deliver in-app notifications, transaction alerts, and savings milestones you opt into." colors={colors} />
+          <Bullet text="Device information: device model, platform, and system version, collected strictly for crash diagnostics and UI layout optimization." colors={colors} />
+          <Paragraph text="We do not collect your bank login credentials, payment card numbers, or any external financial account secrets." colors={colors} />
+        </Section>
+
+        <Section icon={Paperclip} iconColor="#0ea5e9" title="Device Permissions & Storage Access" isDark={isDark} colors={colors}>
+          <Paragraph text="spndy explicitly requests runtime device permissions only when required to provide core functionality:" colors={colors} />
+          <Bullet text="Storage & Photo Library Permission: Requested solely when you tap to attach a receipt or upload a profile picture. spndy only reads the specific images or documents you explicitly choose." colors={colors} />
+          <Bullet text="Camera Permission: Requested solely to allow capturing receipt photos or paper invoices directly from within an entry modal." colors={colors} />
+          <Bullet text="Push Notification Permission: Requested to deliver real-time savings milestone alerts, recurring rule execution notifications, and transfer confirmations." colors={colors} />
+          <Paragraph text="You can revoke or modify these permissions at any time through your operating system settings. spndy never accesses your photos, camera, or file storage in the background." colors={colors} />
+        </Section>
+
+        <Section icon={Coins} iconColor="#10b981" title="Savings & Vault Privacy Architecture" isDark={isDark} colors={colors}>
+          <Paragraph text="Personal savings chambers and collaborative group pools are protected by strict privacy boundaries:" colors={colors} />
+          <Bullet text="Personal Member Vaults: Your individual vaults, locked savings commitments, and private targets are bound to your user identity. Business teammates cannot alter or liquidate your personal vault balances." colors={colors} />
+          <Bullet text="Collective Group Pools: In group businesses, collective syndicate pool balances are transparently attributed across members for accountability, with disbursements restricted to authorized administrators." colors={colors} />
+          <Bullet text="Automated Rules & Stashes: Spare change round-up calculations and scheduled stashes execute deterministically through atomic transactions without exposing balances to external analytics." colors={colors} />
+          <Bullet text="Cryptographic Invariant: Member accounts maintain a mathematical guarantee: Spendable Balance + Locked Vaults = Total Net Worth." colors={colors} />
         </Section>
 
         <Section icon={Lock} iconColor="#10b981" title="How We Use Your Information" isDark={isDark} colors={colors}>
           <Paragraph text="Your data is used exclusively to:" colors={colors} />
-          <Bullet text="Authenticate your account and maintain secure sessions." colors={colors} />
-          <Bullet text="Store and sync your financial books and transaction records across your devices." colors={colors} />
-          <Bullet text="Send you notifications you explicitly enable (e.g. recurring reminders)." colors={colors} />
-          <Bullet text="Diagnose technical errors and improve app stability." colors={colors} />
-          <Paragraph text="We do not use your data for advertising, profiling, or any purpose beyond operating the service." colors={colors} />
+          <Bullet text="Authenticate your account and maintain secure, multi-device sessions." colors={colors} />
+          <Bullet text="Store and sync your financial books, transaction entries, and receipt attachments across your devices." colors={colors} />
+          <Bullet text="Calculate personal savings balances, execute scheduled stashes, and track progress toward vault milestones." colors={colors} />
+          <Bullet text="Coordinate peer-to-peer transfers, money requests, and collective group pool contributions." colors={colors} />
+          <Bullet text="Send you notifications you explicitly enable (e.g. recurring reminders, vault milestones)." colors={colors} />
+          <Bullet text="Diagnose technical errors and improve app stability across all device form factors." colors={colors} />
+          <Paragraph text="We do not use your data for advertising, behavioral profiling, or any purpose beyond operating the service." colors={colors} />
         </Section>
 
         <Section icon={Shield} iconColor="#f59e0b" title="Data Security" isDark={isDark} colors={colors}>
           <Bullet text="All data is transmitted over TLS-encrypted connections." colors={colors} />
-          <Bullet text="Financial records are stored in Firebase Firestore with per-user security rules that prevent cross-user access." colors={colors} />
+          <Bullet text="Financial records, member accounts, and vaults are stored in Firebase Firestore with per-tenant and per-user security rules that prevent cross-user access." colors={colors} />
           <Bullet text="Authentication is handled by Firebase Authentication, which uses industry-standard security practices including bcrypt password hashing." colors={colors} />
-          <Bullet text="Profile photos and attachments are stored in Firebase Storage with access restricted to the account owner." colors={colors} />
+          <Bullet text="Profile photos and receipt attachments are securely uploaded over HTTPS with access restricted to authenticated team members." colors={colors} />
           <Paragraph text="No security system is impenetrable. We commit to notifying users of any breach affecting their data within 72 hours of discovery." colors={colors} />
         </Section>
 
