@@ -229,6 +229,18 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     setAttachments(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  const handleAddAttachmentChoice = () => {
+    Alert.alert(
+      'Add Attachment',
+      'Choose source for receipt image:',
+      [
+        { text: 'Take Photo', onPress: handleTakePhoto },
+        { text: 'Choose from Gallery', onPress: handlePickImage },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
   const handleSave = async () => {
     if (!description.trim()) {
       setDescriptionError(true);
@@ -597,6 +609,38 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                         placeholder="What is this for?"
                         placeholderTextColor={colors.textSecondary}
                       />
+                      {/* Instagram-style Attachment button inside entry place */}
+                      <TouchableOpacity
+                        style={[
+                          styles.entryAttachPlusBtn,
+                          {
+                            backgroundColor: (attachments && attachments.length > 0)
+                              ? (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0')
+                              : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9'),
+                            borderColor: (attachments && attachments.length > 0)
+                              ? (isDark ? 'rgba(255, 255, 255, 0.22)' : '#CBD5E1')
+                              : (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0'),
+                          }
+                        ]}
+                        onPress={handleAddAttachmentChoice}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        disabled={uploading}
+                        activeOpacity={0.7}
+                        accessibilityLabel="Add attachment"
+                      >
+                        {uploading ? (
+                          <ActivityIndicator size="small" color={colors.text} />
+                        ) : (attachments && attachments.length > 0) ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <ImageIcon size={14} color={colors.text} strokeWidth={2} />
+                            <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }}>
+                              {attachments.length}
+                            </Text>
+                          </View>
+                        ) : (
+                          <ImageIcon size={17} color={colors.textSecondary} strokeWidth={1.8} />
+                        )}
+                      </TouchableOpacity>
                     </View>
                   </View>
 
@@ -743,8 +787,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                   )}
 
                   {/* Attachments Section (Always accessible for receipts and invoices) */}
-                  {(book?.settings?.showAttachments !== false) && (
-                    <View style={styles.inputGroup}>
+                  <View style={styles.inputGroup}>
                       <View style={styles.labelRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Paperclip size={13} color={colors.text} />
@@ -752,52 +795,73 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                             Attachments {attachments.length > 0 ? `(${attachments.length})` : ''}
                           </Text>
                         </View>
-                        {uploading && (
+                        {uploading ? (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <ActivityIndicator size="small" color={colors.primary} />
+                            <ActivityIndicator size="small" color={colors.text} />
                             <Text style={{ fontSize: 11, color: colors.textSecondary }}>Uploading...</Text>
                           </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={[
+                              styles.miniPlusButton,
+                              {
+                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
+                                borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : '#E2E8F0',
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                paddingHorizontal: 8,
+                              }
+                            ]}
+                            onPress={handleAddAttachmentChoice}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            activeOpacity={0.7}
+                            accessibilityLabel="Add attachment"
+                          >
+                            <ImageIcon size={13} color={colors.text} strokeWidth={1.8} />
+                            <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.text }}>Add</Text>
+                          </TouchableOpacity>
                         )}
                       </View>
 
-                      {/* Telegram-style Horizontal Media Reel: Camera & Add tiles beside Photos */}
+                      {/* Instagram-style Horizontal Media Reel: Camera & Gallery tiles beside Photos */}
                       <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
                       >
-                        {/* Camera Tile (beside photos) */}
+                        {/* Camera Tile */}
                         <TouchableOpacity
                           style={[
                             styles.telegramTile,
                             {
-                              backgroundColor: isDark ? 'rgba(99, 102, 241, 0.12)' : '#EEF2FF',
-                              borderColor: isDark ? 'rgba(99, 102, 241, 0.25)' : '#C7D2FE',
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F8FAFC',
+                              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
                             }
                           ]}
                           onPress={handleTakePhoto}
                           disabled={uploading}
                           activeOpacity={0.7}
                         >
-                          <Camera size={16} color="#6366F1" />
-                          <Text style={[styles.telegramTileText, { color: '#6366F1' }]}>Camera</Text>
+                          <Camera size={18} color={colors.text} strokeWidth={1.8} />
+                          <Text style={[styles.telegramTileText, { color: colors.text }]}>Camera</Text>
                         </TouchableOpacity>
 
-                        {/* Add Photo / Gallery Tile */}
+                        {/* Gallery / Photos Tile */}
                         <TouchableOpacity
                           style={[
                             styles.telegramTile,
                             {
-                              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
-                              borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#A7F3D0',
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F8FAFC',
+                              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
                             }
                           ]}
                           onPress={handlePickImage}
                           disabled={uploading}
                           activeOpacity={0.7}
                         >
-                          <ImageIcon size={16} color="#10B981" />
-                          <Text style={[styles.telegramTileText, { color: '#10B981' }]}>Gallery</Text>
+                          <ImageIcon size={18} color={colors.text} strokeWidth={1.8} />
+                          <Text style={[styles.telegramTileText, { color: colors.text }]}>Gallery</Text>
                         </TouchableOpacity>
 
                         {/* Attached Photo Thumbnails */}
@@ -815,7 +879,6 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                         ))}
                       </ScrollView>
                     </View>
-                  )}
 
                   <View style={{ height: 16 }} />
                 </ScrollView>
@@ -1171,5 +1234,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
     borderRadius: 8,
     padding: 2,
+  },
+  entryAttachPlusBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  miniPlusButton: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -36,12 +36,12 @@ export default function SecurityScreen() {
     }, [activeTab]);
 
     const handleRequestStorage = async () => {
-        const granted = await requestMediaLibraryPermissions();
+        const granted = await requestMediaLibraryPermissions(true);
         setStorageGranted(granted);
     };
 
     const handleRequestCamera = async () => {
-        const granted = await requestCameraPermissions();
+        const granted = await requestCameraPermissions(true);
         setCameraGranted(granted);
     };
 

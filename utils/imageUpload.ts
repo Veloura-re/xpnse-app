@@ -1,5 +1,9 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Platform, Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_PERMISSION_KEY = '@spndy_storage_permission_consent';
+const CAMERA_PERMISSION_KEY = '@spndy_camera_permission_consent';
 
 // ---------------------------------------------------------------------------
 // Cloudinary configuration
@@ -16,7 +20,7 @@ const CLOUDINARY_UPLOAD_PRESET =
   process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'spndy11';
 
 /**
- * Check active permission status for media library and camera without triggering prompts.
+ * Check active permission status for media library and camera.
  */
 export const getStoragePermissionStatus = async (): Promise<{
   mediaLibraryGranted: boolean;
@@ -26,11 +30,13 @@ export const getStoragePermissionStatus = async (): Promise<{
     if (Platform.OS === 'web') {
       return { mediaLibraryGranted: true, cameraGranted: true };
     }
+    const storedMedia = await AsyncStorage.getItem(STORAGE_PERMISSION_KEY);
+    const storedCam = await AsyncStorage.getItem(CAMERA_PERMISSION_KEY);
     const media = await ImagePicker.getMediaLibraryPermissionsAsync();
     const camera = await ImagePicker.getCameraPermissionsAsync();
     return {
-      mediaLibraryGranted: media.granted,
-      cameraGranted: camera.granted,
+      mediaLibraryGranted: storedMedia === 'granted' && media.granted,
+      cameraGranted: storedCam === 'granted' && camera.granted,
     };
   } catch (error) {
     console.error('Error checking permission status:', error);
@@ -39,21 +45,50 @@ export const getStoragePermissionStatus = async (): Promise<{
 };
 
 /**
- * Request photo library / storage permissions explicitly with device settings redirect.
+ * Request photo library / storage permissions explicitly with in-app confirmation and system checks.
  */
-export const requestMediaLibraryPermissions = async (): Promise<boolean> => {
+export const requestMediaLibraryPermissions = async (forcePrompt: boolean = false): Promise<boolean> => {
   try {
     if (Platform.OS === 'web') return true;
 
-    // Check existing permission state
-    const current = await ImagePicker.getMediaLibraryPermissionsAsync();
-    if (current.granted) return true;
+    const storedConsent = await AsyncStorage.getItem(STORAGE_PERMISSION_KEY);
 
-    // Request permission from the system
+    // If user has not yet consented or forcePrompt is true, explicitly ask for permission
+    if (!storedConsent || forcePrompt) {
+      const userApproved = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          'Storage Permission Request',
+          'spndy requires storage permission to select and attach receipt photos, invoices, and documents to your book entries.\n\nAllow spndy to access your storage?',
+          [
+            {
+              text: "Don't Allow",
+              style: 'cancel',
+              onPress: () => resolve(false),
+            },
+            {
+              text: 'Allow',
+              onPress: async () => {
+                await AsyncStorage.setItem(STORAGE_PERMISSION_KEY, 'granted');
+                resolve(true);
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      });
+
+      if (!userApproved) {
+        return false;
+      }
+    }
+
+    // Request system-level media library permission
     const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (result.granted) return true;
+    if (result.granted) {
+      return true;
+    }
 
-    // Permission was denied or cannot be asked again
+    // Permission was denied by system
     Alert.alert(
       'Storage Access Required',
       'spndy requires storage permission to select and attach receipts. Please enable photo/storage access in your device settings to continue.',
@@ -77,21 +112,50 @@ export const requestMediaLibraryPermissions = async (): Promise<boolean> => {
 };
 
 /**
- * Request camera permissions explicitly with device settings redirect.
+ * Request camera permissions explicitly with in-app confirmation and system checks.
  */
-export const requestCameraPermissions = async (): Promise<boolean> => {
+export const requestCameraPermissions = async (forcePrompt: boolean = false): Promise<boolean> => {
   try {
     if (Platform.OS === 'web') return true;
 
-    // Check existing permission state
-    const current = await ImagePicker.getCameraPermissionsAsync();
-    if (current.granted) return true;
+    const storedConsent = await AsyncStorage.getItem(CAMERA_PERMISSION_KEY);
 
-    // Request permission from the system
+    // If user has not yet consented or forcePrompt is true, explicitly ask for permission
+    if (!storedConsent || forcePrompt) {
+      const userApproved = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          'Camera Permission Request',
+          'spndy requires camera permission to capture receipt photos and invoices to attach to your book entries.\n\nAllow spndy to access your camera?',
+          [
+            {
+              text: "Don't Allow",
+              style: 'cancel',
+              onPress: () => resolve(false),
+            },
+            {
+              text: 'Allow',
+              onPress: async () => {
+                await AsyncStorage.setItem(CAMERA_PERMISSION_KEY, 'granted');
+                resolve(true);
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      });
+
+      if (!userApproved) {
+        return false;
+      }
+    }
+
+    // Request system-level camera permission
     const result = await ImagePicker.requestCameraPermissionsAsync();
-    if (result.granted) return true;
+    if (result.granted) {
+      return true;
+    }
 
-    // Permission was denied or cannot be asked again
+    // Permission was denied by system
     Alert.alert(
       'Camera Access Required',
       'spndy requires camera permission to capture receipt photos and invoices. Please enable camera access in your device settings to continue.',

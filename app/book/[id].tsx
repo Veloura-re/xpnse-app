@@ -1105,7 +1105,7 @@ export default function BookDetailScreen() {
                       </Text>
                     </View>
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                       {item.displayBalance !== undefined && (
                         <View
                           style={[
@@ -1122,44 +1122,52 @@ export default function BookDetailScreen() {
                         </View>
                       )}
 
-                      {/* Attachment pill — inside card (Always visible and accessible) */}
-                      {(book?.settings?.showAttachments !== false) && (
-                        <TouchableOpacity
-                          style={[
-                            styles.attachmentPill,
-                            {
-                              backgroundColor: (item.attachments && item.attachments.length > 0)
-                                ? (isDark ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5')
-                                : (isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9'),
-                              borderColor: (item.attachments && item.attachments.length > 0)
-                                ? (isDark ? 'rgba(16, 185, 129, 0.35)' : '#a7f3d0')
-                                : (isDark ? 'rgba(255, 255, 255, 0.14)' : '#cbd5e1'),
-                              minHeight: 22,
-                              paddingHorizontal: 7,
-                            }
-                          ]}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleOpenAttachments(item);
-                          }}
-                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                          activeOpacity={0.7}
-                        >
-                          <Paperclip
-                            size={12}
-                            color={(item.attachments && item.attachments.length > 0) ? colors.primary : colors.textSecondary}
-                          />
-                          {(item.attachments && item.attachments.length > 0) ? (
-                            <Text style={[styles.attachmentPillText, { color: colors.primary }]}>
+                      {/* Instagram-style Attachment button on card */}
+                      <TouchableOpacity
+                        style={[
+                          styles.attachmentPill,
+                          {
+                            backgroundColor: (item.attachments && item.attachments.length > 0)
+                              ? (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0')
+                              : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9'),
+                            borderColor: (item.attachments && item.attachments.length > 0)
+                              ? (isDark ? 'rgba(255, 255, 255, 0.22)' : '#CBD5E1')
+                              : (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0'),
+                            height: 26,
+                            minWidth: (item.attachments && item.attachments.length > 0) ? undefined : 26,
+                            paddingHorizontal: (item.attachments && item.attachments.length > 0) ? 7 : 0,
+                            borderRadius: 8,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleOpenAttachments(item);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        activeOpacity={0.7}
+                        accessibilityLabel="Attachments"
+                      >
+                        {(item.attachments && item.attachments.length > 0) ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3.5 }}>
+                            <ImageIcon
+                              size={12}
+                              color={colors.text}
+                              strokeWidth={2}
+                            />
+                            <Text style={[styles.attachmentPillText, { color: colors.text, fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                               {item.attachments.length}
                             </Text>
-                          ) : (
-                            <Text style={[styles.attachmentPillText, { color: colors.textSecondary, fontSize: 10 }]}>
-                              Attach
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      )}
+                          </View>
+                        ) : (
+                          <ImageIcon
+                            size={14}
+                            color={colors.textSecondary}
+                            strokeWidth={1.8}
+                          />
+                        )}
+                      </TouchableOpacity>
 
                       {(userRole === 'owner' || userRole === 'partner') && (
                         <TouchableOpacity
@@ -1513,25 +1521,26 @@ export default function BookDetailScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Telegram-style media grid: Camera & Gallery tiles beside photo thumbnails */}
+                {/* Telegram-style media grid: + Add, Camera & Gallery tiles beside photo thumbnails */}
                 <ScrollView contentContainerStyle={styles.attachGrid} showsVerticalScrollIndicator={false}>
                   {(userRole !== 'viewer') && (
                     <>
-                      {/* Camera Tile (beside photos) */}
+                      {/* Camera Tile */}
                       <TouchableOpacity
                         style={[
                           styles.attachMediaTile,
                           {
-                            backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : '#eef2ff',
-                            borderColor: isDark ? 'rgba(99,102,241,0.3)' : '#c7d2fe',
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f8fafc',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0',
+                            borderWidth: 1,
                           }
                         ]}
                         onPress={() => handleUploadAttachment('camera')}
                         disabled={isUploadingAttachment}
                         activeOpacity={0.7}
                       >
-                        <Camera size={18} color="#6366f1" />
-                        <Text style={[styles.attachMediaTileText, { color: '#6366f1' }]}>Camera</Text>
+                        <Camera size={19} color={colors.text} strokeWidth={1.8} />
+                        <Text style={[styles.attachMediaTileText, { color: colors.text }]}>Camera</Text>
                       </TouchableOpacity>
 
                       {/* Gallery Tile */}
@@ -1539,16 +1548,17 @@ export default function BookDetailScreen() {
                         style={[
                           styles.attachMediaTile,
                           {
-                            backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#ecfdf5',
-                            borderColor: isDark ? 'rgba(16,185,129,0.3)' : '#a7f3d0',
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f8fafc',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#e2e8f0',
+                            borderWidth: 1,
                           }
                         ]}
                         onPress={() => handleUploadAttachment('gallery')}
                         disabled={isUploadingAttachment}
                         activeOpacity={0.7}
                       >
-                        <ImageIcon size={18} color="#10b981" />
-                        <Text style={[styles.attachMediaTileText, { color: '#10b981' }]}>Gallery</Text>
+                        <ImageIcon size={19} color={colors.text} strokeWidth={1.8} />
+                        <Text style={[styles.attachMediaTileText, { color: colors.text }]}>Gallery</Text>
                       </TouchableOpacity>
                     </>
                   )}
@@ -1960,26 +1970,6 @@ export default function BookDetailScreen() {
                       <Text style={[styles.menuText, { color: colors.text }]}>Edit Entry</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => {
-                        if (menuEntry) {
-                          const target = menuEntry;
-                          setMenuEntry(null);
-                          handleOpenAttachments(target);
-                        }
-                      }}
-                    >
-                      <View style={[styles.menuIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5' }]}>
-                        <Paperclip size={20} color="#10b981" />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.menuText, { color: colors.text }]}>Receipts & Attachments</Text>
-                        <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' }}>
-                          {menuEntry?.attachments?.length ? `${menuEntry.attachments.length} attached receipt(s)` : 'View or upload receipts'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.menuItem}
