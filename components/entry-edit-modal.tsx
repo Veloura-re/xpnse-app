@@ -34,6 +34,7 @@ import {
   Camera,
   Trash2,
   Plus,
+  ArrowRightLeft,
   Image as ImageIcon,
 } from 'lucide-react-native';
 import { getCurrencySymbol, formatCurrency } from '@/utils/currency-utils';
@@ -72,7 +73,9 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   const [category, setCategory] = useState('');
 
   // Multi-Currency states
+  const secondaryCurrency = (book?.settings?.secondaryCurrency || '').toUpperCase();
   const [selectedCurrency, setSelectedCurrency] = useState(baseCurrency);
+  const [quotationDirection, setQuotationDirection] = useState<'base_to_quote' | 'quote_to_base'>('base_to_quote');
   const [exchangeRate, setExchangeRate] = useState(1.0);
   const [customRateText, setCustomRateText] = useState('1.0');
   const [isUserCustomRate, setIsUserCustomRate] = useState(false);
@@ -106,7 +109,21 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     setCustomRateText(formatted);
     const parsed = parseFloat(formatted);
     if (!isNaN(parsed) && parsed > 0) {
-      setExchangeRate(parsed);
+      const eff = CurrencyService.calculateEffectiveMultiplier(quotationDirection, parsed);
+      setExchangeRate(eff);
+      setIsUserCustomRate(true);
+    }
+  };
+
+  const handleSwapDirection = () => {
+    const nextDir = quotationDirection === 'base_to_quote' ? 'quote_to_base' : 'base_to_quote';
+    setQuotationDirection(nextDir);
+    const currentParsed = parseFloat(customRateText);
+    if (!isNaN(currentParsed) && currentParsed > 0) {
+      const inverted = CurrencyService.invertRate(currentParsed);
+      setCustomRateText(String(inverted));
+      const eff = CurrencyService.calculateEffectiveMultiplier(nextDir, inverted);
+      setExchangeRate(eff);
       setIsUserCustomRate(true);
     }
   };
@@ -121,6 +138,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
 
   // Determine rate: check if book has custom valuation in book.settings or fetch live
   useEffect(() => {
+    if (entry) return; // Preserve existing entry valuation if editing
     const upperSelected = selectedCurrency.toUpperCase();
     const upperBase = baseCurrency.toUpperCase();
 
@@ -128,20 +146,31 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       setExchangeRate(1.0);
       setCustomRateText('1.0');
       setIsUserCustomRate(false);
+      setQuotationDirection('quote_to_base');
     } else {
-      const bookValuation = book?.settings?.customCurrencyValuations?.[upperSelected] ?? book?.settings?.customCurrencyValuations?.[selectedCurrency];
+      const isSecondary = Boolean(secondaryCurrency && upperSelected === secondaryCurrency);
+      const secondaryValuation = isSecondary ? book?.settings?.secondaryCurrencyValuation : undefined;
+      const secondaryDir = isSecondary ? book?.settings?.preferredQuotationDirection : undefined;
+
+      const bookValuation = secondaryValuation ?? (book?.settings?.customCurrencyValuations?.[upperSelected] ?? book?.settings?.customCurrencyValuations?.[selectedCurrency]);
+
       if (bookValuation && bookValuation > 0) {
-        setExchangeRate(bookValuation);
+        const dir = secondaryDir || CurrencyService.getNaturalQuotationDirection(upperBase, upperSelected, bookValuation);
+        setQuotationDirection(dir);
         setCustomRateText(String(bookValuation));
+        setExchangeRate(CurrencyService.calculateEffectiveMultiplier(dir, bookValuation));
         setIsUserCustomRate(true);
       } else {
-        CurrencyService.getExchangeRate(upperSelected, upperBase).then((rate) => {
-          setExchangeRate(rate);
-          setCustomRateText(String(rate));
+        CurrencyService.getExchangeRate(upperBase, upperSelected).then((targetPerBase) => {
+          const dir = CurrencyService.getNaturalQuotationDirection(upperBase, upperSelected, targetPerBase);
+          setQuotationDirection(dir);
+          const displayVal = dir === 'base_to_quote' ? targetPerBase : CurrencyService.invertRate(targetPerBase);
+          setCustomRateText(String(displayVal));
+          setExchangeRate(CurrencyService.calculateEffectiveMultiplier(dir, displayVal));
         });
       }
     }
-  }, [selectedCurrency, baseCurrency, book?.settings?.customCurrencyValuations]);
+  }, [selectedCurrency, baseCurrency, secondaryCurrency, book?.settings?.secondaryCurrencyValuation, book?.settings?.preferredQuotationDirection, book?.settings?.customCurrencyValuations, entry]);
 
   useEffect(() => {
     if (entry) {
@@ -151,9 +180,25 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       const origAmt = entry.originalAmount !== undefined ? entry.originalAmount.toString() : entry.amount.toString();
       setAmount(origAmt);
       setDisplayAmount(formatWithCommas(origAmt));
+
       const entryRate = entry.exchangeRate || 1.0;
-      setExchangeRate(entryRate);
-      setCustomRateText(String(entryRate));
+      const savedDirection = entry.rateQuotationDirection || CurrencyService.getNaturalQuotationDirection(baseCurrency, curr, entryRate > 0 ? 1 / entryRate : 1.0);
+      setQuotationDirection(savedDirection);
+
+      if (entry.displayRate && entry.displayRate > 0) {
+        setCustomRateText(String(entry.displayRate));
+        setExchangeRate(entry.exchangeRate || CurrencyService.calculateEffectiveMultiplier(savedDirection, entry.displayRate));
+      } else {
+        if (savedDirection === 'base_to_quote' && entryRate > 0) {
+          const inv = CurrencyService.invertRate(entryRate);
+          setCustomRateText(String(inv));
+          setExchangeRate(entryRate);
+        } else {
+          setCustomRateText(String(entryRate));
+          setExchangeRate(entryRate);
+        }
+      }
+
       setIsUserCustomRate(Boolean(entry.isCustomRate));
       setDate(entry.date);
       setDescription(entry.description);
@@ -169,6 +214,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       setDisplayAmount('');
       setExchangeRate(1.0);
       setCustomRateText('1.0');
+      setQuotationDirection('quote_to_base');
       setIsUserCustomRate(false);
       setDate(getTodayLocal());
       setDescription('');
@@ -182,12 +228,19 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   }, [entry, visible, initialType, baseCurrency]);
 
   const rawNumericAmount = parseFloat(amount) || 0;
+  const parsedRate = parseFloat(customRateText) || 1.0;
   const convertedBaseAmount = useMemo(() => {
     if (selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()) {
       return rawNumericAmount;
     }
-    return Math.round(rawNumericAmount * exchangeRate * 100) / 100;
-  }, [rawNumericAmount, exchangeRate, selectedCurrency, baseCurrency]);
+    return CurrencyService.convertBidirectional(
+      rawNumericAmount,
+      selectedCurrency,
+      baseCurrency,
+      parsedRate,
+      quotationDirection
+    );
+  }, [rawNumericAmount, parsedRate, quotationDirection, selectedCurrency, baseCurrency]);
 
   const paymentOptions = ['Cash', 'Spndy Wallet', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Custom'];
 
@@ -248,8 +301,20 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
     }
     setDescriptionError(false);
 
-    const resolvedPaymentMode = paymentMode === 'Custom' ? customPaymentMode.trim() : paymentMode.trim();
-    const isCustomValuation = Boolean(book?.settings?.customCurrencyValuations?.[selectedCurrency]);
+    const isShowPaymentMode = book?.settings?.showPaymentMode ?? true;
+    const isShowCategory = book?.settings?.showCategory ?? true;
+    const isShowAttachments = book?.settings?.showAttachments ?? true;
+
+    const resolvedPaymentMode = isShowPaymentMode
+      ? (paymentMode === 'Custom' ? customPaymentMode.trim() : paymentMode.trim())
+      : '';
+    const resolvedCategory = isShowCategory ? category.trim() : '';
+    const resolvedAttachments = isShowAttachments ? attachments : [];
+
+    const isCustomValuation = Boolean(
+      (secondaryCurrency && selectedCurrency.toUpperCase() === secondaryCurrency) ||
+      book?.settings?.customCurrencyValuations?.[selectedCurrency]
+    );
 
     const entryData: BookEntry = {
       id: entry?.id || Date.now().toString(),
@@ -261,12 +326,14 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
       originalCurrency: selectedCurrency,
       originalAmount: rawNumericAmount,
       exchangeRate,
-      isCustomRate: isCustomValuation,
+      isCustomRate: isCustomValuation || isUserCustomRate,
+      displayRate: parsedRate,
+      rateQuotationDirection: quotationDirection,
       date,
       description: description.trim(),
       paymentMode: resolvedPaymentMode,
-      category: category.trim(),
-      attachments,
+      category: resolvedCategory,
+      attachments: resolvedAttachments,
       createdAt: entry?.createdAt || new Date().toISOString(),
     };
 
@@ -436,6 +503,100 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                       },
                     ]}
                   >
+                    {/* Quick Currency Selection Pills */}
+                    <View style={styles.quickCurrencyPillsRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.quickCurrencyPill,
+                          selectedCurrency.toUpperCase() === baseCurrency.toUpperCase() && styles.quickCurrencyPillActive,
+                          {
+                            backgroundColor: selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()
+                              ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                              : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
+                            borderColor: selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()
+                              ? colors.primary
+                              : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
+                          }
+                        ]}
+                        onPress={() => setSelectedCurrency(baseCurrency)}
+                      >
+                        <Text style={[
+                          styles.quickCurrencyPillText,
+                          {
+                            color: selectedCurrency.toUpperCase() === baseCurrency.toUpperCase() ? colors.primary : colors.text,
+                            fontFamily: getFontFamily(deviceFont, 'bold')
+                          }
+                        ]}>
+                          {baseCurrency} (Primary)
+                        </Text>
+                      </TouchableOpacity>
+
+                      {secondaryCurrency && secondaryCurrency.toUpperCase() !== baseCurrency.toUpperCase() && (
+                        <TouchableOpacity
+                          style={[
+                            styles.quickCurrencyPill,
+                            selectedCurrency.toUpperCase() === secondaryCurrency.toUpperCase() && styles.quickCurrencyPillActive,
+                            {
+                              backgroundColor: selectedCurrency.toUpperCase() === secondaryCurrency.toUpperCase()
+                                ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                                : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
+                              borderColor: selectedCurrency.toUpperCase() === secondaryCurrency.toUpperCase()
+                                ? colors.primary
+                                : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
+                            }
+                          ]}
+                          onPress={() => setSelectedCurrency(secondaryCurrency)}
+                        >
+                          <Text style={[
+                            styles.quickCurrencyPillText,
+                            {
+                              color: selectedCurrency.toUpperCase() === secondaryCurrency.toUpperCase() ? colors.primary : colors.text,
+                              fontFamily: getFontFamily(deviceFont, 'bold')
+                            }
+                          ]}>
+                            {secondaryCurrency} (Secondary)
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        style={[
+                          styles.quickCurrencyPill,
+                          selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() &&
+                          (!secondaryCurrency || selectedCurrency.toUpperCase() !== secondaryCurrency.toUpperCase()) &&
+                          styles.quickCurrencyPillActive,
+                          {
+                            backgroundColor: selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() &&
+                              (!secondaryCurrency || selectedCurrency.toUpperCase() !== secondaryCurrency.toUpperCase())
+                              ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                              : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
+                            borderColor: selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() &&
+                              (!secondaryCurrency || selectedCurrency.toUpperCase() !== secondaryCurrency.toUpperCase())
+                              ? colors.primary
+                              : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
+                          }
+                        ]}
+                        onPress={() => setCurrencyPickerVisible(true)}
+                      >
+                        <Globe size={11} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                        <Text style={[
+                          styles.quickCurrencyPillText,
+                          {
+                            color: selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() &&
+                              (!secondaryCurrency || selectedCurrency.toUpperCase() !== secondaryCurrency.toUpperCase())
+                              ? colors.primary
+                              : colors.textSecondary,
+                            fontFamily: getFontFamily(deviceFont, 'medium')
+                          }
+                        ]}>
+                          {selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() &&
+                           (!secondaryCurrency || selectedCurrency.toUpperCase() !== secondaryCurrency.toUpperCase())
+                            ? selectedCurrency
+                            : 'Other...'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
                     <View style={styles.amountInputRow}>
                       {/* Currency Selector Pill */}
                       <TouchableOpacity
@@ -485,7 +646,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                       />
                     </View>
 
-                    {/* Interactive FX Rate Multiplier Card (If foreign currency) */}
+                    {/* Interactive Bidirectional FX Rate Multiplier Card (If foreign currency) */}
                     {selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() && (
                       <View style={[
                         styles.fxRateCard,
@@ -501,34 +662,61 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                               Exchange Rate Multiplier
                             </Text>
                           </View>
-                          <TouchableOpacity
-                            onPress={async () => {
-                              try {
-                                const live = await CurrencyService.getExchangeRate(selectedCurrency, baseCurrency);
-                                setExchangeRate(live);
-                                setCustomRateText(live.toString());
-                                setIsUserCustomRate(false);
-                              } catch (e) {}
-                            }}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            style={[
-                              styles.liveRateButton,
-                              {
-                                backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
-                                borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)',
-                              }
-                            ]}
-                          >
-                            <RefreshCw size={11} color={colors.primary} style={{ marginRight: 4 }} />
-                            <Text style={[styles.liveRateButtonText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                              Live Rate
-                            </Text>
-                          </TouchableOpacity>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <TouchableOpacity
+                              onPress={handleSwapDirection}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={[
+                                styles.liveRateButton,
+                                {
+                                  backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#EFF6FF',
+                                  borderColor: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(59, 130, 246, 0.2)',
+                                }
+                              ]}
+                            >
+                              <ArrowRightLeft size={11} color="#3B82F6" style={{ marginRight: 4 }} />
+                              <Text style={[styles.liveRateButtonText, { color: '#3B82F6', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                Invert Rate
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={async () => {
+                                try {
+                                  const upperSelected = selectedCurrency.toUpperCase();
+                                  const upperBase = baseCurrency.toUpperCase();
+                                  const targetPerBase = await CurrencyService.getExchangeRate(upperBase, upperSelected);
+                                  const liveVal = quotationDirection === 'base_to_quote'
+                                    ? targetPerBase
+                                    : CurrencyService.invertRate(targetPerBase);
+                                  setCustomRateText(liveVal.toString());
+                                  const eff = CurrencyService.calculateEffectiveMultiplier(quotationDirection, liveVal);
+                                  setExchangeRate(eff);
+                                  setIsUserCustomRate(false);
+                                } catch (e) {}
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={[
+                                styles.liveRateButton,
+                                {
+                                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
+                                  borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)',
+                                }
+                              ]}
+                            >
+                              <RefreshCw size={11} color={colors.primary} style={{ marginRight: 4 }} />
+                              <Text style={[styles.liveRateButtonText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                Live Rate
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
 
                         <View style={styles.fxRateInputRow}>
                           <Text style={[styles.fxRateLabel, { color: colors.textSecondary }]}>
-                            1 {selectedCurrency} =
+                            {quotationDirection === 'base_to_quote'
+                              ? `1 ${baseCurrency} =`
+                              : `1 ${selectedCurrency} =`}
                           </Text>
                           <View style={[
                             styles.fxRateInputWrapper,
@@ -549,7 +737,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                               selectTextOnFocus={true}
                             />
                             <Text style={[styles.fxRateSuffix, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                              {baseCurrency}
+                              {quotationDirection === 'base_to_quote' ? selectedCurrency : baseCurrency}
                             </Text>
                           </View>
                         </View>
@@ -559,9 +747,16 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                           <Text style={[styles.fxCalcText, { color: colors.textSecondary }]}>
                             Converted Total:
                           </Text>
-                          <Text style={[styles.fxCalcHighlight, { color: type === 'cash_in' ? '#10B981' : '#EF4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                            {formatCurrency(convertedBaseAmount, baseCurrency)}
-                          </Text>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[styles.fxCalcHighlight, { color: type === 'cash_in' ? '#10B981' : '#EF4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                              {formatCurrency(convertedBaseAmount, baseCurrency)}
+                            </Text>
+                            {rawNumericAmount > 0 && (
+                              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2, fontFamily: 'SpaceGrotesk_600SemiBold' }}>
+                                ({formatCurrency(rawNumericAmount, selectedCurrency)})
+                              </Text>
+                            )}
+                          </View>
                         </View>
                       </View>
                     )}
@@ -786,8 +981,9 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                     </View>
                   )}
 
-                  {/* Attachments Section (Always accessible for receipts and invoices) */}
-                  <View style={styles.inputGroup}>
+                  {/* Attachments Section (If enabled) */}
+                  {(book?.settings?.showAttachments ?? true) && (
+                    <View style={styles.inputGroup}>
                       <View style={styles.labelRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Paperclip size={13} color={colors.text} />
@@ -879,6 +1075,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                         ))}
                       </ScrollView>
                     </View>
+                  )}
 
                   <View style={{ height: 16 }} />
                 </ScrollView>
@@ -1015,6 +1212,32 @@ const styles = StyleSheet.create({
   tabBtnText: {
     fontSize: 12,
     letterSpacing: 0.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  quickCurrencyPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  quickCurrencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  quickCurrencyPillActive: {
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  quickCurrencyPillText: {
+    fontSize: 11,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   amountCard: {

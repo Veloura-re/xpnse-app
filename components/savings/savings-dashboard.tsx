@@ -68,6 +68,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   const [showRequestMoney, setShowRequestMoney] = useState(false);
   const [showRoundUpModal, setShowRoundUpModal] = useState(false);
   const [showScheduledStashModal, setShowScheduledStashModal] = useState(false);
+  const [fundingTargetVault, setFundingTargetVault] = useState<SavingsVault | null>(null);
 
   const userId = user?.id || '';
   const currency = business.currency || 'USD';
@@ -265,6 +266,10 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         currency={currency}
         onRefresh={onRefresh}
         onOpenScheduledStash={() => setShowScheduledStashModal(true)}
+        onFundVault={(vault) => {
+          setFundingTargetVault(vault);
+          setShowAddMoney(true);
+        }}
       />
 
       {/* 3. Syndicate Reserve Pool (Collective Treasury) */}
@@ -399,7 +404,13 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
         businessId={business.id}
         userId={userId}
         currency={currency}
-        onClose={() => setShowAddMoney(false)}
+        vaults={vaults}
+        initialVaultId={fundingTargetVault?.id}
+        initialVaultName={fundingTargetVault?.name}
+        onClose={() => {
+          setShowAddMoney(false);
+          setFundingTargetVault(null);
+        }}
         onSuccess={onRefresh}
       />
 

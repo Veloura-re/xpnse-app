@@ -117,7 +117,7 @@ export const mockBusinesses: Business[] = [
     type: 'savings_group',
     createdAt: '2024-03-01T00:00:00Z',
     currency: 'USD',
-    groupPoolBalance: 4850,
+    groupPoolBalance: 0,
     members: mockBusinessMembers.filter(m => m.businessId === '3'),
   },
 ];

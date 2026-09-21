@@ -8,6 +8,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import { PushNotificationService } from '@/services/push-notification-service';
 
 // Configure how notifications are handled when app is in foreground
 // Only configure on native platforms (iOS/Android), not on web
@@ -214,6 +215,7 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         }
 
         try {
+            const resolvedChannelId = channelId || 'transactions';
             await Notifications.scheduleNotificationAsync({
                 content: {
                     title,
@@ -226,7 +228,7 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
                     vibrate: [0, 250, 250, 250],
                     badge: 1,
                 },
-                trigger: channelId ? ({ channelId } as any) : null,
+                trigger: Platform.OS === 'android' ? { channelId: resolvedChannelId } : null,
             });
         } catch (e) {
             console.warn('Could not schedule native notification:', e);
@@ -262,6 +264,23 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
             if (targetUserId === user?.id) {
                 setToastNotification({ id: docRef.id, ...newNotif });
             }
+
+            // Dispatch push notification to recipient device via Expo push service
+            // so device receives notification even when unopened or in background
+            const pushData = {
+                ...(notifData.data || {}),
+                ...(notifData.metadata || {}),
+                notificationId: docRef.id,
+            };
+            PushNotificationService.sendToUser(targetUserId, {
+                title: notifData.title,
+                body: notifData.message,
+                data: pushData,
+                channelId: 'transactions',
+                color: notifData.color || '#10b981',
+            }).catch((pushErr) => {
+                console.warn('Push notification delivery fallback:', pushErr);
+            });
         } catch (err) {
             console.error('Error creating notification:', err);
         }

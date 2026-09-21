@@ -49,9 +49,28 @@ const formatExchangeRate = (rate) => {
   return rate.toFixed(4);
 };
 
+// Helper to convert base amount to secondary currency
+const convertBaseToSecondary = (amountBase, rate, direction = 'base_to_quote') => {
+  if (typeof amountBase !== 'number' || isNaN(amountBase)) return 0;
+  if (!rate || rate <= 0) return 0;
+  if (direction === 'quote_to_base') {
+    return Math.round((amountBase / rate) * 100) / 100;
+  }
+  return Math.round((amountBase * rate) * 100) / 100;
+};
 
+// Helper function to format quotation string
+const formatQuotation = (base, secondary, rate, direction = 'base_to_quote') => {
+  if (!secondary || !rate) return '';
+  const numRate = Number(rate);
+  const formattedRate = numRate % 1 === 0 ? numRate.toFixed(2) : numRate.toFixed(4);
+  if (direction === 'quote_to_base') {
+    return `1 ${secondary} = ${formattedRate} ${base}`;
+  }
+  return `1 ${base} = ${formattedRate} ${secondary}`;
+};
 
-// Helper function to calculate totals for a group
+// Helper function to calculate standard totals
 const calculateGroupTotals = (entries) => {
   return entries.reduce((acc, entry) => {
     const amount = Number(entry.amount) || 0;
@@ -63,6 +82,48 @@ const calculateGroupTotals = (entries) => {
     acc.net = acc.cashIn - acc.cashOut;
     return acc;
   }, { cashIn: 0, cashOut: 0, net: 0 });
+};
+
+// Helper function to calculate dual totals for a group
+const calculateDualGroupTotals = (entries, baseCurrency, secondaryCurrency, secondaryValuation, secondaryDirection = 'base_to_quote') => {
+  let cashInBase = 0;
+  let cashOutBase = 0;
+  let cashInSec = 0;
+  let cashOutSec = 0;
+
+  entries.forEach(entry => {
+    const amtBase = Number(entry.amount) || 0;
+    const origCurr = (entry.originalCurrency || baseCurrency).toUpperCase();
+    const origAmt = typeof entry.originalAmount === 'number' && entry.originalAmount > 0
+      ? entry.originalAmount
+      : amtBase;
+
+    let amtSec = 0;
+    if (secondaryCurrency) {
+      if (origCurr === secondaryCurrency) {
+        amtSec = origAmt;
+      } else if (secondaryValuation) {
+        amtSec = convertBaseToSecondary(amtBase, secondaryValuation, secondaryDirection);
+      }
+    }
+
+    if (entry.type === 'cash_in') {
+      cashInBase += amtBase;
+      cashInSec += amtSec;
+    } else {
+      cashOutBase += amtBase;
+      cashOutSec += amtSec;
+    }
+  });
+
+  return {
+    cashIn: Math.round(cashInBase * 100) / 100,
+    cashOut: Math.round(cashOutBase * 100) / 100,
+    net: Math.round((cashInBase - cashOutBase) * 100) / 100,
+    cashInSecondary: Math.round(cashInSec * 100) / 100,
+    cashOutSecondary: Math.round(cashOutSec * 100) / 100,
+    netSecondary: Math.round((cashInSec - cashOutSec) * 100) / 100,
+  };
 };
 
 // Helper function to calculate multi-currency breakdown
@@ -174,7 +235,7 @@ const triggerWebDownload = (blobOrUrl, fileName, isBlob = true) => {
   }, 200);
 };
 
-// Enhanced Excel Export with Multi-Currency & Cross-Platform Support (Web + iOS + Android)
+// Enhanced Excel Export with Dual Currencies & Cross-Platform Support (Web + iOS + Android)
 export const exportToExcel = async (entity, entries, options = {}) => {
   try {
     const safeEntity = entity || { name: 'spndy_export' };
@@ -182,8 +243,17 @@ export const exportToExcel = async (entity, entries, options = {}) => {
 
     const isBusiness = Boolean(options.isBusiness);
     const baseCurrency = (safeEntity.currency || safeEntity.settings?.currency || 'USD').toUpperCase();
+    const secondaryCurrency = safeEntity.settings?.secondaryCurrency
+      ? safeEntity.settings.secondaryCurrency.toUpperCase()
+      : (options.secondaryCurrency ? options.secondaryCurrency.toUpperCase() : null);
+    const secondaryValuation = typeof safeEntity.settings?.secondaryCurrencyValuation === 'number' && safeEntity.settings.secondaryCurrencyValuation > 0
+      ? safeEntity.settings.secondaryCurrencyValuation
+      : (typeof options.secondaryCurrencyValuation === 'number' ? options.secondaryCurrencyValuation : null);
+    const secondaryDirection = safeEntity.settings?.preferredQuotationDirection || options.preferredQuotationDirection || 'base_to_quote';
+
     const hasForeign = hasForeignCurrencyEntries(safeEntries, baseCurrency);
     const currencyBreakdown = calculateCurrencyBreakdown(safeEntries, baseCurrency);
+    const dualTotals = calculateDualGroupTotals(safeEntries, baseCurrency, secondaryCurrency, secondaryValuation, secondaryDirection);
 
     // Main entries sheet data
     const mainData = safeEntries.map(entry => {
@@ -191,9 +261,19 @@ export const exportToExcel = async (entity, entries, options = {}) => {
       const origAmt = typeof entry.originalAmount === 'number' && entry.originalAmount > 0
         ? entry.originalAmount
         : Number(entry.amount) || 0;
+      const baseAmt = Number(entry.amount) || 0;
       const rate = typeof entry.exchangeRate === 'number' && entry.exchangeRate > 0
         ? entry.exchangeRate
-        : (origAmt > 0 ? (Number(entry.amount) / origAmt) : 1.0);
+        : (origAmt > 0 ? (baseAmt / origAmt) : 1.0);
+
+      let secAmt = null;
+      if (secondaryCurrency) {
+        if (origCurr === secondaryCurrency) {
+          secAmt = origAmt;
+        } else if (secondaryValuation) {
+          secAmt = convertBaseToSecondary(baseAmt, secondaryValuation, secondaryDirection);
+        }
+      }
 
       const row = {
         Type: entry.type === 'cash_in' ? 'Cash In' : 'Cash Out',
@@ -201,7 +281,19 @@ export const exportToExcel = async (entity, entries, options = {}) => {
         Date: entry.date || (entry.createdAt ? entry.createdAt.split('T')[0] : 'N/A'),
         Category: entry.category || '',
         'Payment Mode': entry.paymentMode || '',
+        [`Amount (${baseCurrency})`]: baseAmt,
       };
+
+      if (secondaryCurrency) {
+        row[`Amount (${secondaryCurrency})`] = secAmt !== null ? secAmt : '';
+        row['Display Rate'] = entry.displayRate || secondaryValuation || '';
+        row['Quotation'] = formatQuotation(
+          baseCurrency,
+          secondaryCurrency,
+          entry.displayRate || secondaryValuation,
+          entry.rateQuotationDirection || secondaryDirection
+        );
+      }
 
       if (hasForeign) {
         row['Original Amount'] = origAmt;
@@ -210,10 +302,15 @@ export const exportToExcel = async (entity, entries, options = {}) => {
         row['Rate Type'] = entry.isCustomRate ? 'Custom' : (origCurr === baseCurrency ? 'Base' : 'Market');
       }
 
-      row[`Amount (${baseCurrency})`] = Number(entry.amount) || 0;
-
       if (!isBusiness) {
         row[`Running Balance (${baseCurrency})`] = entry.displayBalance || 0;
+        if (secondaryCurrency && secondaryValuation) {
+          row[`Running Balance (${secondaryCurrency})`] = convertBaseToSecondary(
+            Number(entry.displayBalance) || 0,
+            secondaryValuation,
+            secondaryDirection
+          );
+        }
       }
 
       if (isBusiness && entry.bookName) {
@@ -234,16 +331,27 @@ export const exportToExcel = async (entity, entries, options = {}) => {
       { width: 13 }, // Date
       { width: 16 }, // Category
       { width: 16 }, // Payment Mode
+      { width: 18 }, // Amount Base
     ];
+
+    if (secondaryCurrency) {
+      mainCols.push({ width: 18 }); // Amount Secondary
+      mainCols.push({ width: 14 }); // Display Rate
+      mainCols.push({ width: 22 }); // Quotation
+    }
+
     if (hasForeign) {
       mainCols.push({ width: 16 }); // Original Amount
       mainCols.push({ width: 16 }); // Original Currency
       mainCols.push({ width: 14 }); // Exchange Rate
       mainCols.push({ width: 12 }); // Rate Type
     }
-    mainCols.push({ width: 20 }); // Amount
+
     if (!isBusiness) {
-      mainCols.push({ width: 20 }); // Running Balance
+      mainCols.push({ width: 20 }); // Running Balance Base
+      if (secondaryCurrency) {
+        mainCols.push({ width: 20 }); // Running Balance Secondary
+      }
     }
     if (isBusiness) {
       mainCols.push({ width: 22 }); // Book
@@ -253,8 +361,8 @@ export const exportToExcel = async (entity, entries, options = {}) => {
     mainWs['!cols'] = mainCols;
     XLSX.utils.book_append_sheet(wb, mainWs, 'Transactions');
 
-    // 2. Multi-Currency Breakdown Sheet (if foreign currencies exist or multi-currency report)
-    if (hasForeign || currencyBreakdown.length > 1) {
+    // 2. Multi-Currency Breakdown Sheet
+    if (hasForeign || currencyBreakdown.length > 1 || secondaryCurrency) {
       const currencyData = currencyBreakdown.map(item => ({
         Currency: item.currency,
         'Base Currency': item.isBase ? 'YES' : 'NO',
@@ -282,22 +390,34 @@ export const exportToExcel = async (entity, entries, options = {}) => {
       XLSX.utils.book_append_sheet(wb, currWs, 'Currency Breakdown');
     }
 
-    // 3. Metadata Sheet
-    const totals = calculateGroupTotals(safeEntries);
+    // 3. Metadata & Dual Currency Summary Sheet
     const metaData = [
       { Field: 'Entity Type', Value: isBusiness ? 'Business' : 'Book' },
       { Field: 'Entity Name', Value: safeEntity.name || 'N/A' },
-      { Field: 'Base Currency', Value: baseCurrency },
+      { Field: 'Base Primary Currency', Value: baseCurrency },
+      { Field: 'Secondary Currency', Value: secondaryCurrency || 'None configured' },
+      { Field: 'Exchange Rate Valuation', Value: secondaryCurrency && secondaryValuation ? formatQuotation(baseCurrency, secondaryCurrency, secondaryValuation, secondaryDirection) : 'N/A' },
       { Field: 'Total Transactions', Value: safeEntries.length },
-      { Field: 'Total Cash In', Value: formatCurrency(totals.cashIn, baseCurrency) },
-      { Field: 'Total Cash Out', Value: formatCurrency(totals.cashOut, baseCurrency) },
-      { Field: 'Net Balance', Value: formatCurrency(totals.net, baseCurrency) },
-      { Field: 'Multi-Currency Active', Value: hasForeign ? 'YES' : 'NO' },
-      { Field: 'Report Period', Value: options.rangeLabel || 'All Time' },
-      { Field: 'Generated At', Value: new Date().toLocaleString() },
+      { Field: `Total Cash In (${baseCurrency})`, Value: formatCurrency(dualTotals.cashIn, baseCurrency) },
+      { Field: `Total Cash Out (${baseCurrency})`, Value: formatCurrency(dualTotals.cashOut, baseCurrency) },
+      { Field: `Net Balance (${baseCurrency})`, Value: formatCurrency(dualTotals.net, baseCurrency) },
     ];
+
+    if (secondaryCurrency && secondaryValuation) {
+      metaData.push(
+        { Field: `Total Cash In (${secondaryCurrency})`, Value: formatCurrency(dualTotals.cashInSecondary, secondaryCurrency) },
+        { Field: `Total Cash Out (${secondaryCurrency})`, Value: formatCurrency(dualTotals.cashOutSecondary, secondaryCurrency) },
+        { Field: `Net Balance (${secondaryCurrency})`, Value: formatCurrency(dualTotals.netSecondary, secondaryCurrency) }
+      );
+    }
+
+    metaData.push(
+      { Field: 'Report Period', Value: options.rangeLabel || 'All Time' },
+      { Field: 'Generated At', Value: new Date().toLocaleString() }
+    );
+
     const metaWs = XLSX.utils.json_to_sheet(metaData);
-    metaWs['!cols'] = [{ width: 24 }, { width: 40 }];
+    metaWs['!cols'] = [{ width: 30 }, { width: 44 }];
     XLSX.utils.book_append_sheet(wb, metaWs, 'Report Summary');
 
     const defaultName = `${sanitizeFileName(safeEntity.name)}_financial_${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -344,7 +464,7 @@ export const exportToExcel = async (entity, entries, options = {}) => {
   }
 };
 
-// Enhanced PDF Export with Executive Financial Styling & Multi-Currency Engine
+// Enhanced PDF Export with Executive Dual-Currency Financial Design
 export const exportToPDF = async (entity, entries, options = {}) => {
   try {
     const safeEntity = entity || { name: 'spndy_export' };
@@ -352,12 +472,30 @@ export const exportToPDF = async (entity, entries, options = {}) => {
 
     const isBusiness = Boolean(options.isBusiness);
     const baseCurrency = (safeEntity.currency || safeEntity.settings?.currency || 'USD').toUpperCase();
+    const secondaryCurrency = safeEntity.settings?.secondaryCurrency
+      ? safeEntity.settings.secondaryCurrency.toUpperCase()
+      : (options.secondaryCurrency ? options.secondaryCurrency.toUpperCase() : null);
+    const secondaryValuation = typeof safeEntity.settings?.secondaryCurrencyValuation === 'number' && safeEntity.settings.secondaryCurrencyValuation > 0
+      ? safeEntity.settings.secondaryCurrencyValuation
+      : (typeof options.secondaryCurrencyValuation === 'number' ? options.secondaryCurrencyValuation : null);
+    const secondaryDirection = safeEntity.settings?.preferredQuotationDirection || options.preferredQuotationDirection || 'base_to_quote';
+
     const entityTypeLabel = isBusiness ? 'Business' : 'Book';
     const hasForeign = hasForeignCurrencyEntries(safeEntries, baseCurrency);
     const currencyBreakdown = calculateCurrencyBreakdown(safeEntries, baseCurrency);
 
-    const totals = calculateGroupTotals(safeEntries);
-    const displayBalance = isBusiness ? totals.net : (typeof safeEntity.netBalance === 'number' ? safeEntity.netBalance : totals.net);
+    const dualTotals = calculateDualGroupTotals(safeEntries, baseCurrency, secondaryCurrency, secondaryValuation, secondaryDirection);
+
+    const displayBalanceBase = isBusiness
+      ? dualTotals.net
+      : (typeof safeEntity.netBalance === 'number' ? safeEntity.netBalance : dualTotals.net);
+
+    const displayBalanceSec = secondaryCurrency && secondaryValuation
+      ? convertBaseToSecondary(displayBalanceBase, secondaryValuation, secondaryDirection)
+      : null;
+
+    const quotationString = formatQuotation(baseCurrency, secondaryCurrency, secondaryValuation, secondaryDirection);
+
     const rangeLabel = options.rangeLabel ? `Period: ${options.rangeLabel}` : 'Period: All Time';
     const generationDate = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
@@ -368,18 +506,29 @@ export const exportToPDF = async (entity, entries, options = {}) => {
     });
 
     // Helper to generate section HTML for single book export
-    const generateSectionHTML = (sectionTitle, sectionEntries, sectionTotals) => {
+    const generateSectionHTML = (sectionTitle, sectionEntries, sectionTotals, secCurr, secVal, secDir) => {
       if (!sectionEntries || sectionEntries.length === 0) return '';
+
+      const hasSec = Boolean(secCurr);
 
       const rowsHTML = sectionEntries.map(entry => {
         const origCurr = (entry.originalCurrency || baseCurrency).toUpperCase();
         const origAmt = typeof entry.originalAmount === 'number' && entry.originalAmount > 0
           ? entry.originalAmount
           : Number(entry.amount) || 0;
+        const baseAmt = Number(entry.amount) || 0;
         const rate = typeof entry.exchangeRate === 'number' && entry.exchangeRate > 0
           ? entry.exchangeRate
-          : (origAmt > 0 ? (Number(entry.amount) / origAmt) : 1.0);
-        const isConverted = origCurr !== baseCurrency;
+          : (origAmt > 0 ? (baseAmt / origAmt) : 1.0);
+
+        let secAmt = null;
+        if (hasSec) {
+          if (origCurr === secCurr) {
+            secAmt = origAmt;
+          } else if (secVal) {
+            secAmt = convertBaseToSecondary(baseAmt, secVal, secDir);
+          }
+        }
 
         const isCashIn = entry.type === 'cash_in';
         const typeBadgeBg = isCashIn ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
@@ -389,9 +538,12 @@ export const exportToPDF = async (entity, entries, options = {}) => {
         const amountSign = isCashIn ? '+' : '-';
         const amountColor = isCashIn ? '#059669' : '#DC2626';
 
+        const balanceBase = Number(entry.displayBalance) || 0;
+        const balanceSec = hasSec && secVal ? convertBaseToSecondary(balanceBase, secVal, secDir) : null;
+
         return `
           <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-            <td style="padding: 8px 10px; width: 50px;">
+            <td style="padding: 8px 10px; width: 48px;">
               <span style="display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: ${typeBadgeBg}; color: ${typeBadgeColor}; text-align: center;">
                 ${typeLabel}
               </span>
@@ -403,27 +555,25 @@ export const exportToPDF = async (entity, entries, options = {}) => {
               <div style="font-weight: 700; margin-bottom: 2px;">${entry.description || 'N/A'}</div>
               <div style="font-size: 10px; color: #64748B;">
                 ${entry.category ? `<span style="background: #F1F5F9; padding: 1px 5px; border-radius: 4px; margin-right: 4px;">${entry.category}</span>` : ''}
-                ${entry.paymentMode ? `<span>${entry.paymentMode}</span>` : ''}
+                ${entry.paymentMode ? `<span style="background: #F8FAFC; padding: 1px 5px; border-radius: 4px; border: 1px solid #E2E8F0; margin-right: 4px;">${entry.paymentMode}</span>` : ''}
                 ${isBusiness && entry.bookName ? `<span style="color: #0284C7; font-weight: 600;"> • ${entry.bookName}</span>` : ''}
               </div>
             </td>
-            ${hasForeign ? `
-            <td style="padding: 8px 10px; font-size: 11px; text-align: right; width: 125px;">
-              ${isConverted ? `
-                <div style="font-weight: 700; color: #0F172A;">${formatForeignAmount(origAmt, origCurr)}</div>
-                <div style="font-size: 9px; color: #64748B; margin-top: 1px;">
-                  Rate: ${formatExchangeRate(rate)} ${entry.isCustomRate ? '<span style="color: #D97706; font-weight: 700;">[Custom]</span>' : ''}
-                </div>
-              ` : `
-                <span style="color: #94A3B8; font-size: 11px;">-</span>
-              `}
-            </td>` : ''}
-            <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 110px;">
-              ${amountSign}${formatCurrency(Number(entry.amount) || 0, baseCurrency)}
+            <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 115px;">
+              ${amountSign}${formatCurrency(baseAmt, baseCurrency)}
             </td>
+            ${hasSec ? `
+            <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 115px;">
+              ${secAmt !== null ? `${amountSign}${formatCurrency(secAmt, secCurr)}` : '<span style="color: #94A3B8;">-</span>'}
+              ${entry.displayRate ? `<div style="font-size: 9px; color: #64748B; font-weight: 500;">Rate: ${entry.displayRate}</div>` : ''}
+            </td>` : ''}
             ${!isBusiness ? `
             <td style="padding: 8px 10px; font-size: 11px; text-align: right; font-weight: 600; color: #334155; width: 95px;">
-              ${formatCurrency(Number(entry.displayBalance) || 0, baseCurrency)}
+              ${formatCurrency(balanceBase, baseCurrency)}
+            </td>` : ''}
+            ${!isBusiness && hasSec ? `
+            <td style="padding: 8px 10px; font-size: 11px; text-align: right; font-weight: 600; color: #475569; width: 95px;">
+              ${balanceSec !== null ? formatCurrency(balanceSec, secCurr) : '-'}
             </td>` : ''}
           </tr>
         `;
@@ -446,9 +596,10 @@ export const exportToPDF = async (entity, entries, options = {}) => {
                 <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Type</th>
                 <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Date</th>
                 <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Description</th>
-                ${hasForeign ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Foreign Input</th>` : ''}
                 <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Amount (${baseCurrency})</th>
-                ${!isBusiness ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Balance</th>` : ''}
+                ${hasSec ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Amount (${secCurr})</th>` : ''}
+                ${!isBusiness ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Bal (${baseCurrency})</th>` : ''}
+                ${!isBusiness && hasSec ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Bal (${secCurr})</th>` : ''}
               </tr>
             </thead>
             <tbody>
@@ -456,28 +607,48 @@ export const exportToPDF = async (entity, entries, options = {}) => {
             </tbody>
           </table>
 
-          <div style="display: flex; justify-content: flex-end; gap: 16px; font-size: 11px; background: #F8FAFC; padding: 6px 12px; border-radius: 6px; border: 1px solid #E2E8F0;">
-            <div><span style="color: #64748B;">Inflow:</span> <strong style="color: #059669;">+${formatCurrency(sectionTotals.cashIn, baseCurrency)}</strong></div>
-            <div><span style="color: #64748B;">Outflow:</span> <strong style="color: #DC2626;">-${formatCurrency(sectionTotals.cashOut, baseCurrency)}</strong></div>
-            <div><span style="color: #64748B;">Net:</span> <strong style="color: ${sectionTotals.net >= 0 ? '#059669' : '#DC2626'};">${formatCurrency(sectionTotals.net, baseCurrency)}</strong></div>
+          <div style="display: flex; justify-content: flex-end; gap: 16px; font-size: 11px; background: #F8FAFC; padding: 8px 14px; border-radius: 6px; border: 1px solid #E2E8F0; page-break-inside: avoid;">
+            <div>
+              <span style="color: #64748B;">Inflow:</span> 
+              <strong style="color: #059669;">+${formatCurrency(sectionTotals.cashIn, baseCurrency)}</strong>
+              ${hasSec ? `<span style="color: #059669; font-size: 10px;"> (+${formatCurrency(sectionTotals.cashInSecondary, secCurr)})</span>` : ''}
+            </div>
+            <div>
+              <span style="color: #64748B;">Outflow:</span> 
+              <strong style="color: #DC2626;">-${formatCurrency(sectionTotals.cashOut, baseCurrency)}</strong>
+              ${hasSec ? `<span style="color: #DC2626; font-size: 10px;"> (-${formatCurrency(sectionTotals.cashOutSecondary, secCurr)})</span>` : ''}
+            </div>
+            <div>
+              <span style="color: #64748B;">Net:</span> 
+              <strong style="color: ${sectionTotals.net >= 0 ? '#059669' : '#DC2626'};">${formatCurrency(sectionTotals.net, baseCurrency)}</strong>
+              ${hasSec ? `<span style="color: ${sectionTotals.netSecondary >= 0 ? '#059669' : '#DC2626'}; font-size: 10px;"> (${formatCurrency(sectionTotals.netSecondary, secCurr)})</span>` : ''}
+            </div>
           </div>
         </div>
       `;
     };
 
-    // Helper for business export grouped by book ("each book then what they had")
-    const generateBookSectionHTML = (bookName, bookEntries, bookTotals) => {
+    // Helper for business export grouped by book
+    const generateBookSectionHTML = (bookName, bookEntries, bookTotals, bookBaseCurr, bookSecCurr, bookSecVal, bookSecDir) => {
       const hasEntries = bookEntries && bookEntries.length > 0;
+      const hasSec = Boolean(bookSecCurr);
+
       const rowsHTML = hasEntries
         ? bookEntries.map(entry => {
-            const origCurr = (entry.originalCurrency || baseCurrency).toUpperCase();
+            const origCurr = (entry.originalCurrency || bookBaseCurr).toUpperCase();
             const origAmt = typeof entry.originalAmount === 'number' && entry.originalAmount > 0
               ? entry.originalAmount
               : Number(entry.amount) || 0;
-            const rate = typeof entry.exchangeRate === 'number' && entry.exchangeRate > 0
-              ? entry.exchangeRate
-              : (origAmt > 0 ? (Number(entry.amount) / origAmt) : 1.0);
-            const isConverted = origCurr !== baseCurrency;
+            const baseAmt = Number(entry.amount) || 0;
+
+            let secAmt = null;
+            if (hasSec) {
+              if (origCurr === bookSecCurr) {
+                secAmt = origAmt;
+              } else if (bookSecVal) {
+                secAmt = convertBaseToSecondary(baseAmt, bookSecVal, bookSecDir);
+              }
+            }
 
             const isCashIn = entry.type === 'cash_in';
             const typeBadgeBg = isCashIn ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
@@ -489,7 +660,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
 
             return `
               <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                <td style="padding: 8px 10px; width: 50px;">
+                <td style="padding: 8px 10px; width: 48px;">
                   <span style="display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; background: ${typeBadgeBg}; color: ${typeBadgeColor}; text-align: center;">
                     ${typeLabel}
                   </span>
@@ -501,33 +672,28 @@ export const exportToPDF = async (entity, entries, options = {}) => {
                   <div style="font-weight: 700; margin-bottom: 2px;">${entry.description || 'N/A'}</div>
                   <div style="font-size: 10px; color: #64748B;">
                     ${entry.category ? `<span style="background: #F1F5F9; padding: 1px 5px; border-radius: 4px; margin-right: 4px;">${entry.category}</span>` : ''}
-                    ${entry.paymentMode ? `<span>${entry.paymentMode}</span>` : ''}
+                    ${entry.paymentMode ? `<span style="background: #F8FAFC; padding: 1px 5px; border-radius: 4px; border: 1px solid #E2E8F0;">${entry.paymentMode}</span>` : ''}
                   </div>
                 </td>
-                ${hasForeign ? `
-                <td style="padding: 8px 10px; font-size: 11px; text-align: right; width: 125px;">
-                  ${isConverted ? `
-                    <div style="font-weight: 700; color: #0F172A;">${formatForeignAmount(origAmt, origCurr)}</div>
-                    <div style="font-size: 9px; color: #64748B; margin-top: 1px;">
-                      Rate: ${formatExchangeRate(rate)} ${entry.isCustomRate ? '<span style="color: #D97706; font-weight: 700;">[Custom]</span>' : ''}
-                    </div>
-                  ` : `
-                    <span style="color: #94A3B8; font-size: 11px;">-</span>
-                  `}
-                </td>` : ''}
-                <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 110px;">
-                  ${amountSign}${formatCurrency(Number(entry.amount) || 0, baseCurrency)}
+                <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 115px;">
+                  ${amountSign}${formatCurrency(baseAmt, bookBaseCurr)}
                 </td>
+                ${hasSec ? `
+                <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 115px;">
+                  ${secAmt !== null ? `${amountSign}${formatCurrency(secAmt, bookSecCurr)}` : '<span style="color: #94A3B8;">-</span>'}
+                </td>` : ''}
               </tr>
             `;
           }).join('')
         : `
           <tr>
-            <td colspan="${hasForeign ? 5 : 4}" style="padding: 16px 10px; font-size: 11px; color: #94A3B8; text-align: center; font-style: italic;">
+            <td colspan="${hasSec ? 5 : 4}" style="padding: 16px 10px; font-size: 11px; color: #94A3B8; text-align: center; font-style: italic;">
               No transactions recorded for this book in selected period.
             </td>
           </tr>
         `;
+
+      const bookQuotation = hasSec && bookSecVal ? formatQuotation(bookBaseCurr, bookSecCurr, bookSecVal, bookSecDir) : '';
 
       return `
         <div style="margin-bottom: 26px; page-break-inside: auto;">
@@ -535,6 +701,10 @@ export const exportToPDF = async (entity, entries, options = {}) => {
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 10px; font-weight: 800; color: #059669; background: #ECFDF5; padding: 2px 8px; border-radius: 5px; letter-spacing: 0.5px; text-transform: uppercase;">BOOK</span>
               <span style="font-size: 14px; font-weight: 700; color: #0F172A;">${bookName}</span>
+              <span style="font-size: 10px; font-weight: 600; color: #64748B; background: #F1F5F9; padding: 2px 6px; border-radius: 4px;">
+                ${bookBaseCurr}${hasSec ? ` / ${bookSecCurr}` : ''}
+              </span>
+              ${bookQuotation ? `<span style="font-size: 9px; color: #0284C7; font-weight: 600;">[${bookQuotation}]</span>` : ''}
             </div>
             <div style="font-size: 11px; color: #64748B; font-weight: 600;">
               ${bookEntries.length} ${bookEntries.length === 1 ? 'transaction' : 'transactions'}
@@ -547,8 +717,8 @@ export const exportToPDF = async (entity, entries, options = {}) => {
                 <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Type</th>
                 <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Date</th>
                 <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: left;">Description</th>
-                ${hasForeign ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Foreign Input</th>` : ''}
-                <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Amount (${baseCurrency})</th>
+                <th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Amount (${bookBaseCurr})</th>
+                ${hasSec ? `<th style="padding: 7px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">Amount (${bookSecCurr})</th>` : ''}
               </tr>
             </thead>
             <tbody>
@@ -557,10 +727,22 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           </table>
 
           ${hasEntries ? `
-          <div style="display: flex; justify-content: flex-end; gap: 16px; font-size: 11px; background: #F8FAFC; padding: 6px 12px; border-radius: 6px; border: 1px solid #E2E8F0; margin-bottom: 12px; page-break-inside: avoid;">
-            <div><span style="color: #64748B;">Book Inflow:</span> <strong style="color: #059669;">+${formatCurrency(bookTotals.cashIn, baseCurrency)}</strong></div>
-            <div><span style="color: #64748B;">Book Outflow:</span> <strong style="color: #DC2626;">-${formatCurrency(bookTotals.cashOut, baseCurrency)}</strong></div>
-            <div><span style="color: #64748B;">Book Net:</span> <strong style="color: ${bookTotals.net >= 0 ? '#059669' : '#DC2626'};">${formatCurrency(bookTotals.net, baseCurrency)}</strong></div>
+          <div style="display: flex; justify-content: flex-end; gap: 16px; font-size: 11px; background: #F8FAFC; padding: 7px 14px; border-radius: 6px; border: 1px solid #E2E8F0; margin-bottom: 12px; page-break-inside: avoid;">
+            <div>
+              <span style="color: #64748B;">Book Inflow:</span> 
+              <strong style="color: #059669;">+${formatCurrency(bookTotals.cashIn, bookBaseCurr)}</strong>
+              ${hasSec ? `<span style="color: #059669; font-size: 10px;"> (+${formatCurrency(bookTotals.cashInSecondary, bookSecCurr)})</span>` : ''}
+            </div>
+            <div>
+              <span style="color: #64748B;">Book Outflow:</span> 
+              <strong style="color: #DC2626;">-${formatCurrency(bookTotals.cashOut, bookBaseCurr)}</strong>
+              ${hasSec ? `<span style="color: #DC2626; font-size: 10px;"> (-${formatCurrency(bookTotals.cashOutSecondary, bookSecCurr)})</span>` : ''}
+            </div>
+            <div>
+              <span style="color: #64748B;">Book Net:</span> 
+              <strong style="color: ${bookTotals.net >= 0 ? '#059669' : '#DC2626'};">${formatCurrency(bookTotals.net, bookBaseCurr)}</strong>
+              ${hasSec ? `<span style="color: ${bookTotals.netSecondary >= 0 ? '#059669' : '#DC2626'}; font-size: 10px;"> (${formatCurrency(bookTotals.netSecondary, bookSecCurr)})</span>` : ''}
+            </div>
           </div>
           ` : ''}
         </div>
@@ -584,7 +766,8 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           bookMap.set(key, {
             id: b.id || key,
             name: b.name || 'Unnamed Book',
-            currency: b.currency || baseCurrency,
+            currency: b.currency || b.settings?.currency || baseCurrency,
+            settings: b.settings || {},
             entries: [],
           });
         }
@@ -610,6 +793,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
             id: entry.bookId || matchedKey,
             name: entry.bookName || 'General Book',
             currency: baseCurrency,
+            settings: {},
             entries: [],
           });
         }
@@ -631,8 +815,14 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           const tB = new Date(y.date || y.createdAt).getTime() || 0;
           return tB - tA;
         });
-        const bookTotals = calculateGroupTotals(sortedEntries);
-        return generateBookSectionHTML(b.name, sortedEntries, bookTotals);
+
+        const bBaseCurr = (b.currency || baseCurrency).toUpperCase();
+        const bSecCurr = b.settings?.secondaryCurrency ? b.settings.secondaryCurrency.toUpperCase() : secondaryCurrency;
+        const bSecVal = typeof b.settings?.secondaryCurrencyValuation === 'number' ? b.settings.secondaryCurrencyValuation : secondaryValuation;
+        const bSecDir = b.settings?.preferredQuotationDirection || secondaryDirection;
+
+        const bookTotals = calculateDualGroupTotals(sortedEntries, bBaseCurr, bSecCurr, bSecVal, bSecDir);
+        return generateBookSectionHTML(b.name, sortedEntries, bookTotals, bBaseCurr, bSecCurr, bSecVal, bSecDir);
       }).join('');
     } else {
       // Single book export: all transactions sorted newest first
@@ -641,17 +831,23 @@ export const exportToPDF = async (entity, entries, options = {}) => {
         const tB = new Date(y.date || y.createdAt).getTime() || 0;
         return tB - tA;
       });
-      contentHTML = generateSectionHTML('Transactions', sortedEntries, totals);
+      contentHTML = generateSectionHTML('Transactions', sortedEntries, dualTotals, secondaryCurrency, secondaryValuation, secondaryDirection);
     }
 
     // Multi-Currency Breakdown Summary Block
     let currencySummaryHTML = '';
-    if (hasForeign || currencyBreakdown.length > 1) {
+    if (hasForeign || currencyBreakdown.length > 1 || secondaryCurrency) {
       const currRows = currencyBreakdown.map(c => {
+        const isBase = c.isBase;
+        const isSec = secondaryCurrency && c.currency === secondaryCurrency;
+        const badge = isBase 
+          ? '<span style="font-size: 9px; color: #059669; background: #ECFDF5; padding: 1px 5px; border-radius: 4px; margin-left: 4px; font-weight: 700;">BASE</span>'
+          : (isSec ? '<span style="font-size: 9px; color: #0284C7; background: #F0F9FF; padding: 1px 5px; border-radius: 4px; margin-left: 4px; font-weight: 700;">SECONDARY</span>' : '');
+
         return `
           <tr style="border-bottom: 1px solid #E2E8F0;">
             <td style="padding: 6px 10px; font-size: 11px; font-weight: 700; color: #0F172A;">
-              ${c.currency} ${c.isBase ? '<span style="font-size: 9px; color: #059669; background: #ECFDF5; padding: 1px 5px; border-radius: 4px; margin-left: 4px;">BASE</span>' : ''}
+              ${c.currency} ${badge}
             </td>
             <td style="padding: 6px 10px; font-size: 11px; text-align: right; color: #059669; font-weight: 600;">
               ${formatForeignAmount(c.totalCashInForeign, c.currency)}
@@ -663,7 +859,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
               ${formatForeignAmount(c.netForeign, c.currency)}
             </td>
             <td style="padding: 6px 10px; font-size: 11px; text-align: right; color: #475569; font-family: 'Space Grotesk', monospace;">
-              ${c.isBase ? '1.0000' : `1 ${c.currency} = ${formatExchangeRate(c.effectiveRate)} ${baseCurrency}`}
+              ${c.isBase ? '1.0000' : (isSec && secondaryValuation ? quotationString : `1 ${c.currency} = ${formatExchangeRate(c.effectiveRate)} ${baseCurrency}`)}
             </td>
             <td style="padding: 6px 10px; font-size: 11px; text-align: right; font-weight: 700; color: ${c.netBase >= 0 ? '#059669' : '#DC2626'};">
               ${formatCurrency(c.netBase, baseCurrency)}
@@ -673,19 +869,19 @@ export const exportToPDF = async (entity, entries, options = {}) => {
       }).join('');
 
       currencySummaryHTML = `
-        <div style="margin-bottom: 24px; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 10px; padding: 12px; page-break-inside: avoid;">
-          <div style="font-size: 12px; font-weight: 700; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
-            Multi-Currency Conversion Breakdown
+        <div style="margin-bottom: 24px; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 10px; padding: 14px; page-break-inside: avoid;">
+          <div style="font-size: 11px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+            Multi-Currency Valuation & Conversion Ledger
           </div>
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr style="background: #F1F5F9; border-bottom: 1.5px solid #CBD5E1;">
                 <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: left;">Currency</th>
-                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Foreign In</th>
-                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Foreign Out</th>
-                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Foreign Net</th>
-                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Effective Rate</th>
-                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Converted Total (${baseCurrency})</th>
+                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Inflow</th>
+                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Outflow</th>
+                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Net Balance</th>
+                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Valuation Rate</th>
+                <th style="padding: 6px 10px; font-size: 10px; font-weight: 700; color: #475569; text-align: right;">Valuation (${baseCurrency})</th>
               </tr>
             </thead>
             <tbody>
@@ -702,9 +898,9 @@ export const exportToPDF = async (entity, entries, options = {}) => {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>${safeEntity.name || 'spndy'} - spndy Statement</title>
+          <title>${safeEntity.name || 'spndy'} - Financial Statement</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
 
             * {
               box-sizing: border-box;
@@ -732,7 +928,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
               padding: 18px 22px;
               margin-bottom: 18px;
               position: relative;
-              border-top: 3px solid #10B981;
+              border-top: 4px solid #10B981;
             }
 
             .header-top {
@@ -789,6 +985,17 @@ export const exportToPDF = async (entity, entries, options = {}) => {
               margin-top: 1px;
             }
 
+            .rate-pill {
+              display: inline-block;
+              font-size: 10px;
+              font-weight: 700;
+              color: #38BDF8;
+              background: rgba(56, 189, 248, 0.12);
+              padding: 3px 8px;
+              border-radius: 6px;
+              margin-top: 4px;
+            }
+
             .kpi-row {
               display: grid;
               grid-template-columns: repeat(4, 1fr);
@@ -812,11 +1019,18 @@ export const exportToPDF = async (entity, entries, options = {}) => {
               margin-bottom: 2px;
             }
 
-            .kpi-value {
+            .kpi-value-primary {
               font-size: 15px;
               font-weight: 800;
               letter-spacing: -0.3px;
               margin: 0;
+            }
+
+            .kpi-value-secondary {
+              font-size: 11px;
+              font-weight: 700;
+              color: #64748B;
+              margin-top: 2px;
             }
 
             .footer-note {
@@ -832,7 +1046,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
 
             @media print {
               body {
-                padding: 15mm !important;
+                padding: 12mm !important;
               }
               .header-card, .kpi-row {
                 page-break-inside: avoid !important;
@@ -854,9 +1068,13 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           <div class="header-card">
             <div class="header-top">
               <div>
-                <div class="brand-badge">spndy</div>
+                <div class="brand-badge">SPNDY • DUAL-CURRENCY FINANCIAL LEDGER</div>
                 <h1 class="entity-title">${safeEntity.name || 'Statement'}</h1>
-                <p class="entity-subtitle">${entityTypeLabel} Statement • ${baseCurrency}</p>
+                <p class="entity-subtitle">
+                  ${entityTypeLabel} Statement • Primary Currency: <strong>${baseCurrency}</strong>
+                  ${secondaryCurrency ? ` • Secondary Currency: <strong>${secondaryCurrency}</strong>` : ''}
+                </p>
+                ${quotationString ? `<div class="rate-pill">Rate: ${quotationString}</div>` : ''}
               </div>
               <div class="meta-block">
                 <div class="meta-label">Generated On</div>
@@ -870,26 +1088,47 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           <div class="kpi-row">
             <div class="kpi-card">
               <div class="kpi-label">Closing Net Balance</div>
-              <div class="kpi-value" style="color: ${displayBalance >= 0 ? '#059669' : '#DC2626'};">
-                ${formatCurrency(displayBalance, baseCurrency)}
+              <div class="kpi-value-primary" style="color: ${displayBalanceBase >= 0 ? '#059669' : '#DC2626'};">
+                ${formatCurrency(displayBalanceBase, baseCurrency)}
               </div>
+              ${secondaryCurrency && displayBalanceSec !== null ? `
+                <div class="kpi-value-secondary" style="color: ${displayBalanceSec >= 0 ? '#059669' : '#DC2626'};">
+                  ${formatCurrency(displayBalanceSec, secondaryCurrency)}
+                </div>
+              ` : ''}
             </div>
+
             <div class="kpi-card">
               <div class="kpi-label">Total Cash In</div>
-              <div class="kpi-value" style="color: #059669;">
-                +${formatCurrency(totals.cashIn, baseCurrency)}
+              <div class="kpi-value-primary" style="color: #059669;">
+                +${formatCurrency(dualTotals.cashIn, baseCurrency)}
               </div>
+              ${secondaryCurrency ? `
+                <div class="kpi-value-secondary" style="color: #059669;">
+                  +${formatCurrency(dualTotals.cashInSecondary, secondaryCurrency)}
+                </div>
+              ` : ''}
             </div>
+
             <div class="kpi-card">
               <div class="kpi-label">Total Cash Out</div>
-              <div class="kpi-value" style="color: #DC2626;">
-                -${formatCurrency(totals.cashOut, baseCurrency)}
+              <div class="kpi-value-primary" style="color: #DC2626;">
+                -${formatCurrency(dualTotals.cashOut, baseCurrency)}
               </div>
+              ${secondaryCurrency ? `
+                <div class="kpi-value-secondary" style="color: #DC2626;">
+                  -${formatCurrency(dualTotals.cashOutSecondary, secondaryCurrency)}
+                </div>
+              ` : ''}
             </div>
+
             <div class="kpi-card">
-              <div class="kpi-label">Total Items</div>
-              <div class="kpi-value" style="color: #0F172A;">
-                ${safeEntries.length}
+              <div class="kpi-label">Ledger Telemetry</div>
+              <div class="kpi-value-primary" style="color: #0F172A;">
+                ${safeEntries.length} <span style="font-size: 11px; font-weight: 600; color: #64748B;">Items</span>
+              </div>
+              <div class="kpi-value-secondary">
+                ${baseCurrency}${secondaryCurrency ? ` & ${secondaryCurrency}` : ''}
               </div>
             </div>
           </div>
@@ -901,8 +1140,8 @@ export const exportToPDF = async (entity, entries, options = {}) => {
           </div>
 
           <div class="footer-note">
-            <div>${safeEntity.name || 'spndy'} • Financial Record</div>
-            <div>Generated by spndy</div>
+            <div>${safeEntity.name || 'spndy'} • Executive Multi-Currency Ledger</div>
+            <div>Generated securely by spndy</div>
           </div>
         </body>
       </html>
@@ -983,7 +1222,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
   }
 };
 
-// Enhanced CSV Export with Multi-Currency & Cross-Platform Support (Web + iOS + Android)
+// Enhanced CSV Export with Dual Currencies & Cross-Platform Support (Web + iOS + Android)
 export const exportToCSV = async (entity, entries, options = {}) => {
   try {
     const safeEntity = entity || { name: 'spndy_export' };
@@ -991,7 +1230,16 @@ export const exportToCSV = async (entity, entries, options = {}) => {
 
     const isBusiness = Boolean(options.isBusiness);
     const baseCurrency = (safeEntity.currency || safeEntity.settings?.currency || 'USD').toUpperCase();
+    const secondaryCurrency = safeEntity.settings?.secondaryCurrency
+      ? safeEntity.settings.secondaryCurrency.toUpperCase()
+      : (options.secondaryCurrency ? options.secondaryCurrency.toUpperCase() : null);
+    const secondaryValuation = typeof safeEntity.settings?.secondaryCurrencyValuation === 'number' && safeEntity.settings.secondaryCurrencyValuation > 0
+      ? safeEntity.settings.secondaryCurrencyValuation
+      : (typeof options.secondaryCurrencyValuation === 'number' ? options.secondaryCurrencyValuation : null);
+    const secondaryDirection = safeEntity.settings?.preferredQuotationDirection || options.preferredQuotationDirection || 'base_to_quote';
+
     const hasForeign = hasForeignCurrencyEntries(safeEntries, baseCurrency);
+    const dualTotals = calculateDualGroupTotals(safeEntries, baseCurrency, secondaryCurrency, secondaryValuation, secondaryDirection);
 
     const headers = [
       'Type',
@@ -999,7 +1247,14 @@ export const exportToCSV = async (entity, entries, options = {}) => {
       'Description',
       'Category',
       'Payment Mode',
+      `Amount (${baseCurrency})`,
     ];
+
+    if (secondaryCurrency) {
+      headers.push(`Amount (${secondaryCurrency})`);
+      headers.push('Display Rate');
+      headers.push('Quotation');
+    }
 
     if (hasForeign) {
       headers.push('Original Amount');
@@ -1008,10 +1263,11 @@ export const exportToCSV = async (entity, entries, options = {}) => {
       headers.push('Rate Type');
     }
 
-    headers.push(`Amount (${baseCurrency})`);
-
     if (!isBusiness) {
       headers.push(`Running Balance (${baseCurrency})`);
+      if (secondaryCurrency) {
+        headers.push(`Running Balance (${secondaryCurrency})`);
+      }
     }
 
     if (isBusiness) {
@@ -1023,21 +1279,53 @@ export const exportToCSV = async (entity, entries, options = {}) => {
     const metaLines = [
       ['Entity Type', isBusiness ? 'Business' : 'Book'],
       ['Entity Name', safeEntity.name || 'N/A'],
-      ['Base Currency', baseCurrency],
+      ['Base Primary Currency', baseCurrency],
+      ['Secondary Currency', secondaryCurrency || 'None'],
+    ];
+
+    if (secondaryCurrency && secondaryValuation) {
+      metaLines.push(['Valuation Rate', formatQuotation(baseCurrency, secondaryCurrency, secondaryValuation, secondaryDirection)]);
+    }
+
+    metaLines.push(
       ['Total Entries', String(safeEntries.length)],
-      ['Multi-Currency Active', hasForeign ? 'YES' : 'NO'],
+      [`Total Cash In (${baseCurrency})`, formatCurrency(dualTotals.cashIn, baseCurrency)],
+      [`Total Cash Out (${baseCurrency})`, formatCurrency(dualTotals.cashOut, baseCurrency)],
+      [`Net Balance (${baseCurrency})`, formatCurrency(dualTotals.net, baseCurrency)]
+    );
+
+    if (secondaryCurrency && secondaryValuation) {
+      metaLines.push(
+        [`Total Cash In (${secondaryCurrency})`, formatCurrency(dualTotals.cashInSecondary, secondaryCurrency)],
+        [`Total Cash Out (${secondaryCurrency})`, formatCurrency(dualTotals.cashOutSecondary, secondaryCurrency)],
+        [`Net Balance (${secondaryCurrency})`, formatCurrency(dualTotals.netSecondary, secondaryCurrency)]
+      );
+    }
+
+    metaLines.push(
+      ['Report Period', options.rangeLabel || 'All Time'],
       ['Generated At', new Date().toLocaleString()],
       []
-    ];
+    );
 
     const rows = safeEntries.map(entry => {
       const origCurr = (entry.originalCurrency || baseCurrency).toUpperCase();
       const origAmt = typeof entry.originalAmount === 'number' && entry.originalAmount > 0
         ? entry.originalAmount
         : Number(entry.amount) || 0;
+      const baseAmt = Number(entry.amount) || 0;
       const rate = typeof entry.exchangeRate === 'number' && entry.exchangeRate > 0
         ? entry.exchangeRate
-        : (origAmt > 0 ? (Number(entry.amount) / origAmt) : 1.0);
+        : (origAmt > 0 ? (baseAmt / origAmt) : 1.0);
+
+      let secAmt = null;
+      if (secondaryCurrency) {
+        if (origCurr === secondaryCurrency) {
+          secAmt = origAmt;
+        } else if (secondaryValuation) {
+          secAmt = convertBaseToSecondary(baseAmt, secondaryValuation, secondaryDirection);
+        }
+      }
 
       const rowValues = [
         entry.type === 'cash_in' ? 'Cash In' : 'Cash Out',
@@ -1045,7 +1333,19 @@ export const exportToCSV = async (entity, entries, options = {}) => {
         entry.description || 'N/A',
         entry.category || '',
         entry.paymentMode || '',
+        baseAmt,
       ];
+
+      if (secondaryCurrency) {
+        rowValues.push(secAmt !== null ? secAmt : '');
+        rowValues.push(entry.displayRate || secondaryValuation || '');
+        rowValues.push(formatQuotation(
+          baseCurrency,
+          secondaryCurrency,
+          entry.displayRate || secondaryValuation,
+          entry.rateQuotationDirection || secondaryDirection
+        ));
+      }
 
       if (hasForeign) {
         rowValues.push(origAmt);
@@ -1054,10 +1354,11 @@ export const exportToCSV = async (entity, entries, options = {}) => {
         rowValues.push(entry.isCustomRate ? 'Custom' : (origCurr === baseCurrency ? 'Base' : 'Market'));
       }
 
-      rowValues.push(Number(entry.amount) || 0);
-
       if (!isBusiness) {
         rowValues.push(Number(entry.displayBalance) || 0);
+        if (secondaryCurrency && secondaryValuation) {
+          rowValues.push(convertBaseToSecondary(Number(entry.displayBalance) || 0, secondaryValuation, secondaryDirection));
+        }
       }
 
       if (isBusiness) {

@@ -138,7 +138,11 @@ export function RecurringRuleModal({
       setExchangeRate(1.0);
       setCustomRateText('1.0');
     } else {
-      const bookVal = selectedBook?.settings?.customCurrencyValuations?.[upperCurr] ?? selectedBook?.settings?.customCurrencyValuations?.[currency];
+      let bookVal = selectedBook?.settings?.customCurrencyValuations?.[upperCurr] ?? selectedBook?.settings?.customCurrencyValuations?.[currency];
+      if (!bookVal && selectedBook?.settings?.secondaryCurrency && selectedBook.settings.secondaryCurrency.toUpperCase() === upperCurr && selectedBook.settings.secondaryCurrencyValuation) {
+        const dir = selectedBook.settings.preferredQuotationDirection || 'base_to_quote';
+        bookVal = CurrencyService.calculateEffectiveMultiplier(dir, selectedBook.settings.secondaryCurrencyValuation);
+      }
       if (bookVal && bookVal > 0) {
         setExchangeRate(bookVal);
         setCustomRateText(bookVal.toString());

@@ -34,6 +34,7 @@ import {
   CreditCard,
   Tag,
   Paperclip,
+  ArrowRightLeft,
 } from 'lucide-react-native';
 import { Book, RecurringRule } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
@@ -74,6 +75,14 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Secondary Primary Currency states
+  const [secondaryCurrency, setSecondaryCurrency] = useState<string | null>(null);
+  const [secondaryPickerVisible, setSecondaryPickerVisible] = useState(false);
+  const [secondaryValuation, setSecondaryValuation] = useState<number | undefined>(undefined);
+  const [rawSecondaryValuation, setRawSecondaryValuation] = useState<string>('');
+  const [secondaryQuotationDirection, setSecondaryQuotationDirection] = useState<'base_to_quote' | 'quote_to_base'>('base_to_quote');
+  const [secondaryLiveRate, setSecondaryLiveRate] = useState<number | null>(null);
+
   // Settings toggles (default to enabled)
   const [showPaymentMode, setShowPaymentMode] = useState(true);
   const [showCategory, setShowCategory] = useState(true);
@@ -87,6 +96,25 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
     if (book) {
       const currentBookCurr = (book.currency || book.settings?.currency || currentBusiness?.currency || 'USD').toUpperCase();
       setSelectedBookCurrency(currentBookCurr);
+
+      const secCurr = book.settings?.secondaryCurrency ? book.settings.secondaryCurrency.toUpperCase() : null;
+      setSecondaryCurrency(secCurr);
+      const secVal = book.settings?.secondaryCurrencyValuation;
+      setSecondaryValuation(secVal);
+      setRawSecondaryValuation(secVal !== undefined ? String(secVal) : '');
+      const secDir = book.settings?.preferredQuotationDirection || 'base_to_quote';
+      setSecondaryQuotationDirection(secDir);
+
+      if (secCurr && secCurr !== currentBookCurr) {
+        CurrencyService.getExchangeRate(currentBookCurr, secCurr).then((targetPerBase) => {
+          setSecondaryLiveRate(targetPerBase);
+          if (secVal === undefined) {
+            const displayVal = secDir === 'base_to_quote' ? targetPerBase : CurrencyService.invertRate(targetPerBase);
+            setSecondaryValuation(displayVal);
+            setRawSecondaryValuation(String(displayVal));
+          }
+        });
+      }
 
       setShowPaymentMode(book.settings?.showPaymentMode ?? true);
       setShowCategory(book.settings?.showCategory ?? true);
@@ -139,12 +167,92 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
     const upper = newCode.toUpperCase();
     setSelectedBookCurrency(upper);
     setBaseCurrencyPickerVisible(false);
+    if (secondaryCurrency === upper) {
+      setSecondaryCurrency(null);
+      setSecondaryValuation(undefined);
+      setRawSecondaryValuation('');
+      setSecondaryLiveRate(null);
+    }
     const updatedTracked = trackedCurrencies.filter(c => c !== upper);
     setTrackedCurrencies(updatedTracked);
     fetchLiveRates(updatedTracked, upper);
     if (Platform.OS !== 'web') {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (e) {}
+    }
+  };
+
+  const handleSelectSecondaryCurrency = async (currencyCode: string) => {
+    const upper = currencyCode.toUpperCase();
+    if (upper === selectedBookCurrency) {
+      Alert.alert('Invalid Selection', 'Secondary currency cannot be the same as the Primary currency.');
+      return;
+    }
+    setSecondaryCurrency(upper);
+    setSecondaryPickerVisible(false);
+
+    try {
+      const targetPerBase = await CurrencyService.getExchangeRate(selectedBookCurrency, upper);
+      const naturalDir = CurrencyService.getNaturalQuotationDirection(selectedBookCurrency, upper, targetPerBase);
+      setSecondaryQuotationDirection(naturalDir);
+      const displayVal = naturalDir === 'base_to_quote' ? targetPerBase : CurrencyService.invertRate(targetPerBase);
+      setSecondaryLiveRate(targetPerBase);
+      setSecondaryValuation(displayVal);
+      setRawSecondaryValuation(String(displayVal));
+    } catch (e) {
+      console.warn('Failed to fetch secondary live rate', e);
+    }
+  };
+
+  const handleSecondaryRateChange = (text: string) => {
+    const sanitized = text.replace(/[^0-9.]/g, '');
+    const parts = sanitized.split('.');
+    const formatted = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : sanitized;
+    setRawSecondaryValuation(formatted);
+    const parsed = parseFloat(formatted);
+    if (!isNaN(parsed) && parsed > 0) {
+      setSecondaryValuation(parsed);
+    } else {
+      setSecondaryValuation(undefined);
+    }
+  };
+
+  const handleSwapSecondaryDirection = () => {
+    const nextDir = secondaryQuotationDirection === 'base_to_quote' ? 'quote_to_base' : 'base_to_quote';
+    setSecondaryQuotationDirection(nextDir);
+    const parsed = parseFloat(rawSecondaryValuation);
+    if (!isNaN(parsed) && parsed > 0) {
+      const inverted = CurrencyService.invertRate(parsed);
+      setRawSecondaryValuation(String(inverted));
+      setSecondaryValuation(inverted);
+    }
+  };
+
+  const handleResetSecondaryToLive = async () => {
+    if (!secondaryCurrency) return;
+    try {
+      const targetPerBase = await CurrencyService.getExchangeRate(selectedBookCurrency, secondaryCurrency);
+      setSecondaryLiveRate(targetPerBase);
+      const displayVal = secondaryQuotationDirection === 'base_to_quote' ? targetPerBase : CurrencyService.invertRate(targetPerBase);
+      setSecondaryValuation(displayVal);
+      setRawSecondaryValuation(String(displayVal));
+      if (Platform.OS !== 'web') {
+        try {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch (e) {}
+      }
+    } catch (e) {}
+  };
+
+  const handleRemoveSecondaryCurrency = () => {
+    setSecondaryCurrency(null);
+    setSecondaryValuation(undefined);
+    setRawSecondaryValuation('');
+    setSecondaryLiveRate(null);
+    if (Platform.OS !== 'web') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch (e) {}
     }
   };
@@ -253,9 +361,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
           showCategory,
           showAttachments,
           currency: selectedBookCurrency,
-          enableMultiCurrency: trackedCurrencies.length > 0,
+          enableMultiCurrency: trackedCurrencies.length > 0 || Boolean(secondaryCurrency),
           customCurrencyValuations: finalValuations,
           trackedCurrencies,
+          secondaryCurrency: secondaryCurrency || undefined,
+          secondaryCurrencyValuation: secondaryValuation !== undefined && secondaryValuation > 0 ? secondaryValuation : (secondaryLiveRate || undefined),
+          preferredQuotationDirection: secondaryQuotationDirection,
         },
       });
       if (Platform.OS !== 'web') {
@@ -435,6 +546,197 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                       All ledger totals and analytics are anchored in {selectedBookCurrency}. Tap here to change primary currency, or value foreign currencies below.
                     </Text>
                   </TouchableOpacity>
+
+                  {/* Section: Secondary Primary Currency (Dual-Currency Mode) */}
+                  <View style={[styles.sectionHeaderRow, { marginTop: 10 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Layers size={15} color={colors.primary} />
+                      <Text
+                        style={[
+                          styles.sectionTitle,
+                          { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') },
+                        ]}
+                      >
+                        Secondary Primary Currency
+                      </Text>
+                    </View>
+                    {secondaryCurrency && (
+                      <TouchableOpacity
+                        onPress={handleRemoveSecondaryCurrency}
+                        style={{ paddingHorizontal: 6, paddingVertical: 2 }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={{ fontSize: 11, color: '#EF4444', fontFamily: 'SpaceGrotesk_700Bold' }}>
+                          Remove
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {!secondaryCurrency ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.addCurrBtn,
+                        {
+                          borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#CBD5E1',
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC',
+                          marginBottom: 16,
+                          borderStyle: 'dashed',
+                        },
+                      ]}
+                      onPress={() => setSecondaryPickerVisible(true)}
+                    >
+                      <Plus size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                      <Text
+                        style={[
+                          styles.addCurrBtnText,
+                          { color: colors.primary, fontFamily: getFontFamily(deviceFont, 'bold') },
+                        ]}
+                      >
+                        Enable Secondary Primary Currency (e.g. ETB, EUR, GBP)
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={[
+                        styles.currencyCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF',
+                          borderColor: colors.primary,
+                          marginBottom: 16,
+                        },
+                      ]}
+                    >
+                      <View style={styles.currencyCardTop}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                          <View
+                            style={[
+                              styles.currSymbolBox,
+                              { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5' },
+                            ]}
+                          >
+                            <Text style={[styles.currSymbolText, { color: colors.primary }]}>
+                              {getCurrencySymbol(secondaryCurrency)}
+                            </Text>
+                          </View>
+                          <View style={{ marginLeft: 10 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text
+                                style={[
+                                  styles.currCodeText,
+                                  { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') },
+                                ]}
+                              >
+                                {secondaryCurrency}
+                              </Text>
+                              <View
+                                style={{
+                                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : '#D1FAE5',
+                                  paddingHorizontal: 6,
+                                  paddingVertical: 1,
+                                  borderRadius: 4,
+                                }}
+                              >
+                                <Text style={{ fontSize: 9, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                                  DUAL PRIMARY
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.currNameText, { color: colors.textSecondary }]} numberOfLines={1}>
+                              {CURRENCIES.find(c => c.code === secondaryCurrency)?.name || secondaryCurrency}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <TouchableOpacity
+                            onPress={() => setSecondaryPickerVisible(true)}
+                            style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 6,
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
+                            }}
+                          >
+                            <Text style={{ fontSize: 11, color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                              Change
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Directional Rate Input Row */}
+                      <View style={styles.rateInputRow}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={[styles.inputFieldLabel, { color: colors.textSecondary }]}>
+                              Book Valuation Peg
+                            </Text>
+                            <TouchableOpacity
+                              onPress={handleSwapSecondaryDirection}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                              <ArrowRightLeft size={11} color="#3B82F6" />
+                              <Text style={{ fontSize: 10, color: '#3B82F6', fontFamily: 'SpaceGrotesk_700Bold' }}>
+                                Invert Rate
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                              {secondaryQuotationDirection === 'base_to_quote'
+                                ? `1 ${selectedBookCurrency} =`
+                                : `1 ${secondaryCurrency} =`}
+                            </Text>
+                            <View
+                              style={[
+                                styles.rateInputWrapper,
+                                {
+                                  flex: 1,
+                                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F8FAFC',
+                                  borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#CBD5E1',
+                                },
+                              ]}
+                            >
+                              <TextInput
+                                style={[styles.rateInput, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}
+                                value={rawSecondaryValuation}
+                                onChangeText={handleSecondaryRateChange}
+                                keyboardType="numeric"
+                                placeholder={secondaryLiveRate ? String(secondaryLiveRate) : '1.0'}
+                                placeholderTextColor={colors.textSecondary}
+                                selectTextOnFocus={true}
+                              />
+                              <Text style={[styles.baseSuffix, { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                {secondaryQuotationDirection === 'base_to_quote' ? secondaryCurrency : selectedBookCurrency}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.resetBtn,
+                            {
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9',
+                              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
+                              alignSelf: 'flex-end',
+                            },
+                          ]}
+                          onPress={handleResetSecondaryToLive}
+                        >
+                          <Text style={[styles.resetBtnText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                            Sync Live
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 6, lineHeight: 15 }}>
+                        Both {selectedBookCurrency} and {secondaryCurrency} balances will be shown side-by-side in your book header and quick pills during transaction entry.
+                      </Text>
+                    </View>
+                  )}
 
                   {/* Section: Valued Foreign Currencies */}
                   <View style={styles.sectionHeaderRow}>
@@ -913,6 +1215,15 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
         onSelect={handleSelectBaseCurrency}
         selectedCurrency={selectedBookCurrency}
         title="Select Base Ledger Currency"
+      />
+
+      {/* Secondary Primary Currency Picker Modal */}
+      <CurrencyPickerModal
+        visible={secondaryPickerVisible}
+        onClose={() => setSecondaryPickerVisible(false)}
+        onSelect={handleSelectSecondaryCurrency}
+        selectedCurrency={secondaryCurrency || selectedBookCurrency}
+        title="Select Secondary Primary Currency"
       />
 
       {/* World Currency Picker Modal */}

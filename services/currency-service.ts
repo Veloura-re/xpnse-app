@@ -177,6 +177,75 @@ export class CurrencyService {
   }
 
   /**
+   * Automatically determines the most natural whole-number quotation direction
+   * (e.g. for USD and ETB, 'base_to_quote' yields 1 USD = 128 ETB instead of 1 ETB = 0.0078 USD).
+   */
+  static getNaturalQuotationDirection(
+    baseCurrency: string,
+    targetCurrency: string,
+    marketRateTargetPerBase?: number
+  ): 'base_to_quote' | 'quote_to_base' {
+    const base = (baseCurrency || 'USD').toUpperCase();
+    const target = (targetCurrency || 'USD').toUpperCase();
+    if (base === target) return 'quote_to_base';
+
+    if (marketRateTargetPerBase !== undefined && marketRateTargetPerBase > 0) {
+      return marketRateTargetPerBase >= 1.0 ? 'base_to_quote' : 'quote_to_base';
+    }
+
+    const baseVal = STATIC_FALLBACK_RATES[base] || 1.0;
+    const targetVal = STATIC_FALLBACK_RATES[target] || 1.0;
+    // Higher fallback value against USD means lower unit value currency
+    return targetVal >= baseVal ? 'base_to_quote' : 'quote_to_base';
+  }
+
+  /**
+   * Inverts an exchange rate cleanly avoiding precision artifacts.
+   */
+  static invertRate(rate: number): number {
+    if (!rate || isNaN(rate) || rate <= 0) return 1.0;
+    const inverted = 1 / rate;
+    // Format up to 6 decimal places, removing unnecessary trailing zeroes
+    return parseFloat(inverted.toFixed(6));
+  }
+
+  /**
+   * Computes the mathematical base multiplier from user quotation rate.
+   * If direction is 'base_to_quote' (e.g. 1 USD = 128 ETB), multiplier to convert ETB to USD is 1 / 128.
+   * If direction is 'quote_to_base' (e.g. 1 EUR = 1.08 USD), multiplier to convert EUR to USD is 1.08.
+   */
+  static calculateEffectiveMultiplier(
+    direction: 'base_to_quote' | 'quote_to_base',
+    displayRate: number
+  ): number {
+    const validRate = isNaN(displayRate) || displayRate <= 0 ? 1.0 : displayRate;
+    if (direction === 'base_to_quote') {
+      return 1 / validRate;
+    }
+    return validRate;
+  }
+
+  /**
+   * Converts foreign amount to base amount cleanly using bidirectional rate.
+   */
+  static convertBidirectional(
+    amount: number,
+    fromCurrency: string,
+    baseCurrency: string,
+    displayRate: number,
+    direction: 'base_to_quote' | 'quote_to_base'
+  ): number {
+    if (isNaN(amount) || amount === 0) return 0;
+    if (fromCurrency.toUpperCase() === baseCurrency.toUpperCase()) return amount;
+    const validRate = isNaN(displayRate) || displayRate <= 0 ? 1.0 : displayRate;
+
+    if (direction === 'base_to_quote') {
+      return Math.round((amount / validRate) * 100) / 100;
+    }
+    return Math.round((amount * validRate) * 100) / 100;
+  }
+
+  /**
    * Returns popular currencies for fast pickers
    */
   static getPopular(): Currency[] {

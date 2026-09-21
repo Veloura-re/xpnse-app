@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import {
     View,
     Text,
+    Image,
     StyleSheet,
     TouchableOpacity,
     Platform,
@@ -17,6 +18,7 @@ import Animated, {
     interpolate,
     Extrapolation,
     withSequence,
+    Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -144,11 +146,11 @@ export function DynamicIslandNotification({ notification, onDismiss }: Props) {
 
     const dismiss = useCallback(() => {
         clearTimer();
-        progress.value = withTiming(0, { duration: 280 });
-        opacity.value  = withDelay(80, withTiming(0, { duration: 200 }));
-        scale.value    = withTiming(0.5, { duration: 280 });
+        progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) });
+        opacity.value  = withTiming(0, { duration: 180, easing: Easing.in(Easing.cubic) });
+        scale.value    = withTiming(0.85, { duration: 220, easing: Easing.in(Easing.cubic) });
         // Call parent after animation
-        setTimeout(onDismiss, 360);
+        setTimeout(onDismiss, 240);
     }, [onDismiss]);
 
     const handlePress = useCallback(() => {
@@ -186,31 +188,20 @@ export function DynamicIslandNotification({ notification, onDismiss }: Props) {
 
         clearTimer();
 
-        // Entrance: pop in from Dynamic Island position
-        opacity.value  = withTiming(1, { duration: 160 });
-        scale.value    = withSpring(1, { damping: 18, stiffness: 300 });
-        progress.value = withSpring(1, { damping: 20, stiffness: 220 });
+        // Entrance: sleek, smooth slide and expansion without bouncing or wiggle
+        opacity.value  = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+        scale.value    = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+        progress.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
+        wiggle.value   = 0;
 
-        // Celebratory haptics for milestones, standard pop for other events
+        // Subtle haptic response
         if (Platform.OS !== 'web') {
             if (notification.type === 'vault_milestone') {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } else {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }
         }
-
-        // Wiggle after expanding
-        wiggle.value = withDelay(
-            380,
-            withSequence(
-                withTiming(4, { duration: 60 }),
-                withTiming(-4, { duration: 60 }),
-                withTiming(3, { duration: 50 }),
-                withTiming(-3, { duration: 50 }),
-                withTiming(0, { duration: 40 })
-            )
-        );
 
         // Auto dismiss
         dismissTimer.current = setTimeout(dismiss, AUTO_DISMISS_MS);
@@ -247,7 +238,6 @@ export function DynamicIslandNotification({ notification, onDismiss }: Props) {
             opacity: opacity.value,
             transform: [
                 { scale: scale.value },
-                { translateX: wiggle.value },
             ],
         };
     });
@@ -290,9 +280,16 @@ export function DynamicIslandNotification({ notification, onDismiss }: Props) {
 
                     {/* Expanded content */}
                     <Animated.View style={[styles.expandedContent, iconContainerStyle]}>
-                        {/* Icon */}
-                        <View style={[styles.iconBg, { backgroundColor: bg }]}>
-                            <Icon size={20} color={color} strokeWidth={2.2} />
+                        {/* App Logo with Type Indicator Badge */}
+                        <View style={styles.logoAndIconWrapper}>
+                            <Image
+                                source={require('@/assets/images/cashbook-icon.png')}
+                                style={styles.appLogo}
+                                resizeMode="cover"
+                            />
+                            <View style={[styles.iconBadge, { backgroundColor: bg }]}>
+                                <Icon size={12} color={color} strokeWidth={2.4} />
+                            </View>
                         </View>
 
                         {/* Text */}
@@ -357,6 +354,32 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         gap: 12,
         width: '100%',
+    },
+    logoAndIconWrapper: {
+        position: 'relative',
+        width: 42,
+        height: 42,
+        flexShrink: 0,
+    },
+    appLogo: {
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: '#1e293b',
+    },
+    iconBadge: {
+        position: 'absolute',
+        bottom: -3,
+        right: -3,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+        borderColor: '#0f172a',
     },
     iconBg: {
         width: 42,

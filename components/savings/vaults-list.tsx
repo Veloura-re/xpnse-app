@@ -32,6 +32,8 @@ import {
   Calendar,
   Clock,
   Check,
+  CreditCard,
+  ChevronRight,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/providers/theme-provider';
@@ -53,6 +55,7 @@ interface VaultsListProps {
   currency?: string;
   onRefresh: () => void;
   onOpenScheduledStash?: () => void;
+  onFundVault?: (vault: SavingsVault) => void;
 }
 
 const QUICK_AMOUNTS = [25, 50, 100];
@@ -75,6 +78,7 @@ export const VaultsList: React.FC<VaultsListProps> = ({
   currency = 'USD',
   onRefresh,
   onOpenScheduledStash,
+  onFundVault,
 }) => {
   const { colors, isDark } = useTheme();
 
@@ -764,6 +768,25 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                     <Text style={styles.podBtnPrimaryText}>Add Funds</Text>
                   </TouchableOpacity>
 
+                  {onFundVault && (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => onFundVault(vault)}
+                      style={[
+                        styles.podBtnFundReal,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(56, 189, 248, 0.14)'
+                            : '#f0f9ff',
+                          borderColor: 'rgba(56, 189, 248, 0.35)',
+                        },
+                      ]}
+                    >
+                      <CreditCard size={12} color="#38bdf8" strokeWidth={2} />
+                      <Text style={styles.podBtnFundRealText}>Direct Fund</Text>
+                    </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => {
@@ -1081,6 +1104,51 @@ export const VaultsList: React.FC<VaultsListProps> = ({
                   )}
                 </Text>
               </View>
+
+              {/* Direct Real-Money Funding Shortcut */}
+              {actionType === 'deposit' && onFundVault && activeVault && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const vaultToFund = activeVault;
+                    setActiveVault(null);
+                    onFundVault(vaultToFund);
+                  }}
+                  style={[
+                    styles.directFundPrompt,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(56, 189, 248, 0.1)'
+                        : '#f0f9ff',
+                      borderColor: isDark
+                        ? 'rgba(56, 189, 248, 0.25)'
+                        : 'rgba(56, 189, 248, 0.35)',
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.directFundIconPod,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(56, 189, 248, 0.18)'
+                          : 'rgba(56, 189, 248, 0.12)',
+                      },
+                    ]}
+                  >
+                    <CreditCard size={15} color="#38bdf8" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.directFundPromptTitle, { color: colors.text }]}>
+                      Deposit with Real Money
+                    </Text>
+                    <Text style={[styles.directFundPromptSubtitle, { color: colors.textSecondary }]}>
+                      Fund directly via Card, Bank Transfer, or Mobile Money
+                    </Text>
+                  </View>
+                  <ChevronRight size={15} color="#38bdf8" />
+                </TouchableOpacity>
+              )}
 
               {/* Amount Input */}
               <View
@@ -1483,6 +1551,46 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'SpaceGrotesk_700Bold',
     color: '#10B981',
+  },
+  podBtnFundReal: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 11,
+    borderWidth: 1,
+  },
+  podBtnFundRealText: {
+    fontSize: 11.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    color: '#38bdf8',
+  },
+  directFundPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  directFundIconPod: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  directFundPromptTitle: {
+    fontSize: 12.5,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  directFundPromptSubtitle: {
+    fontSize: 10.5,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    marginTop: 1,
   },
   podBtnSecondary: {
     flex: 1,

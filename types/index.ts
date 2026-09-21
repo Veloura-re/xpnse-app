@@ -324,6 +324,9 @@ export interface BookSettings {
   enableMultiCurrency?: boolean;
   customCurrencyValuations?: Record<string, number>;
   trackedCurrencies?: string[];
+  secondaryCurrency?: string;
+  secondaryCurrencyValuation?: number;
+  preferredQuotationDirection?: 'base_to_quote' | 'quote_to_base';
 }
 
 export interface BookEntry {
@@ -347,6 +350,8 @@ export interface BookEntry {
   originalAmount?: number;
   exchangeRate?: number;
   isCustomRate?: boolean;
+  displayRate?: number;
+  rateQuotationDirection?: 'base_to_quote' | 'quote_to_base';
   // Recurring rule linkage
   recurringRuleId?: string;
 }

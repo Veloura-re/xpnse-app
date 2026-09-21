@@ -195,20 +195,57 @@ class ReactiveSavingsStore {
       const cached = await AsyncStorage.getItem(storageKey);
       if (cached) {
         const parsed = JSON.parse(cached);
+
+        // Detect and sanitize legacy fake demo seed data:
+        const hasLegacyFakeVaults =
+          Array.isArray(parsed.vaults) &&
+          parsed.vaults.some(
+            (v: any) =>
+              v.id === `vault_${bizId}_emergency` ||
+              v.id === `vault_${bizId}_tax` ||
+              v.id === `vault_${bizId}_tech`
+          );
+        const hasLegacyFakeAccount =
+          parsed.account &&
+          (parsed.account.mainBalance === 1250 ||
+            (parsed.account.lockedSavingsBalance === 4050 && hasLegacyFakeVaults));
+
+        if (hasLegacyFakeVaults || hasLegacyFakeAccount) {
+          await AsyncStorage.removeItem(storageKey);
+          this.seedDefaultState(bizId, userId, currency);
+          return;
+        }
+
         if (parsed.account) this.state.accounts[key] = parsed.account;
         if (parsed.vaults) this.state.vaults[key] = parsed.vaults;
-        if (parsed.transactions) this.state.transactions[key] = parsed.transactions;
+        if (parsed.transactions) {
+          this.state.transactions[key] = parsed.transactions.filter(
+            (tx: any) => !tx.id?.startsWith(`tx_${bizId}_`)
+          );
+        }
         if (parsed.incomingTransfers) this.state.incomingTransfers[key] = parsed.incomingTransfers;
         if (parsed.outgoingTransfers) this.state.outgoingTransfers[key] = parsed.outgoingTransfers;
-        if (parsed.moneyRequests) this.state.moneyRequests[bizId || 'default'] = parsed.moneyRequests;
-        if (parsed.scheduledStashRules) this.state.scheduledStashRules[key] = parsed.scheduledStashRules;
-        if (parsed.groupPoolBalance !== undefined) this.state.groupPoolBalances[bizId || 'default'] = parsed.groupPoolBalance;
+        if (parsed.moneyRequests) {
+          this.state.moneyRequests[bizId || 'default'] = parsed.moneyRequests.filter(
+            (r: any) => !r.id?.startsWith(`req_${bizId}_`)
+          );
+        }
+        if (parsed.scheduledStashRules) {
+          this.state.scheduledStashRules[key] = parsed.scheduledStashRules.filter(
+            (s: any) => !s.id?.startsWith(`stash_${bizId}_`)
+          );
+        }
+        if (parsed.groupPoolBalance !== undefined && parsed.groupPoolBalance !== 4850) {
+          this.state.groupPoolBalances[bizId || 'default'] = parsed.groupPoolBalance;
+        } else {
+          this.state.groupPoolBalances[bizId || 'default'] = 0;
+        }
       }
     } catch (err) {
       console.warn('[SavingsStore] Cache load error:', err);
     }
 
-    // Seed default demo state if absent
+    // Seed clean zero-balance state if absent
     if (!this.state.accounts[key]) {
       this.seedDefaultState(bizId, userId, currency);
     }
@@ -217,184 +254,31 @@ class ReactiveSavingsStore {
   public seedDefaultState(bizId: string, userId: string, currency: string = 'USD') {
     const key = this.getKey(bizId, userId);
 
-    const defaultVaults: SavingsVault[] = [
-      {
-        id: `vault_${bizId}_emergency`,
-        businessId: bizId,
-        userId,
-        name: 'Emergency Reserve Vault',
-        targetAmount: 5000,
-        currentAmount: 2500,
-        currency,
-        isLocked: true,
-        createdAt: new Date(Date.now() - 60 * 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-      },
-      {
-        id: `vault_${bizId}_tax`,
-        businessId: bizId,
-        userId,
-        name: 'Q4 Tax Escrow',
-        targetAmount: 2000,
-        currentAmount: 950,
-        currency,
-        isLocked: false,
-        createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-      },
-      {
-        id: `vault_${bizId}_tech`,
-        businessId: bizId,
-        userId,
-        name: 'New Hardware Upgrade',
-        targetAmount: 1500,
-        currentAmount: 600,
-        currency,
-        isLocked: false,
-        createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-      },
-    ];
-
-    const lockedTotal = defaultVaults.reduce((sum, v) => sum + v.currentAmount, 0);
-
     const defaultAccount: MemberAccount = {
       id: userId,
       businessId: bizId,
       userId,
-      mainBalance: 1250,
-      lockedSavingsBalance: lockedTotal,
+      mainBalance: 0,
+      lockedSavingsBalance: 0,
       currency,
       roundUpSettings: {
-        enabled: true,
-        targetVaultId: defaultVaults[0].id,
-        targetVaultName: defaultVaults[0].name,
+        enabled: false,
+        targetVaultId: '',
         step: 1,
         multiplier: 1,
-        safetyFloor: 20,
+        safetyFloor: 0,
         paused: false,
       },
-      createdAt: new Date(Date.now() - 60 * 86400000).toISOString(),
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    const defaultTransactions: WalletTransaction[] = [
-      {
-        id: `tx_${bizId}_1`,
-        businessId: bizId,
-        userId,
-        type: 'deposit',
-        amount: 500,
-        currency,
-        status: 'completed',
-        note: 'Deposit via Visa ending in 4242',
-        createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-      },
-      {
-        id: `tx_${bizId}_2`,
-        businessId: bizId,
-        userId,
-        type: 'vault_deposit',
-        amount: 250,
-        currency,
-        vaultId: defaultVaults[0].id,
-        vaultName: defaultVaults[0].name,
-        status: 'completed',
-        note: 'Direct allocation to Emergency Reserve Vault',
-        createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-      },
-      {
-        id: `tx_${bizId}_3`,
-        businessId: bizId,
-        userId,
-        type: 'transfer_recv',
-        amount: 150,
-        currency,
-        counterpartyId: 'demo_user_jane',
-        counterpartyName: 'Jane Smith',
-        status: 'completed',
-        note: 'Reimbursement for team software license',
-        createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-      },
-      {
-        id: `tx_${bizId}_4`,
-        businessId: bizId,
-        userId,
-        type: 'pool_contribution',
-        amount: 50,
-        currency,
-        status: 'completed',
-        note: 'Syndicate Treasury Pledge',
-        createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-      },
-      {
-        id: `tx_${bizId}_5`,
-        businessId: bizId,
-        userId,
-        type: 'withdrawal',
-        amount: 100,
-        currency,
-        status: 'completed',
-        note: 'Cash out to Chase Bank (8912)',
-        createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
-      },
-    ];
-
-    const defaultScheduledRules: ScheduledStashRule[] = [
-      {
-        id: `stash_${bizId}_weekly`,
-        businessId: bizId,
-        userId,
-        targetVaultId: defaultVaults[0].id,
-        targetVaultName: defaultVaults[0].name,
-        amount: 50,
-        frequency: 'weekly',
-        nextDueDate: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-        status: 'active',
-        occurrencesCount: 4,
-        lastExecutedAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-        createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ];
-
-    const defaultMoneyRequests: MoneyRequest[] = [
-      {
-        id: `req_${bizId}_inbound_1`,
-        businessId: bizId,
-        requesterId: 'demo_user_jane',
-        requesterName: 'Jane Smith',
-        payerId: userId,
-        payerName: 'You',
-        amount: 75,
-        currency,
-        note: 'Shared SaaS subscription split',
-        status: 'pending',
-        createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-        expiresAt: new Date(Date.now() + 1 * 86400000).toISOString(),
-      },
-      {
-        id: `req_${bizId}_outbound_1`,
-        businessId: bizId,
-        requesterId: userId,
-        requesterName: 'You',
-        payerId: 'demo_user_mike',
-        payerName: 'Mike Johnson',
-        amount: 120,
-        currency,
-        note: 'Client project milestone split',
-        status: 'pending',
-        createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-        expiresAt: new Date(Date.now() + 2 * 86400000).toISOString(),
-      },
-    ];
-
     this.state.accounts[key] = defaultAccount;
-    this.state.vaults[key] = defaultVaults;
-    this.state.transactions[key] = defaultTransactions;
-    this.state.scheduledStashRules[key] = defaultScheduledRules;
-    this.state.moneyRequests[bizId || 'default'] = defaultMoneyRequests;
-    this.state.groupPoolBalances[bizId || 'default'] = 4850;
+    this.state.vaults[key] = [];
+    this.state.transactions[key] = [];
+    this.state.scheduledStashRules[key] = [];
+    this.state.moneyRequests[bizId || 'default'] = [];
+    this.state.groupPoolBalances[bizId || 'default'] = 0;
 
     this.persistKey(bizId, userId);
   }
@@ -446,6 +330,13 @@ class ReactiveSavingsStore {
     return this.state.transactions[key] || [];
   }
 
+  public setTransactions(bizId: string, userId: string, txs: WalletTransaction[]) {
+    const key = this.getKey(bizId, userId);
+    this.state.transactions[key] = txs;
+    this.persistKey(bizId, userId);
+    this.notifyTransactionSubscribers(bizId, userId);
+  }
+
   public addTransaction(bizId: string, userId: string, tx: WalletTransaction) {
     const key = this.getKey(bizId, userId);
     const existing = this.getTransactions(bizId, userId);
@@ -456,7 +347,7 @@ class ReactiveSavingsStore {
 
   public getGroupPoolBalance(bizId: string): number {
     if (this.state.groupPoolBalances[bizId || 'default'] === undefined) {
-      this.state.groupPoolBalances[bizId || 'default'] = 4850;
+      this.state.groupPoolBalances[bizId || 'default'] = 0;
     }
     return this.state.groupPoolBalances[bizId || 'default'];
   }
@@ -746,6 +637,25 @@ export async function getOrCreateMemberAccount(
       const snapshot = await getDoc(accountRef);
       if (snapshot.exists()) {
         const cloudAcc = snapshot.data() as MemberAccount;
+        if (cloudAcc.mainBalance === 1250 && cloudAcc.lockedSavingsBalance === 4050) {
+          const sanitizedAcc: MemberAccount = {
+            ...cloudAcc,
+            mainBalance: 0,
+            lockedSavingsBalance: 0,
+            roundUpSettings: {
+              enabled: false,
+              targetVaultId: '',
+              step: 1,
+              multiplier: 1,
+              safetyFloor: 0,
+              paused: false,
+            },
+            updatedAt: new Date().toISOString(),
+          };
+          await setDoc(accountRef, sanitizedAcc, { merge: true });
+          demoSavingsStore.setAccount(businessId, userId, sanitizedAcc);
+          return sanitizedAcc;
+        }
         demoSavingsStore.setAccount(businessId, userId, cloudAcc);
         return cloudAcc;
       } else {
@@ -779,7 +689,26 @@ export function subscribeToMemberAccount(
         (snap) => {
           if (snap.exists()) {
             const acc = snap.data() as MemberAccount;
-            demoSavingsStore.setAccount(businessId, userId, acc);
+            if (acc.mainBalance === 1250 && acc.lockedSavingsBalance === 4050) {
+              const sanitizedAcc: MemberAccount = {
+                ...acc,
+                mainBalance: 0,
+                lockedSavingsBalance: 0,
+                roundUpSettings: {
+                  enabled: false,
+                  targetVaultId: '',
+                  step: 1,
+                  multiplier: 1,
+                  safetyFloor: 0,
+                  paused: false,
+                },
+                updatedAt: new Date().toISOString(),
+              };
+              setDoc(accountRef, sanitizedAcc, { merge: true }).catch(() => {});
+              demoSavingsStore.setAccount(businessId, userId, sanitizedAcc);
+            } else {
+              demoSavingsStore.setAccount(businessId, userId, acc);
+            }
           }
         },
         (err) => {
@@ -806,6 +735,8 @@ export async function depositToWallet(params: {
   currency?: string;
   paymentMethodTitle?: string;
   paymentIntentId?: string;
+  targetVaultId?: string;
+  targetVaultName?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const {
     businessId,
@@ -814,6 +745,8 @@ export async function depositToWallet(params: {
     currency = 'USD',
     paymentMethodTitle = 'Card Deposit',
     paymentIntentId,
+    targetVaultId,
+    targetVaultName,
   } = params;
 
   if (amount <= 0) {
@@ -822,35 +755,85 @@ export async function depositToWallet(params: {
 
   // Update local store immediately for zero-delay UI response
   const acc = demoSavingsStore.getAccount(businessId, userId, currency);
-  const updatedAcc: MemberAccount = {
-    ...acc,
-    mainBalance: acc.mainBalance + amount,
-    updatedAt: new Date().toISOString(),
-  };
-  demoSavingsStore.setAccount(businessId, userId, updatedAcc);
+  let updatedAcc: MemberAccount;
+  let txType: WalletTransactionType = 'deposit';
+  let txNote = `Deposit via ${paymentMethodTitle}`;
+  let notificationTitle = 'Wallet Deposit Completed';
+  let notificationMsg = `Added ${currency} ${amount.toFixed(2)} to your spendable balance.`;
+  let targetVault: SavingsVault | undefined;
+
+  if (targetVaultId) {
+    const vaults = demoSavingsStore.getVaults(businessId, userId);
+    targetVault = vaults.find((v) => v.id === targetVaultId);
+    if (!targetVault) {
+      return { success: false, error: 'Target vault not found.' };
+    }
+
+    const updatedVaults = vaults.map((v) =>
+      v.id === targetVaultId
+        ? {
+            ...v,
+            currentAmount: v.currentAmount + amount,
+            updatedAt: new Date().toISOString(),
+          }
+        : v
+    );
+    demoSavingsStore.setVaults(businessId, userId, updatedVaults);
+
+    const newLockedTotal = updatedVaults.reduce((sum, v) => sum + v.currentAmount, 0);
+    updatedAcc = {
+      ...acc,
+      lockedSavingsBalance: newLockedTotal,
+      updatedAt: new Date().toISOString(),
+    };
+    demoSavingsStore.setAccount(businessId, userId, updatedAcc);
+
+    const resolvedVaultName = targetVaultName || targetVault.name;
+    txType = 'vault_deposit';
+    txNote = `Direct Real-Money Deposit to ${resolvedVaultName} via ${paymentMethodTitle}`;
+    notificationTitle = 'Vault Real-Money Deposit';
+    notificationMsg = `Allocated ${currency} ${amount.toFixed(2)} directly to ${resolvedVaultName}.`;
+  } else {
+    updatedAcc = {
+      ...acc,
+      mainBalance: acc.mainBalance + amount,
+      updatedAt: new Date().toISOString(),
+    };
+    demoSavingsStore.setAccount(businessId, userId, updatedAcc);
+  }
 
   const tx: WalletTransaction = {
     id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     businessId,
     userId,
-    type: 'deposit',
+    type: txType,
     amount,
     currency,
+    vaultId: targetVaultId,
+    vaultName: targetVaultName || targetVault?.name,
     status: 'completed',
     paymentIntentId: paymentIntentId || `mock_pi_${Date.now()}`,
-    note: `Deposit via ${paymentMethodTitle}`,
+    note: txNote,
     createdAt: new Date().toISOString(),
   };
   demoSavingsStore.addTransaction(businessId, userId, tx);
 
   // Attempt Cloud Sync
   if (db) {
+    const firestore = db;
     try {
-      const accountRef = doc(db, 'businesses', businessId, 'accounts', userId);
-      const txCol = collection(db, 'businesses', businessId, 'wallet_transactions');
+      const accountRef = doc(firestore, 'businesses', businessId, 'accounts', userId);
+      const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
       const newTxRef = doc(txCol, tx.id);
-      await runTransaction(db, async (t) => {
+      await runTransaction(firestore, async (t) => {
         t.set(accountRef, updatedAcc, { merge: true });
+        if (targetVaultId && targetVault) {
+          const vaultRef = doc(firestore, 'businesses', businessId, 'vaults', targetVaultId);
+          t.update(vaultRef, {
+            currentAmount: targetVault.currentAmount + amount,
+            updatedAt: new Date().toISOString(),
+          });
+        }
         t.set(newTxRef, tx);
       });
     } catch (err) {
@@ -861,11 +844,11 @@ export async function depositToWallet(params: {
   dispatchSavingsNotification({
     userId,
     businessId,
-    title: 'Wallet Deposit Completed',
-    message: `Added ${currency} ${amount.toFixed(2)} to your spendable balance.`,
-    type: 'wallet_deposit',
+    title: notificationTitle,
+    message: notificationMsg,
+    type: txType === 'vault_deposit' ? 'vault_deposit' : 'wallet_deposit',
     color: '#10b981',
-    data: { amount, currency, paymentMethodTitle },
+    data: { amount, currency, paymentMethodTitle, targetVaultId, targetVaultName: targetVaultName || targetVault?.name },
   }).catch(() => {});
 
   return { success: true };
@@ -2398,18 +2381,28 @@ export function subscribeToVaults(
 ): Unsubscribe {
   const unsubLocal = demoSavingsStore.subscribeVaults(businessId, userId, callback);
   let unsubCloud: Unsubscribe | null = null;
-  if (db && businessId && userId) {
+  const firestore = db;
+  if (firestore && businessId && userId) {
     try {
       const q = query(
-        collection(db, 'businesses', businessId, 'vaults'),
+        collection(firestore, 'businesses', businessId, 'vaults'),
         where('userId', '==', userId)
       );
       unsubCloud = onSnapshot(q, (snapshot) => {
         const list: SavingsVault[] = [];
-        snapshot.forEach((docSnap) => list.push(docSnap.data() as SavingsVault));
-        if (list.length > 0) {
-          demoSavingsStore.setVaults(businessId, userId, list);
-        }
+        snapshot.forEach((docSnap) => {
+          const v = docSnap.data() as SavingsVault;
+          if (
+            v.id === `vault_${businessId}_emergency` ||
+            v.id === `vault_${businessId}_tax` ||
+            v.id === `vault_${businessId}_tech`
+          ) {
+            deleteDoc(doc(firestore, 'businesses', businessId, 'vaults', v.id)).catch(() => {});
+          } else {
+            list.push(v);
+          }
+        });
+        demoSavingsStore.setVaults(businessId, userId, list);
       });
     } catch (err) {}
   }
@@ -2431,17 +2424,23 @@ export function subscribeToWalletTransactions(
   });
 
   let unsubCloud: Unsubscribe | null = null;
-  if (db && businessId && userId) {
+  const firestore = db;
+  if (firestore && businessId && userId) {
     try {
-      const txCol = collection(db, 'businesses', businessId, 'wallet_transactions');
+      const txCol = collection(firestore, 'businesses', businessId, 'wallet_transactions');
       const q = query(txCol, where('userId', '==', userId));
       unsubCloud = onSnapshot(q, (snapshot) => {
         const list: WalletTransaction[] = [];
-        snapshot.forEach((docSnap) => list.push(docSnap.data() as WalletTransaction));
-        if (list.length > 0) {
-          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          list.forEach((tx) => demoSavingsStore.addTransaction(businessId, userId, tx));
-        }
+        snapshot.forEach((docSnap) => {
+          const tx = docSnap.data() as WalletTransaction;
+          if (tx.id?.startsWith(`tx_${businessId}_`)) {
+            deleteDoc(doc(firestore, 'businesses', businessId, 'wallet_transactions', tx.id)).catch(() => {});
+          } else {
+            list.push(tx);
+          }
+        });
+        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        demoSavingsStore.setTransactions(businessId, userId, list);
       });
     } catch (err) {}
   }
@@ -2504,6 +2503,8 @@ export function subscribeToGroupPool(
           const data = docSnap.data();
           if (data && typeof data.groupPoolBalance === 'number') {
             demoSavingsStore.setGroupPoolBalance(businessId, data.groupPoolBalance);
+          } else {
+            demoSavingsStore.setGroupPoolBalance(businessId, 0);
           }
         }
       });

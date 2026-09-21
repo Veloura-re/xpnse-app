@@ -150,6 +150,36 @@ export default function BookDetailScreen() {
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
+  // Dual Primary Currency States
+  const secondaryCurrency = book?.settings?.secondaryCurrency ? book.settings.secondaryCurrency.toUpperCase() : null;
+  const [leadCurrency, setLeadCurrency] = useState<'primary' | 'secondary'>('primary');
+  const [secondaryRate, setSecondaryRate] = useState<number>(1);
+
+  // Sync secondary currency rate from book settings peg or live market rates
+  useEffect(() => {
+    if (!secondaryCurrency || secondaryCurrency === bookCurrency.toUpperCase()) {
+      setSecondaryRate(1);
+      return;
+    }
+
+    const secVal = book?.settings?.secondaryCurrencyValuation;
+    const secDir = book?.settings?.preferredQuotationDirection || 'base_to_quote';
+
+    if (secVal && secVal > 0) {
+      if (secDir === 'base_to_quote') {
+        setSecondaryRate(secVal);
+      } else {
+        setSecondaryRate(1 / secVal);
+      }
+    } else {
+      CurrencyService.getExchangeRate(bookCurrency, secondaryCurrency).then((r) => {
+        setSecondaryRate(r);
+      }).catch(() => {
+        setSecondaryRate(1);
+      });
+    }
+  }, [secondaryCurrency, bookCurrency, book?.settings?.secondaryCurrencyValuation, book?.settings?.preferredQuotationDirection]);
+
   // Quick Net Balance Currency Conversion State
   const [netConvertCurrency, setNetConvertCurrency] = useState<string | null>(null);
   const [netCurrencyPickerVisible, setNetCurrencyPickerVisible] = useState(false);
@@ -825,52 +855,106 @@ export default function BookDetailScreen() {
             <View style={{ flexDirection: 'row', width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
               
-              <TouchableOpacity
-                style={[
-                  styles.currencyConvertButton,
-                  {
-                    backgroundColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
-                      ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5')
-                      : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-                    borderColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
-                      ? colors.primary
-                      : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'),
-                  }
-                ]}
-                onPress={() => setNetCurrencyPickerVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Globe size={11} color={netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary} />
-                <Text style={[
-                  styles.currencyConvertText,
-                  {
-                    color: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary,
-                    fontFamily: 'SpaceGrotesk_700Bold'
-                  }
-                ]}>
-                  {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? `${netConvertCurrency}` : 'Convert'}
-                </Text>
-                {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {secondaryCurrency && (
                   <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setNetConvertCurrency(null);
+                    style={[
+                      styles.currencyConvertButton,
+                      {
+                        backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
+                        borderColor: colors.primary,
+                        marginRight: 6,
+                      }
+                    ]}
+                    onPress={() => {
+                      setLeadCurrency(prev => prev === 'primary' ? 'secondary' : 'primary');
+                      if (Platform.OS !== 'web') {
+                        try {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        } catch (e) {}
+                      }
                     }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}
                   >
-                    <X size={11} color={colors.primary} />
+                    <ArrowRightLeft size={11} color={colors.primary} />
+                    <Text style={[
+                      styles.currencyConvertText,
+                      { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }
+                    ]}>
+                      {leadCurrency === 'primary' ? `${bookCurrency} ⇄ ${secondaryCurrency}` : `${secondaryCurrency} ⇄ ${bookCurrency}`}
+                    </Text>
                   </TouchableOpacity>
-                ) : (
-                  <ChevronDown size={11} color={colors.textSecondary} />
                 )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.currencyConvertButton,
+                    {
+                      backgroundColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
+                        ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                        : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9'),
+                      borderColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
+                        ? colors.primary
+                        : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'),
+                    }
+                  ]}
+                  onPress={() => setNetCurrencyPickerVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Globe size={11} color={netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary} />
+                  <Text style={[
+                    styles.currencyConvertText,
+                    {
+                      color: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary,
+                      fontFamily: 'SpaceGrotesk_700Bold'
+                    }
+                  ]}>
+                    {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? `${netConvertCurrency}` : 'Convert'}
+                  </Text>
+                  {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? (
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setNetConvertCurrency(null);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <X size={11} color={colors.primary} />
+                    </TouchableOpacity>
+                  ) : (
+                    <ChevronDown size={11} color={colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
               <Text style={[styles.balanceValue, { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700', marginBottom: 0, color: netBalance >= 0 ? '#10b981' : '#ef4444' }]}>
-                {formatCurrency(netBalance, bookCurrency)}
+                {leadCurrency === 'primary'
+                  ? formatCurrency(netBalance, bookCurrency)
+                  : formatCurrency(netBalance * secondaryRate, secondaryCurrency || bookCurrency)}
               </Text>
-              {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+              {secondaryCurrency && (
+                <View style={[
+                  styles.convertedNetPill,
+                  {
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                    borderColor: colors.primary,
+                  }
+                ]}>
+                  <Text style={[
+                    styles.convertedNetText,
+                    {
+                      color: netBalance >= 0 ? '#10b981' : '#ef4444',
+                      fontFamily: 'SpaceGrotesk_700Bold'
+                    }
+                  ]}>
+                    ≈ {leadCurrency === 'primary'
+                      ? formatCurrency(netBalance * secondaryRate, secondaryCurrency)
+                      : formatCurrency(netBalance, bookCurrency)}
+                  </Text>
+                </View>
+              )}
+              {!secondaryCurrency && netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
                 <View style={[
                   styles.convertedNetPill,
                   {
@@ -898,11 +982,23 @@ export default function BookDetailScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Cash In</Text>
-                  <Text style={[styles.miniValue, { color: '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>{formatCurrency(totalCashIn, bookCurrency)}</Text>
-                  {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                  <Text style={[styles.miniValue, { color: '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    {leadCurrency === 'primary'
+                      ? formatCurrency(totalCashIn, bookCurrency)
+                      : formatCurrency(totalCashIn * secondaryRate, secondaryCurrency || bookCurrency)}
+                  </Text>
+                  {secondaryCurrency ? (
                     <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
-                      ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashIn * netConvertRate, netConvertCurrency)}
+                      ≈ {leadCurrency === 'primary'
+                        ? formatCurrency(totalCashIn * secondaryRate, secondaryCurrency)
+                        : formatCurrency(totalCashIn, bookCurrency)}
                     </Text>
+                  ) : (
+                    netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                      <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
+                        ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashIn * netConvertRate, netConvertCurrency)}
+                      </Text>
+                    )
                   )}
                 </View>
               </View>
@@ -913,11 +1009,23 @@ export default function BookDetailScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Cash Out</Text>
-                  <Text style={[styles.miniValue, { color: '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>{formatCurrency(totalCashOut, bookCurrency)}</Text>
-                  {netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                  <Text style={[styles.miniValue, { color: '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    {leadCurrency === 'primary'
+                      ? formatCurrency(totalCashOut, bookCurrency)
+                      : formatCurrency(totalCashOut * secondaryRate, secondaryCurrency || bookCurrency)}
+                  </Text>
+                  {secondaryCurrency ? (
                     <Text style={{ fontSize: 11, color: '#ef4444', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
-                      ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashOut * netConvertRate, netConvertCurrency)}
+                      ≈ {leadCurrency === 'primary'
+                        ? formatCurrency(totalCashOut * secondaryRate, secondaryCurrency)
+                        : formatCurrency(totalCashOut, bookCurrency)}
                     </Text>
+                  ) : (
+                    netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                      <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
+                        ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashOut * netConvertRate, netConvertCurrency)}
+                      </Text>
+                    )
                   )}
                 </View>
               </View>
@@ -1066,6 +1174,13 @@ export default function BookDetailScreen() {
                       </Text>
                       {item.originalCurrency && item.originalCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (() => {
                         const origAmt = item.originalAmount !== undefined ? item.originalAmount : item.amount;
+                        if (item.rateQuotationDirection === 'base_to_quote' && item.displayRate && item.displayRate > 0) {
+                          return (
+                            <Text style={{ fontSize: 11, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 1 }}>
+                              ({formatCurrency(origAmt, item.originalCurrency)} @ 1 {bookCurrency} = {item.displayRate} {item.originalCurrency})
+                            </Text>
+                          );
+                        }
                         const rate = item.exchangeRate !== undefined && item.exchangeRate > 0
                           ? item.exchangeRate
                           : (origAmt > 0 ? item.amount / origAmt : 1);
@@ -1122,52 +1237,54 @@ export default function BookDetailScreen() {
                         </View>
                       )}
 
-                      {/* Instagram-style Attachment button on card */}
-                      <TouchableOpacity
-                        style={[
-                          styles.attachmentPill,
-                          {
-                            backgroundColor: (item.attachments && item.attachments.length > 0)
-                              ? (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0')
-                              : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9'),
-                            borderColor: (item.attachments && item.attachments.length > 0)
-                              ? (isDark ? 'rgba(255, 255, 255, 0.22)' : '#CBD5E1')
-                              : (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0'),
-                            height: 26,
-                            minWidth: (item.attachments && item.attachments.length > 0) ? undefined : 26,
-                            paddingHorizontal: (item.attachments && item.attachments.length > 0) ? 7 : 0,
-                            borderRadius: 8,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                          }
-                        ]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleOpenAttachments(item);
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        activeOpacity={0.7}
-                        accessibilityLabel="Attachments"
-                      >
-                        {(item.attachments && item.attachments.length > 0) ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3.5 }}>
+                      {/* Attachment button on card */}
+                      {((book?.settings?.showAttachments ?? true) || (item.attachments && item.attachments.length > 0)) && (
+                        <TouchableOpacity
+                          style={[
+                            styles.attachmentPill,
+                            {
+                              backgroundColor: (item.attachments && item.attachments.length > 0)
+                                ? (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0')
+                                : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9'),
+                              borderColor: (item.attachments && item.attachments.length > 0)
+                                ? (isDark ? 'rgba(255, 255, 255, 0.22)' : '#CBD5E1')
+                                : (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0'),
+                              height: 26,
+                              minWidth: (item.attachments && item.attachments.length > 0) ? undefined : 26,
+                              paddingHorizontal: (item.attachments && item.attachments.length > 0) ? 7 : 0,
+                              borderRadius: 8,
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                            }
+                          ]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleOpenAttachments(item);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          activeOpacity={0.7}
+                          accessibilityLabel="Attachments"
+                        >
+                          {(item.attachments && item.attachments.length > 0) ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3.5 }}>
+                              <ImageIcon
+                                size={12}
+                                color={colors.text}
+                                strokeWidth={2}
+                              />
+                              <Text style={[styles.attachmentPillText, { color: colors.text, fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                                {item.attachments.length}
+                              </Text>
+                            </View>
+                          ) : (
                             <ImageIcon
-                              size={12}
-                              color={colors.text}
-                              strokeWidth={2}
+                              size={14}
+                              color={colors.textSecondary}
+                              strokeWidth={1.8}
                             />
-                            <Text style={[styles.attachmentPillText, { color: colors.text, fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                              {item.attachments.length}
-                            </Text>
-                          </View>
-                        ) : (
-                          <ImageIcon
-                            size={14}
-                            color={colors.textSecondary}
-                            strokeWidth={1.8}
-                          />
-                        )}
-                      </TouchableOpacity>
+                          )}
+                        </TouchableOpacity>
+                      )}
 
                       {(userRole === 'owner' || userRole === 'partner') && (
                         <TouchableOpacity

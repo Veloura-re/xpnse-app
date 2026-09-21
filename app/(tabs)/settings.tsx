@@ -59,7 +59,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AVAILABLE_FONTS, getFontFamily } from '@/config/font-config';
 import { LOGO_OPTIONS, BUSINESS_ICONS } from '@/constants/logos';
 import { FlatList } from 'react-native';
-import { exportToPDF } from '@/utils/exportUtils';
+import { exportToPDF, exportToExcel, exportToCSV } from '@/utils/exportUtils';
 import { usePaginatedEntries } from '@/hooks/use-paginated-entries';
 import { pickImage, uploadImage } from '@/utils/imageUpload';
 
@@ -147,6 +147,7 @@ export default function SettingsScreen() {
   const [selectedSort, setSelectedSort] = useState<string>('balance-desc');
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [exportFileName, setExportFileName] = useState('');
+  const [businessExportFormat, setBusinessExportFormat] = useState<'pdf' | 'xlsx' | 'csv'>('pdf');
   const [isExporting, setIsExporting] = useState(false);
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'year' | 'all'>('month');
 
@@ -157,7 +158,7 @@ export default function SettingsScreen() {
     pageSize: 1000, // Reasonable size for export
   });
 
-  const handleExportBusinessPDF = async () => {
+  const handleExportBusiness = async (format: 'pdf' | 'xlsx' | 'csv' = 'pdf') => {
     if (!currentBusiness || transactions.length === 0) {
       Alert.alert('No Data', 'There are no transactions in this business to export.');
       return;
@@ -165,24 +166,33 @@ export default function SettingsScreen() {
     const dateStr = new Date().toISOString().split('T')[0];
     const defaultName = `${currentBusiness.name.replace(/[^a-zA-Z0-9]/g, '_')}_Business_Export_${dateStr}`;
     setExportFileName(defaultName);
+    setBusinessExportFormat(format);
     setExportModalVisible(true);
   };
 
-  const confirmExportPDF = async () => {
+  const confirmExportBusiness = async () => {
     if (!currentBusiness || transactions.length === 0) return;
     setExportModalVisible(false);
     setIsExporting(true);
     try {
       const rangeLabel = timeRange === 'all' ? 'All Time' : timeRange.charAt(0).toUpperCase() + timeRange.slice(1);
-      await exportToPDF(currentBusiness, transactions, {
+      const options = {
         fileName: exportFileName || 'Business_Export',
         isBusiness: true,
         rangeLabel,
         books,
-      });
+      };
+
+      if (businessExportFormat === 'xlsx') {
+        await exportToExcel(currentBusiness, transactions, options);
+      } else if (businessExportFormat === 'csv') {
+        await exportToCSV(currentBusiness, transactions, options);
+      } else {
+        await exportToPDF(currentBusiness, transactions, options);
+      }
     } catch (error) {
-      console.error('Error exporting PDF:', error);
-      Alert.alert('Export Error', 'Failed to generate PDF report.');
+      console.error('Error exporting business report:', error);
+      Alert.alert('Export Error', 'Failed to generate business report.');
     } finally {
       setIsExporting(false);
     }
@@ -495,8 +505,8 @@ export default function SettingsScreen() {
             <SettingsRow
               icon={FileDown}
               label="Export Business Report"
-              subLabel="Generate PDF statement"
-              onPress={handleExportBusinessPDF}
+              subLabel="Generate PDF, Excel, or CSV statement"
+              onPress={() => handleExportBusiness('pdf')}
               color="#ec4899"
               isLast
               rightElement={isExporting ? <ActivityIndicator size="small" color="#ec4899" /> : null}
@@ -931,6 +941,61 @@ export default function SettingsScreen() {
             </View>
 
             <View style={{ padding: 24 }}>
+              <View style={{ marginBottom: 18 }}>
+                <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Export Format
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[
+                    { id: 'pdf', label: 'PDF Document', ext: '.pdf' },
+                    { id: 'xlsx', label: 'Excel Sheet', ext: '.xlsx' },
+                    { id: 'csv', label: 'CSV Data', ext: '.csv' },
+                  ].map((fmt) => {
+                    const isSelected = businessExportFormat === fmt.id;
+                    return (
+                      <TouchableOpacity
+                        key={fmt.id}
+                        onPress={() => setBusinessExportFormat(fmt.id as 'pdf' | 'xlsx' | 'csv')}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          paddingHorizontal: 8,
+                          borderRadius: 12,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: isSelected
+                            ? (isDark ? 'rgba(236, 72, 153, 0.2)' : '#fdf2f8')
+                            : (isDark ? '#1C1C1E' : '#F8FAFC'),
+                          borderWidth: 1.5,
+                          borderColor: isSelected ? '#ec4899' : colors.border,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontFamily: isSelected ? 'SpaceGrotesk_700Bold' : 'SpaceGrotesk_500Medium',
+                            color: isSelected ? '#ec4899' : colors.textSecondary,
+                          }}
+                        >
+                          {fmt.label}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontFamily: 'SpaceGrotesk_400Regular',
+                            color: isSelected ? '#ec4899' : colors.textSecondary,
+                            opacity: 0.8,
+                            marginTop: 2,
+                          }}
+                        >
+                          {fmt.ext}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
               <View style={{ marginBottom: 20 }}>
                 <Text style={{ fontSize: 12, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.textSecondary, marginBottom: 8, textTransform: 'uppercase' }}>Filename</Text>
                 <TextInput
@@ -941,7 +1006,9 @@ export default function SettingsScreen() {
                   placeholderTextColor={colors.textSecondary}
                   autoFocus={true}
                 />
-                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>.pdf will be added automatically</Text>
+                <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', color: colors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>
+                  .{businessExportFormat} will be added automatically
+                </Text>
               </View>
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -953,13 +1020,15 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalConfirm, { backgroundColor: '#ec4899', flex: 2, opacity: isExporting ? 0.7 : 1 }]}
-                  onPress={confirmExportPDF}
+                  onPress={confirmExportBusiness}
                   disabled={isExporting}
                 >
                   {isExporting ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.modalConfirmText}>Export PDF</Text>
+                    <Text style={styles.modalConfirmText}>
+                      {businessExportFormat === 'pdf' ? 'Export PDF' : businessExportFormat === 'xlsx' ? 'Export Excel' : 'Export CSV'}
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
