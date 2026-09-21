@@ -6,7 +6,14 @@ import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Lock, Mail, Eye, EyeOff, Check, X, AlertCircle, CheckCircle, Shield, Camera, Image as ImageIcon, ExternalLink, FileText, Settings } from 'lucide-react-native';
-import { getStoragePermissionStatus, requestMediaLibraryPermissions, requestCameraPermissions } from '@/utils/imageUpload';
+import {
+  getStoragePermissionStatus,
+  checkMediaLibraryPermission,
+  checkCameraPermission,
+  requestMediaLibraryDirect,
+  requestCameraDirect,
+} from '@/utils/imageUpload';
+import { PermissionModal } from '@/components/ui/permission-modal';
 
 export default function SecurityScreen() {
     const { user, updatePassword, updateEmail, reauthenticate } = useAuth();
@@ -20,6 +27,9 @@ export default function SecurityScreen() {
     // Permission States
     const [storageGranted, setStorageGranted] = useState<boolean | null>(null);
     const [cameraGranted, setCameraGranted] = useState<boolean | null>(null);
+    const [permissionModalVisible, setPermissionModalVisible] = useState(false);
+    const [permissionModalType, setPermissionModalType] = useState<'storage' | 'camera'>('storage');
+    const [permissionDeniedBySystem, setPermissionDeniedBySystem] = useState(false);
 
     const refreshPermissions = async () => {
         try {
@@ -36,13 +46,45 @@ export default function SecurityScreen() {
     }, [activeTab]);
 
     const handleRequestStorage = async () => {
-        const granted = await requestMediaLibraryPermissions(true);
-        setStorageGranted(granted);
+        const check = await checkMediaLibraryPermission();
+        if (check.granted) {
+            setStorageGranted(true);
+            return;
+        }
+        setPermissionModalType('storage');
+        setPermissionDeniedBySystem(!check.canAskAgain && check.status === 'denied');
+        setPermissionModalVisible(true);
     };
 
     const handleRequestCamera = async () => {
-        const granted = await requestCameraPermissions(true);
-        setCameraGranted(granted);
+        const check = await checkCameraPermission();
+        if (check.granted) {
+            setCameraGranted(true);
+            return;
+        }
+        setPermissionModalType('camera');
+        setPermissionDeniedBySystem(!check.canAskAgain && check.status === 'denied');
+        setPermissionModalVisible(true);
+    };
+
+    const handleAllowPermission = async () => {
+        if (permissionModalType === 'camera') {
+            const res = await requestCameraDirect();
+            setCameraGranted(res.granted);
+            if (res.granted) {
+                setPermissionModalVisible(false);
+            } else {
+                setPermissionDeniedBySystem(!res.canAskAgain);
+            }
+        } else {
+            const res = await requestMediaLibraryDirect();
+            setStorageGranted(res.granted);
+            if (res.granted) {
+                setPermissionModalVisible(false);
+            } else {
+                setPermissionDeniedBySystem(!res.canAskAgain);
+            }
+        }
     };
 
     const handleOpenSettings = () => {
@@ -534,6 +576,15 @@ export default function SecurityScreen() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Custom Glassmorphic Permission Modal */}
+            <PermissionModal
+                visible={permissionModalVisible}
+                type={permissionModalType}
+                isDeniedBySystem={permissionDeniedBySystem}
+                onClose={() => setPermissionModalVisible(false)}
+                onAllow={handleAllowPermission}
+            />
         </View>
     );
 }

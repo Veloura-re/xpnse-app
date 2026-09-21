@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_PERMISSION_KEY = '@spndy_storage_permission_consent';
@@ -8,16 +8,16 @@ const CAMERA_PERMISSION_KEY = '@spndy_camera_permission_consent';
 // ---------------------------------------------------------------------------
 // Cloudinary configuration
 // ---------------------------------------------------------------------------
-// Create a free account at https://cloudinary.com (no credit card required).
-// Then:
-//   1. In the Cloudinary Console, go to Settings > Upload > Upload presets.
-//   2. Create a new preset, set Signing Mode to "Unsigned".
-//   3. Copy the preset name and your Cloud Name below / into .env.
-// ---------------------------------------------------------------------------
 const CLOUDINARY_CLOUD_NAME =
   process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'ljvvyaar';
 const CLOUDINARY_UPLOAD_PRESET =
   process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'spndy11';
+
+export interface PermissionCheckResult {
+  granted: boolean;
+  canAskAgain: boolean;
+  status: ImagePicker.PermissionStatus;
+}
 
 /**
  * Check active permission status for media library and camera.
@@ -35,8 +35,8 @@ export const getStoragePermissionStatus = async (): Promise<{
     const media = await ImagePicker.getMediaLibraryPermissionsAsync();
     const camera = await ImagePicker.getCameraPermissionsAsync();
     return {
-      mediaLibraryGranted: storedMedia === 'granted' && media.granted,
-      cameraGranted: storedCam === 'granted' && camera.granted,
+      mediaLibraryGranted: (storedMedia === 'granted' || media.granted) && media.granted,
+      cameraGranted: (storedCam === 'granted' || camera.granted) && camera.granted,
     };
   } catch (error) {
     console.error('Error checking permission status:', error);
@@ -45,135 +45,115 @@ export const getStoragePermissionStatus = async (): Promise<{
 };
 
 /**
- * Request photo library / storage permissions explicitly with in-app confirmation and system checks.
+ * Inspect device media library permissions without displaying system prompts or alerts.
  */
-export const requestMediaLibraryPermissions = async (forcePrompt: boolean = false): Promise<boolean> => {
+export const checkMediaLibraryPermission = async (): Promise<PermissionCheckResult> => {
+  if (Platform.OS === 'web') {
+    return { granted: true, canAskAgain: true, status: ImagePicker.PermissionStatus.GRANTED };
+  }
+  try {
+    const res = await ImagePicker.getMediaLibraryPermissionsAsync();
+    return {
+      granted: res.granted,
+      canAskAgain: res.canAskAgain,
+      status: res.status,
+    };
+  } catch (error) {
+    console.error('Error checking media library permission:', error);
+    return { granted: false, canAskAgain: true, status: ImagePicker.PermissionStatus.UNDETERMINED };
+  }
+};
+
+/**
+ * Inspect device camera permissions without displaying system prompts or alerts.
+ */
+export const checkCameraPermission = async (): Promise<PermissionCheckResult> => {
+  if (Platform.OS === 'web') {
+    return { granted: true, canAskAgain: true, status: ImagePicker.PermissionStatus.GRANTED };
+  }
+  try {
+    const res = await ImagePicker.getCameraPermissionsAsync();
+    return {
+      granted: res.granted,
+      canAskAgain: res.canAskAgain,
+      status: res.status,
+    };
+  } catch (error) {
+    console.error('Error checking camera permission:', error);
+    return { granted: false, canAskAgain: true, status: ImagePicker.PermissionStatus.UNDETERMINED };
+  }
+};
+
+/**
+ * Direct system request for photo library permission.
+ */
+export const requestMediaLibraryDirect = async (): Promise<PermissionCheckResult> => {
+  if (Platform.OS === 'web') {
+    return { granted: true, canAskAgain: true, status: ImagePicker.PermissionStatus.GRANTED };
+  }
+  try {
+    const res = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (res.granted) {
+      await AsyncStorage.setItem(STORAGE_PERMISSION_KEY, 'granted');
+    }
+    return {
+      granted: res.granted,
+      canAskAgain: res.canAskAgain,
+      status: res.status,
+    };
+  } catch (error) {
+    console.error('Error requesting media library direct:', error);
+    return { granted: false, canAskAgain: false, status: ImagePicker.PermissionStatus.DENIED };
+  }
+};
+
+/**
+ * Direct system request for camera permission.
+ */
+export const requestCameraDirect = async (): Promise<PermissionCheckResult> => {
+  if (Platform.OS === 'web') {
+    return { granted: true, canAskAgain: true, status: ImagePicker.PermissionStatus.GRANTED };
+  }
+  try {
+    const res = await ImagePicker.requestCameraPermissionsAsync();
+    if (res.granted) {
+      await AsyncStorage.setItem(CAMERA_PERMISSION_KEY, 'granted');
+    }
+    return {
+      granted: res.granted,
+      canAskAgain: res.canAskAgain,
+      status: res.status,
+    };
+  } catch (error) {
+    console.error('Error requesting camera direct:', error);
+    return { granted: false, canAskAgain: false, status: ImagePicker.PermissionStatus.DENIED };
+  }
+};
+
+/**
+ * Standard media library permission requester (non-blocking, direct system prompt).
+ */
+export const requestMediaLibraryPermissions = async (_forcePrompt: boolean = false): Promise<boolean> => {
   try {
     if (Platform.OS === 'web') return true;
-
-    const storedConsent = await AsyncStorage.getItem(STORAGE_PERMISSION_KEY);
-
-    // If user has not yet consented or forcePrompt is true, explicitly ask for permission
-    if (!storedConsent || forcePrompt) {
-      const userApproved = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          'Storage Permission Request',
-          'spndy requires storage permission to select and attach receipt photos, invoices, and documents to your book entries.\n\nAllow spndy to access your storage?',
-          [
-            {
-              text: "Don't Allow",
-              style: 'cancel',
-              onPress: () => resolve(false),
-            },
-            {
-              text: 'Allow',
-              onPress: async () => {
-                await AsyncStorage.setItem(STORAGE_PERMISSION_KEY, 'granted');
-                resolve(true);
-              },
-            },
-          ],
-          { cancelable: false }
-        );
-      });
-
-      if (!userApproved) {
-        return false;
-      }
-    }
-
-    // Request system-level media library permission
-    const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (result.granted) {
-      return true;
-    }
-
-    // Permission was denied by system
-    Alert.alert(
-      'Storage Access Required',
-      'spndy requires storage permission to select and attach receipts. Please enable photo/storage access in your device settings to continue.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open Settings',
-          onPress: () => {
-            Linking.openSettings().catch(() => {
-              console.warn('Unable to open device settings');
-            });
-          },
-        },
-      ]
-    );
-    return false;
+    const res = await requestMediaLibraryDirect();
+    return res.granted;
   } catch (error) {
-    console.error('Error requesting storage permissions:', error);
+    console.error('Error requesting media library permission:', error);
     return false;
   }
 };
 
 /**
- * Request camera permissions explicitly with in-app confirmation and system checks.
+ * Standard camera permission requester (non-blocking, direct system prompt).
  */
-export const requestCameraPermissions = async (forcePrompt: boolean = false): Promise<boolean> => {
+export const requestCameraPermissions = async (_forcePrompt: boolean = false): Promise<boolean> => {
   try {
     if (Platform.OS === 'web') return true;
-
-    const storedConsent = await AsyncStorage.getItem(CAMERA_PERMISSION_KEY);
-
-    // If user has not yet consented or forcePrompt is true, explicitly ask for permission
-    if (!storedConsent || forcePrompt) {
-      const userApproved = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          'Camera Permission Request',
-          'spndy requires camera permission to capture receipt photos and invoices to attach to your book entries.\n\nAllow spndy to access your camera?',
-          [
-            {
-              text: "Don't Allow",
-              style: 'cancel',
-              onPress: () => resolve(false),
-            },
-            {
-              text: 'Allow',
-              onPress: async () => {
-                await AsyncStorage.setItem(CAMERA_PERMISSION_KEY, 'granted');
-                resolve(true);
-              },
-            },
-          ],
-          { cancelable: false }
-        );
-      });
-
-      if (!userApproved) {
-        return false;
-      }
-    }
-
-    // Request system-level camera permission
-    const result = await ImagePicker.requestCameraPermissionsAsync();
-    if (result.granted) {
-      return true;
-    }
-
-    // Permission was denied by system
-    Alert.alert(
-      'Camera Access Required',
-      'spndy requires camera permission to capture receipt photos and invoices. Please enable camera access in your device settings to continue.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open Settings',
-          onPress: () => {
-            Linking.openSettings().catch(() => {
-              console.warn('Unable to open device settings');
-            });
-          },
-        },
-      ]
-    );
-    return false;
+    const res = await requestCameraDirect();
+    return res.granted;
   } catch (error) {
-    console.error('Error requesting camera permissions:', error);
+    console.error('Error requesting camera permission:', error);
     return false;
   }
 };
@@ -203,10 +183,15 @@ export const requestPermissions = async (): Promise<boolean> => {
  * Pick an image from the device photo library.
  * Returns a local file URI or null.
  */
-export const pickImage = async (): Promise<string | null> => {
+export const pickImage = async (directLaunch: boolean = false): Promise<string | null> => {
   try {
-    const hasPermission = await requestMediaLibraryPermissions();
-    if (!hasPermission) return null;
+    if (!directLaunch) {
+      const check = await checkMediaLibraryPermission();
+      if (!check.granted) {
+        const req = await requestMediaLibraryDirect();
+        if (!req.granted) return null;
+      }
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -214,13 +199,12 @@ export const pickImage = async (): Promise<string | null> => {
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets[0]) {
+    if (!result.canceled && result.assets && result.assets[0]) {
       return result.assets[0].uri;
     }
     return null;
   } catch (error) {
-    console.error('Error picking image:', error);
-    Alert.alert('Error', 'Failed to pick image. Please try again.');
+    console.error('Error picking image from library:', error);
     return null;
   }
 };
@@ -229,23 +213,27 @@ export const pickImage = async (): Promise<string | null> => {
  * Take a photo using the device camera.
  * Returns a local file URI or null.
  */
-export const takePhoto = async (): Promise<string | null> => {
+export const takePhoto = async (directLaunch: boolean = false): Promise<string | null> => {
   try {
-    const hasPermission = await requestCameraPermissions();
-    if (!hasPermission) return null;
+    if (!directLaunch) {
+      const check = await checkCameraPermission();
+      if (!check.granted) {
+        const req = await requestCameraDirect();
+        if (!req.granted) return null;
+      }
+    }
 
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets[0]) {
+    if (!result.canceled && result.assets && result.assets[0]) {
       return result.assets[0].uri;
     }
     return null;
   } catch (error) {
-    console.error('Error taking photo:', error);
-    Alert.alert('Error', 'Failed to take photo. Please try again.');
+    console.error('Error taking photo with camera:', error);
     return null;
   }
 };
@@ -262,11 +250,8 @@ export const uploadImage = async (
   folder?: string,
 ): Promise<string | null> => {
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    Alert.alert(
-      'Configuration Error',
-      'Cloudinary is not configured. Please add EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET to your .env file.',
-    );
-    return null;
+    console.warn('Cloudinary environment variables are missing. Storing attachment locally.');
+    return uri;
   }
 
   try {
@@ -293,48 +278,34 @@ export const uploadImage = async (
       {
         method: 'POST',
         body: formData,
-        // Do NOT set Content-Type header — let the browser/runtime set the
-        // multipart boundary automatically.
       },
     );
 
     if (!uploadResponse.ok) {
       const errorBody = await uploadResponse.text();
       console.error('Cloudinary upload failed:', uploadResponse.status, errorBody);
-      Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
-      return null;
+      // Return the local URI as fallback so user data is never lost offline
+      return uri;
     }
 
     const data = await uploadResponse.json();
-    return (data.secure_url as string) ?? null;
+    return (data.secure_url as string) ?? uri;
   } catch (error: any) {
     console.error('Error uploading image to Cloudinary:', error);
-    Alert.alert('Upload Error', 'Failed to upload image. Please try again.');
-    return null;
+    // Offline resilience: return local URI
+    return uri;
   }
 };
 
 /**
- * Delete an image from Cloudinary.
- * Note: deletion from client-side requires a signed request or a server-side
- * Cloud Function. For now this is a no-op — the image will simply become
- * unreferenced and Cloudinary's free tier does not charge for stored orphans.
- *
- * If you add a server endpoint later, replace this stub.
+ * Delete an image from Cloudinary (client-side stub).
  */
 export const deleteImage = async (_downloadURL: string): Promise<boolean> => {
-  // Client-side deletion requires a signed Cloudinary API call (needs API secret).
-  // Deletion should be handled server-side. Returning true to keep the caller happy.
-  console.warn(
-    'deleteImage: Cloudinary client-side deletion is not implemented. ' +
-      'Remove images via the Cloudinary Console or a server-side endpoint.',
-  );
   return true;
 };
 
 /**
  * Generate a Cloudinary folder path for a given entry.
- * The returned string is passed as the `folder` parameter to uploadImage.
  */
 export const generateImagePath = (
   businessId: string,

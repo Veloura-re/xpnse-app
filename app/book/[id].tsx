@@ -69,7 +69,18 @@ import { CurrencyService } from '@/services/currency-service';
 import { exportToExcel, exportToPDF, exportToCSV } from '@/utils/exportUtils';
 import * as Crypto from 'expo-crypto';
 import { BackgroundDecor } from '@/components/ui/background-decor';
-import { pickImage, takePhoto, uploadImage, generateImagePath } from '@/utils/imageUpload';
+import {
+  pickImage,
+  takePhoto,
+  uploadImage,
+  generateImagePath,
+  checkMediaLibraryPermission,
+  checkCameraPermission,
+  requestMediaLibraryDirect,
+  requestCameraDirect,
+} from '@/utils/imageUpload';
+import { PermissionModal } from '@/components/ui/permission-modal';
+import { ConfirmActionModal } from '@/components/ui/confirm-action-modal';
 import { Image } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -149,6 +160,10 @@ export default function BookDetailScreen() {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [deleteAttachmentUrl, setDeleteAttachmentUrl] = useState<string | null>(null);
+  const [attachmentPermissionVisible, setAttachmentPermissionVisible] = useState(false);
+  const [attachmentPermissionType, setAttachmentPermissionType] = useState<'storage' | 'camera'>('storage');
+  const [attachmentPermissionDenied, setAttachmentPermissionDenied] = useState(false);
 
   // Dual Primary Currency States
   const secondaryCurrency = book?.settings?.secondaryCurrency ? book.settings.secondaryCurrency.toUpperCase() : null;
@@ -306,11 +321,11 @@ export default function BookDetailScreen() {
     setAttachmentModalVisible(true);
   }, []);
 
-  const handleUploadAttachment = useCallback(async (source: 'gallery' | 'camera') => {
+  const executeUploadAttachment = async (source: 'gallery' | 'camera') => {
     if (!attachmentEntry || !currentBusiness) return;
     try {
       setIsUploadingAttachment(true);
-      const uri = source === 'gallery' ? await pickImage() : await takePhoto();
+      const uri = source === 'gallery' ? await pickImage(true) : await takePhoto(true);
       if (!uri) return;
 
       const existingAttachments = attachmentEntry.attachments || [];
@@ -327,22 +342,63 @@ export default function BookDetailScreen() {
     } finally {
       setIsUploadingAttachment(false);
     }
+  };
+
+  const handleUploadAttachment = useCallback(async (source: 'gallery' | 'camera') => {
+    if (source === 'camera') {
+      const perm = await checkCameraPermission();
+      if (perm.granted) {
+        executeUploadAttachment('camera');
+      } else {
+        setAttachmentPermissionType('camera');
+        setAttachmentPermissionDenied(!perm.canAskAgain && perm.status === 'denied');
+        setAttachmentPermissionVisible(true);
+      }
+    } else {
+      const perm = await checkMediaLibraryPermission();
+      if (perm.granted) {
+        executeUploadAttachment('gallery');
+      } else {
+        setAttachmentPermissionType('storage');
+        setAttachmentPermissionDenied(!perm.canAskAgain && perm.status === 'denied');
+        setAttachmentPermissionVisible(true);
+      }
+    }
   }, [attachmentEntry, currentBusiness, updateEntry, refresh]);
 
-  const handleDeleteAttachment = useCallback(async (url: string) => {
-    if (!attachmentEntry) return;
-    Alert.alert('Remove Attachment', 'Remove this image from the entry?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove', style: 'destructive', onPress: async () => {
-          const updated = (attachmentEntry.attachments || []).filter(u => u !== url);
-          await updateEntry(attachmentEntry.id, { attachments: updated });
-          setAttachmentEntry(prev => prev ? { ...prev, attachments: updated } : prev);
-          refresh();
-        }
+  const handleAllowAttachmentPermission = async () => {
+    if (attachmentPermissionType === 'camera') {
+      const res = await requestCameraDirect();
+      if (res.granted) {
+        setAttachmentPermissionVisible(false);
+        setTimeout(() => executeUploadAttachment('camera'), 150);
+      } else {
+        setAttachmentPermissionDenied(!res.canAskAgain);
       }
-    ]);
-  }, [attachmentEntry, updateEntry, refresh]);
+    } else {
+      const res = await requestMediaLibraryDirect();
+      if (res.granted) {
+        setAttachmentPermissionVisible(false);
+        setTimeout(() => executeUploadAttachment('gallery'), 150);
+      } else {
+        setAttachmentPermissionDenied(!res.canAskAgain);
+      }
+    }
+  };
+
+  const handleDeleteAttachment = useCallback((url: string) => {
+    setDeleteAttachmentUrl(url);
+  }, []);
+
+  const confirmDeleteAttachment = useCallback(async () => {
+    if (!attachmentEntry || !deleteAttachmentUrl) return;
+    const url = deleteAttachmentUrl;
+    const updated = (attachmentEntry.attachments || []).filter(u => u !== url);
+    await updateEntry(attachmentEntry.id, { attachments: updated });
+    setAttachmentEntry(prev => prev ? { ...prev, attachments: updated } : prev);
+    setDeleteAttachmentUrl(null);
+    refresh();
+  }, [attachmentEntry, deleteAttachmentUrl, updateEntry, refresh]);
 
 
   const confirmTransfer = useCallback(async () => {
@@ -1724,6 +1780,27 @@ export default function BookDetailScreen() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Attachment Deletion Confirmation Modal */}
+      <ConfirmActionModal
+        visible={!!deleteAttachmentUrl}
+        title="Remove Attachment"
+        description="Are you sure you want to remove this image from the entry?"
+        confirmLabel="Remove"
+        cancelLabel="Keep Attachment"
+        destructive={true}
+        onConfirm={confirmDeleteAttachment}
+        onCancel={() => setDeleteAttachmentUrl(null)}
+      />
+
+      {/* Attachment Permission Modal */}
+      <PermissionModal
+        visible={attachmentPermissionVisible}
+        type={attachmentPermissionType}
+        isDeniedBySystem={attachmentPermissionDenied}
+        onClose={() => setAttachmentPermissionVisible(false)}
+        onAllow={handleAllowAttachmentPermission}
+      />
 
       {/* ── Full-screen Image Preview Modal ──────────────────────────── */}
       <Modal

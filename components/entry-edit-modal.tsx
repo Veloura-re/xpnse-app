@@ -40,12 +40,25 @@ import {
 import { getCurrencySymbol, formatCurrency } from '@/utils/currency-utils';
 import { Book, BookEntry } from '@/types';
 import { useBusiness } from '@/providers/business-provider';
-import { pickImage, takePhoto, uploadImage, deleteImage, generateImagePath } from '@/utils/imageUpload';
+import {
+  pickImage,
+  takePhoto,
+  uploadImage,
+  deleteImage,
+  generateImagePath,
+  checkMediaLibraryPermission,
+  checkCameraPermission,
+  requestMediaLibraryDirect,
+  requestCameraDirect,
+} from '@/utils/imageUpload';
 import { getFontFamily } from '@/config/font-config';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { useTheme } from '@/providers/theme-provider';
 import { CurrencyPickerModal } from '@/components/currency/currency-picker-modal';
 import { CurrencyService } from '@/services/currency-service';
+import { AttachmentSourceModal } from '@/components/attachment-source-modal';
+import { PermissionModal } from '@/components/ui/permission-modal';
+import { ConfirmActionModal } from '@/components/ui/confirm-action-modal';
 
 interface EntryEditModalProps {
   visible: boolean;
@@ -244,10 +257,17 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
 
   const paymentOptions = ['Cash', 'Spndy Wallet', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Custom'];
 
-  const handlePickImage = async () => {
+  // Attachment & Permission Modals
+  const [sourceModalVisible, setSourceModalVisible] = useState(false);
+  const [permissionModalVisible, setPermissionModalVisible] = useState(false);
+  const [permissionType, setPermissionType] = useState<'storage' | 'camera'>('storage');
+  const [permissionDeniedBySystem, setPermissionDeniedBySystem] = useState(false);
+  const [removeAttachmentIdx, setRemoveAttachmentIdx] = useState<number | null>(null);
+
+  const executeTakePhoto = async () => {
     try {
       setUploading(true);
-      const uri = await pickImage();
+      const uri = await takePhoto(true);
       if (!uri) return;
       const path = generateImagePath(currentBusiness?.id || 'temp', book.id, attachments.length);
       const downloadUrl = await uploadImage(uri, path);
@@ -255,16 +275,27 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
         setAttachments(prev => [...prev, downloadUrl]);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to pick image');
+      console.error('Error taking photo:', error);
     } finally {
       setUploading(false);
     }
   };
 
   const handleTakePhoto = async () => {
+    const perm = await checkCameraPermission();
+    if (perm.granted) {
+      executeTakePhoto();
+    } else {
+      setPermissionType('camera');
+      setPermissionDeniedBySystem(!perm.canAskAgain && perm.status === 'denied');
+      setPermissionModalVisible(true);
+    }
+  };
+
+  const executePickImage = async () => {
     try {
       setUploading(true);
-      const uri = await takePhoto();
+      const uri = await pickImage(true);
       if (!uri) return;
       const path = generateImagePath(currentBusiness?.id || 'temp', book.id, attachments.length);
       const downloadUrl = await uploadImage(uri, path);
@@ -272,26 +303,56 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
         setAttachments(prev => [...prev, downloadUrl]);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to take photo');
+      console.error('Error picking image:', error);
     } finally {
       setUploading(false);
     }
   };
 
+  const handlePickImage = async () => {
+    const perm = await checkMediaLibraryPermission();
+    if (perm.granted) {
+      executePickImage();
+    } else {
+      setPermissionType('storage');
+      setPermissionDeniedBySystem(!perm.canAskAgain && perm.status === 'denied');
+      setPermissionModalVisible(true);
+    }
+  };
+
+  const handleAllowPermission = async () => {
+    if (permissionType === 'camera') {
+      const res = await requestCameraDirect();
+      if (res.granted) {
+        setPermissionModalVisible(false);
+        setTimeout(executeTakePhoto, 150);
+      } else {
+        setPermissionDeniedBySystem(!res.canAskAgain);
+      }
+    } else {
+      const res = await requestMediaLibraryDirect();
+      if (res.granted) {
+        setPermissionModalVisible(false);
+        setTimeout(executePickImage, 150);
+      } else {
+        setPermissionDeniedBySystem(!res.canAskAgain);
+      }
+    }
+  };
+
   const handleRemoveAttachment = (indexToRemove: number) => {
-    setAttachments(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    setRemoveAttachmentIdx(indexToRemove);
+  };
+
+  const confirmRemoveAttachment = () => {
+    if (removeAttachmentIdx !== null) {
+      setAttachments(prev => prev.filter((_, idx) => idx !== removeAttachmentIdx));
+      setRemoveAttachmentIdx(null);
+    }
   };
 
   const handleAddAttachmentChoice = () => {
-    Alert.alert(
-      'Add Attachment',
-      'Choose source for receipt image:',
-      [
-        { text: 'Take Photo', onPress: handleTakePhoto },
-        { text: 'Choose from Gallery', onPress: handlePickImage },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setSourceModalVisible(true);
   };
 
   const handleSave = async () => {
@@ -769,7 +830,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                         Description
                       </Text>
                       {descriptionError && (
-                        <Text style={styles.errorTag}>Required ✕</Text>
+                        <Text style={styles.errorTag}>Required</Text>
                       )}
                     </View>
                     <View
@@ -1116,6 +1177,35 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                   onClose={() => setCurrencyPickerVisible(false)}
                   selectedCurrency={selectedCurrency}
                   onSelect={setSelectedCurrency}
+                />
+
+                {/* Attachment Source Picker Modal */}
+                <AttachmentSourceModal
+                  visible={sourceModalVisible}
+                  onClose={() => setSourceModalVisible(false)}
+                  onSelectCamera={handleTakePhoto}
+                  onSelectGallery={handlePickImage}
+                />
+
+                {/* Privacy-Preserving Permission Modal */}
+                <PermissionModal
+                  visible={permissionModalVisible}
+                  type={permissionType}
+                  isDeniedBySystem={permissionDeniedBySystem}
+                  onClose={() => setPermissionModalVisible(false)}
+                  onAllow={handleAllowPermission}
+                />
+
+                {/* Attachment Removal Confirmation Modal */}
+                <ConfirmActionModal
+                  visible={removeAttachmentIdx !== null}
+                  title="Remove Attachment"
+                  description="Are you sure you want to remove this receipt photo from this transaction?"
+                  confirmLabel="Remove"
+                  cancelLabel="Keep Attachment"
+                  destructive={true}
+                  onConfirm={confirmRemoveAttachment}
+                  onCancel={() => setRemoveAttachmentIdx(null)}
                 />
               </View>
             </TouchableWithoutFeedback>
