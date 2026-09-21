@@ -263,6 +263,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
   const [permissionType, setPermissionType] = useState<'storage' | 'camera'>('storage');
   const [permissionDeniedBySystem, setPermissionDeniedBySystem] = useState(false);
   const [removeAttachmentIdx, setRemoveAttachmentIdx] = useState<number | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const executeTakePhoto = async () => {
     try {
@@ -1081,60 +1082,89 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                         )}
                       </View>
 
-                      {/* Instagram-style Horizontal Media Reel: Camera & Gallery tiles beside Photos */}
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-                      >
-                        {/* Camera Tile */}
+                      {attachments.length === 0 ? (
+                        /* Empty State: Interactive glassmorphic drop-zone card with dashed border */
                         <TouchableOpacity
                           style={[
-                            styles.telegramTile,
+                            styles.emptyAttachmentCard,
                             {
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F8FAFC',
-                              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
+                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(248, 250, 252, 0.7)',
+                              borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(0, 0, 0, 0.12)',
                             }
                           ]}
-                          onPress={handleTakePhoto}
+                          onPress={handleAddAttachmentChoice}
+                          activeOpacity={0.75}
                           disabled={uploading}
-                          activeOpacity={0.7}
                         >
-                          <Camera size={18} color={colors.text} strokeWidth={1.8} />
-                          <Text style={[styles.telegramTileText, { color: colors.text }]}>Camera</Text>
-                        </TouchableOpacity>
-
-                        {/* Gallery / Photos Tile */}
-                        <TouchableOpacity
-                          style={[
-                            styles.telegramTile,
-                            {
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F8FAFC',
-                              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
-                            }
-                          ]}
-                          onPress={handlePickImage}
-                          disabled={uploading}
-                          activeOpacity={0.7}
-                        >
-                          <ImageIcon size={18} color={colors.text} strokeWidth={1.8} />
-                          <Text style={[styles.telegramTileText, { color: colors.text }]}>Gallery</Text>
-                        </TouchableOpacity>
-
-                        {/* Attached Photo Thumbnails */}
-                        {attachments.map((url, idx) => (
-                          <View key={idx} style={styles.modalThumbWrap}>
-                            <Image source={{ uri: url }} style={styles.modalThumbImg} resizeMode="cover" />
-                            <TouchableOpacity
-                              style={styles.modalThumbDelete}
-                              onPress={() => handleRemoveAttachment(idx)}
-                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                            >
-                              <X size={10} color="#FFFFFF" />
-                            </TouchableOpacity>
+                          <View style={[styles.emptyAttachIconOrb, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)' }]}>
+                            <Paperclip size={18} color="#10b981" />
                           </View>
-                        ))}
-                      </ScrollView>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.emptyAttachTitle, { color: colors.text }]}>
+                              Tap to add receipt or invoice
+                            </Text>
+                            <Text style={[styles.emptyAttachSub, { color: colors.textSecondary }]}>
+                              Camera photo, image library, or scanned vouchers
+                            </Text>
+                          </View>
+                          <View style={[styles.emptyAttachPlusBadge, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0' }]}>
+                            <Plus size={14} color={colors.text} />
+                          </View>
+                        </TouchableOpacity>
+                      ) : (
+                        /* Horizontal Reel: Compact + Add tile followed by attached thumbnails */
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
+                        >
+                          {/* Compact "+ Add" Tile */}
+                          <TouchableOpacity
+                            style={[
+                              styles.addThumbTile,
+                              {
+                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F8FAFC',
+                                borderColor: isDark ? 'rgba(255, 255, 255, 0.16)' : '#CBD5E1',
+                              }
+                            ]}
+                            onPress={handleAddAttachmentChoice}
+                            disabled={uploading}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[styles.addThumbIconWrap, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)' }]}>
+                              <Plus size={16} color="#10B981" strokeWidth={2.2} />
+                            </View>
+                            <Text style={[styles.addThumbText, { color: colors.text }]}>Add</Text>
+                          </TouchableOpacity>
+
+                          {/* Attached Photo Thumbnails */}
+                          {attachments.map((url, idx) => (
+                            <TouchableOpacity
+                              key={idx}
+                              style={[
+                                styles.modalThumbWrap,
+                                {
+                                  borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                                }
+                              ]}
+                              activeOpacity={0.85}
+                              onPress={() => setPreviewImageUrl(url)}
+                            >
+                              <Image source={{ uri: url }} style={styles.modalThumbImg} resizeMode="cover" />
+                              <TouchableOpacity
+                                style={styles.modalThumbDelete}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveAttachment(idx);
+                                }}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <X size={11} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
                     </View>
                   )}
 
@@ -1207,6 +1237,33 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                   onConfirm={confirmRemoveAttachment}
                   onCancel={() => setRemoveAttachmentIdx(null)}
                 />
+
+                {/* Full-screen Image Preview Modal */}
+                <Modal
+                  visible={!!previewImageUrl}
+                  transparent
+                  animationType="fade"
+                  onRequestClose={() => setPreviewImageUrl(null)}
+                  statusBarTranslucent
+                >
+                  <View style={styles.imagePreviewOverlay}>
+                    <TouchableOpacity
+                      style={styles.imagePreviewCloseBtn}
+                      onPress={() => setPreviewImageUrl(null)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    >
+                      <X size={22} color="#ffffff" />
+                    </TouchableOpacity>
+
+                    {previewImageUrl && (
+                      <Image
+                        source={{ uri: previewImageUrl }}
+                        style={styles.imagePreviewFull}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </View>
+                </Modal>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1515,38 +1572,102 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
-  telegramTile: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    borderWidth: 1,
+  emptyAttachmentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    gap: 12,
+  },
+  emptyAttachIconOrb: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyAttachTitle: {
+    fontSize: 13,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
+    marginBottom: 2,
+  },
+  emptyAttachSub: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    lineHeight: 15,
+  },
+  emptyAttachPlusBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addThumbTile: {
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
   },
-  telegramTileText: {
-    fontSize: 9,
-    fontWeight: '700',
+  addThumbIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addThumbText: {
+    fontSize: 10,
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   modalThumbWrap: {
     position: 'relative',
-    width: 52,
-    height: 52,
-    borderRadius: 10,
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   modalThumbImg: {
-    width: 52,
-    height: 52,
+    width: 60,
+    height: 60,
   },
   modalThumbDelete: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    borderRadius: 8,
-    padding: 2,
+    top: 3,
+    right: 3,
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+    borderRadius: 9,
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  imagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePreviewCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 20,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 20,
+  },
+  imagePreviewFull: {
+    width: '100%',
+    height: '80%',
   },
   entryAttachPlusBtn: {
     paddingHorizontal: 8,
