@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
-  Alert,
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
@@ -48,6 +47,7 @@ import { CURRENCIES } from '@/constants/currencies';
 import { isRuleDue } from '@/utils/recurring-engine';
 import { RecurringRuleModal } from '@/components/recurring/recurring-rule-modal';
 import * as Haptics from 'expo-haptics';
+import { StatusModal } from '@/components/ui/status-modal';
 
 interface AdvancedBookModalProps {
   visible: boolean;
@@ -91,6 +91,50 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   // Recurring Modal
   const [recurringModalVisible, setRecurringModalVisible] = useState(false);
 
+  // Status / Feedback Modal state
+  const [statusModalConfig, setStatusModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info';
+    badgeText?: string;
+    title: string;
+    message: string;
+    buttonText?: string;
+    autoCloseMs?: number;
+    onDismiss?: () => void;
+  }>({
+    visible: false,
+    type: 'success',
+    title: '',
+    message: '',
+  });
+
+  const showStatus = (
+    type: 'success' | 'error' | 'info',
+    title: string,
+    message: string,
+    badgeText?: string,
+    autoCloseMs?: number,
+    onDismiss?: () => void
+  ) => {
+    setStatusModalConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      badgeText,
+      autoCloseMs,
+      onDismiss,
+    });
+  };
+
+  const handleCloseStatusModal = () => {
+    const callback = statusModalConfig.onDismiss;
+    setStatusModalConfig(prev => ({ ...prev, visible: false }));
+    if (callback) {
+      callback();
+    }
+  };
+
   // Initialize from book settings
   useEffect(() => {
     if (book) {
@@ -99,7 +143,9 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
 
       const secCurr = book.settings?.secondaryCurrency ? book.settings.secondaryCurrency.toUpperCase() : null;
       setSecondaryCurrency(secCurr);
-      const secVal = book.settings?.secondaryCurrencyValuation;
+      const secVal = (book.settings?.secondaryCurrencyValuation !== null && book.settings?.secondaryCurrencyValuation !== undefined)
+        ? book.settings.secondaryCurrencyValuation
+        : undefined;
       setSecondaryValuation(secVal);
       setRawSecondaryValuation(secVal !== undefined ? String(secVal) : '');
       const secDir = book.settings?.preferredQuotationDirection || 'base_to_quote';
@@ -186,7 +232,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
   const handleSelectSecondaryCurrency = async (currencyCode: string) => {
     const upper = currencyCode.toUpperCase();
     if (upper === selectedBookCurrency) {
-      Alert.alert('Invalid Selection', 'Secondary currency cannot be the same as the Primary currency.');
+      showStatus(
+        'info',
+        'Invalid Selection',
+        'Secondary currency cannot be identical to the Primary base currency.',
+        'CURRENCY CONFLICT'
+      );
       return;
     }
     setSecondaryCurrency(upper);
@@ -294,7 +345,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
     setCurrencyPickerVisible(false);
     const upper = currencyCode.toUpperCase();
     if (upper === selectedBookCurrency) {
-      Alert.alert('Base Currency', `${upper} is already the base ledger currency for this book.`);
+      showStatus(
+        'info',
+        'Base Currency',
+        `${upper} is already the primary base ledger currency for this book.`,
+        'PRIMARY CURRENCY'
+      );
       return;
     }
 
@@ -354,6 +410,14 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
         }
       });
 
+      const finalSecondaryCurrency = secondaryCurrency && secondaryCurrency.toUpperCase() !== selectedBookCurrency.toUpperCase()
+        ? secondaryCurrency.toUpperCase()
+        : null;
+
+      const finalSecondaryValuation = finalSecondaryCurrency && secondaryValuation !== undefined && secondaryValuation > 0
+        ? secondaryValuation
+        : (finalSecondaryCurrency && secondaryLiveRate && secondaryLiveRate > 0 ? secondaryLiveRate : null);
+
       await updateBook(book.id, {
         currency: selectedBookCurrency,
         settings: {
@@ -361,12 +425,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
           showCategory,
           showAttachments,
           currency: selectedBookCurrency,
-          enableMultiCurrency: trackedCurrencies.length > 0 || Boolean(secondaryCurrency),
+          enableMultiCurrency: trackedCurrencies.length > 0 || Boolean(finalSecondaryCurrency),
           customCurrencyValuations: finalValuations,
           trackedCurrencies,
-          secondaryCurrency: secondaryCurrency || undefined,
-          secondaryCurrencyValuation: secondaryValuation !== undefined && secondaryValuation > 0 ? secondaryValuation : (secondaryLiveRate || undefined),
-          preferredQuotationDirection: secondaryQuotationDirection,
+          secondaryCurrency: finalSecondaryCurrency,
+          secondaryCurrencyValuation: finalSecondaryValuation,
+          preferredQuotationDirection: secondaryQuotationDirection || 'base_to_quote',
         },
       });
       if (Platform.OS !== 'web') {
@@ -374,10 +438,21 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {}
       }
-      Alert.alert('Settings Saved', 'Advanced book valuations and settings updated successfully.');
-      onClose();
+      showStatus(
+        'success',
+        'Settings Saved',
+        'Advanced book valuations and settings updated successfully.',
+        'VALUATIONS UPDATED',
+        2200,
+        () => onClose()
+      );
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not save book settings.');
+      showStatus(
+        'error',
+        'Update Failed',
+        err?.message || 'Could not save book settings. Please verify inputs and try again.',
+        'ERROR'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -396,9 +471,20 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {}
       }
-      Alert.alert('Transaction Posted', `"${rule.description}" posted to ${book.name}.`);
+      showStatus(
+        'success',
+        'Transaction Posted',
+        `"${rule.description}" posted to ${book.name} successfully.`,
+        'SCHEDULE EXECUTED',
+        2000
+      );
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not post recurring entry.');
+      showStatus(
+        'error',
+        'Action Failed',
+        err?.message || 'Could not post recurring entry.',
+        'ERROR'
+      );
     }
   };
 
@@ -449,12 +535,14 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                 >
                   <Globe size={20} color={colors.primary} />
                 </View>
-                <View>
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <Text
                     style={[
                       styles.modalTitle,
                       { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' },
                     ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
                     Advanced Book
                   </Text>
@@ -463,6 +551,8 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                       styles.modalSubtitle,
                       { color: colors.textSecondary, fontFamily: 'SpaceGrotesk_400Regular' },
                     ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
                     {book?.name} • Multi-Currency Valuations
                   </Text>
@@ -501,8 +591,8 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                     onPress={() => setBaseCurrencyPickerVisible(true)}
                     activeOpacity={0.75}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                      <View style={{ flex: 1, minWidth: 140 }}>
                         <Text style={[styles.baseBannerLabel, { color: colors.textSecondary }]}>
                           BASE LEDGER CURRENCY
                         </Text>
@@ -515,30 +605,20 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                           {selectedBookCurrency} ({getCurrencySymbol(selectedBookCurrency)})
                         </Text>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View
-                          style={[
-                            styles.basePill,
-                            { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)' },
-                          ]}
-                        >
-                          <Text style={[styles.basePillText, { color: colors.primary }]}>PRIMARY</Text>
-                        </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
                         <View
                           style={{
                             flexDirection: 'row',
                             alignItems: 'center',
                             gap: 4,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                            borderRadius: 10,
-                            borderWidth: 1,
-                            borderColor: colors.primary,
-                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
                           }}
                         >
-                          <Text style={{ fontSize: 12, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>Change</Text>
-                          <ChevronRight size={14} color={colors.primary} />
+                          <Text style={{ fontSize: 11, color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }}>Change</Text>
+                          <ChevronRight size={14} color={colors.textSecondary} />
                         </View>
                       </View>
                     </View>
@@ -549,7 +629,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
 
                   {/* Section: Secondary Primary Currency (Dual-Currency Mode) */}
                   <View style={[styles.sectionHeaderRow, { marginTop: 10 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
                       <Layers size={15} color={colors.primary} />
                       <Text
                         style={[
@@ -593,7 +673,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                           { color: colors.primary, fontFamily: getFontFamily(deviceFont, 'bold') },
                         ]}
                       >
-                        Enable Secondary Primary Currency (e.g. ETB, EUR, GBP)
+                        Add secondary currency
                       </Text>
                     </TouchableOpacity>
                   ) : (
@@ -602,25 +682,25 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                         styles.currencyCard,
                         {
                           backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF',
-                          borderColor: colors.primary,
+                          borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
                           marginBottom: 16,
                         },
                       ]}
                     >
                       <View style={styles.currencyCardTop}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 140 }}>
                           <View
                             style={[
                               styles.currSymbolBox,
-                              { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5' },
+                              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9' },
                             ]}
                           >
-                            <Text style={[styles.currSymbolText, { color: colors.primary }]}>
+                            <Text style={[styles.currSymbolText, { color: colors.text }]}>
                               {getCurrencySymbol(secondaryCurrency)}
                             </Text>
                           </View>
-                          <View style={{ marginLeft: 10 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                               <Text
                                 style={[
                                   styles.currCodeText,
@@ -631,30 +711,30 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                               </Text>
                               <View
                                 style={{
-                                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : '#D1FAE5',
+                                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
                                   paddingHorizontal: 6,
                                   paddingVertical: 1,
                                   borderRadius: 4,
                                 }}
                               >
-                                <Text style={{ fontSize: 9, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                                <Text style={{ fontSize: 9, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }}>
                                   DUAL PRIMARY
                                 </Text>
                               </View>
                             </View>
-                            <Text style={[styles.currNameText, { color: colors.textSecondary }]} numberOfLines={1}>
+                            <Text style={[styles.currNameText, { color: colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
                               {CURRENCIES.find(c => c.code === secondaryCurrency)?.name || secondaryCurrency}
                             </Text>
                           </View>
                         </View>
 
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
                           <TouchableOpacity
                             onPress={() => setSecondaryPickerVisible(true)}
                             style={{
-                              paddingHorizontal: 8,
-                              paddingVertical: 4,
-                              borderRadius: 6,
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                              borderRadius: 8,
                               backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
                             }}
                           >
@@ -667,24 +747,37 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
 
                       {/* Directional Rate Input Row */}
                       <View style={styles.rateInputRow}>
-                        <View style={{ flex: 1 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <Text style={[styles.inputFieldLabel, { color: colors.textSecondary }]}>
+                        <View style={{ flex: 1, minWidth: 150 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                            <Text style={[styles.inputFieldLabel, { color: colors.textSecondary, marginBottom: 0 }]}>
                               Book Valuation Peg
                             </Text>
-                            <TouchableOpacity
-                              onPress={handleSwapSecondaryDirection}
-                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                            >
-                              <ArrowRightLeft size={11} color="#3B82F6" />
-                              <Text style={{ fontSize: 10, color: '#3B82F6', fontFamily: 'SpaceGrotesk_700Bold' }}>
-                                Invert Rate
-                              </Text>
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                              <TouchableOpacity
+                                onPress={handleSwapSecondaryDirection}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}
+                              >
+                                <ArrowRightLeft size={11} color="#3B82F6" />
+                                <Text style={{ fontSize: 11, color: '#3B82F6', fontFamily: 'SpaceGrotesk_700Bold' }}>
+                                  Invert Rate
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={handleResetSecondaryToLive}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}
+                              >
+                                <RefreshCw size={11} color={colors.primary} />
+                                <Text style={{ fontSize: 11, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                                  Sync Live
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
 
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                            <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: 'SpaceGrotesk_700Bold', flexShrink: 0 }}>
                               {secondaryQuotationDirection === 'base_to_quote'
                                 ? `1 ${selectedBookCurrency} =`
                                 : `1 ${secondaryCurrency} =`}
@@ -694,6 +787,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                                 styles.rateInputWrapper,
                                 {
                                   flex: 1,
+                                  minWidth: 100,
                                   backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F8FAFC',
                                   borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#CBD5E1',
                                 },
@@ -714,22 +808,6 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                             </View>
                           </View>
                         </View>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.resetBtn,
-                            {
-                              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9',
-                              borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
-                              alignSelf: 'flex-end',
-                            },
-                          ]}
-                          onPress={handleResetSecondaryToLive}
-                        >
-                          <Text style={[styles.resetBtnText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                            Sync Live
-                          </Text>
-                        </TouchableOpacity>
                       </View>
 
                       <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 6, lineHeight: 15 }}>
@@ -787,7 +865,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                         ]}
                       >
                         <View style={styles.currencyCardTop}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 140 }}>
                             <View
                               style={[
                                 styles.currSymbolBox,
@@ -798,7 +876,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                                 {getCurrencySymbol(curr)}
                               </Text>
                             </View>
-                            <View style={{ marginLeft: 10 }}>
+                            <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                               <Text
                                 style={[
                                   styles.currCodeText,
@@ -807,7 +885,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                               >
                                 {curr}
                               </Text>
-                              <Text style={[styles.currNameText, { color: colors.textSecondary }]} numberOfLines={1}>
+                              <Text style={[styles.currNameText, { color: colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
                                 {currencyMeta?.name || curr}
                               </Text>
                             </View>
@@ -824,10 +902,24 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
 
                         {/* Rate Editing Row */}
                         <View style={styles.rateInputRow}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.inputFieldLabel, { color: colors.textSecondary }]}>
-                              Valuation (1 {curr} = ? {selectedBookCurrency})
-                            </Text>
+                          <View style={{ flex: 1, minWidth: 150 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                              <Text style={[styles.inputFieldLabel, { color: colors.textSecondary, marginBottom: 0 }]}>
+                                Valuation (1 {curr} = ? {selectedBookCurrency})
+                              </Text>
+                              {live !== undefined && (
+                                <TouchableOpacity
+                                  onPress={() => handleResetToLive(curr)}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}
+                                >
+                                  <RefreshCw size={11} color={colors.primary} />
+                                  <Text style={{ fontSize: 11, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                                    Sync Live ({live.toFixed(2)})
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
                             <View
                               style={[
                                 styles.rateInputWrapper,
@@ -857,39 +949,10 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                               </Text>
                             </View>
                           </View>
-
-                          {live !== undefined && (
-                            <TouchableOpacity
-                              style={[
-                                styles.resetBtn,
-                                {
-                                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9',
-                                  borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
-                                },
-                              ]}
-                              onPress={() => handleResetToLive(curr)}
-                            >
-                              <Text style={[styles.resetBtnText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                                Set Live ({live.toFixed(3)})
-                              </Text>
-                            </TouchableOpacity>
-                          )}
                         </View>
                       </View>
                     );
                   })}
-
-                  {trackedCurrencies.length === 0 && (
-                    <View style={[styles.emptyCurrenciesBox, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : '#F8FAFC', borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#E2E8F0' }]}>
-                      <Globe size={22} color={colors.textSecondary} style={{ marginBottom: 6 }} />
-                      <Text style={[styles.emptyCurrenciesTitle, { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') }]}>
-                        No Foreign Currencies Added
-                      </Text>
-                      <Text style={[styles.emptyCurrenciesText, { color: colors.textSecondary }]}>
-                        Tap below to add currencies and configure custom exchange rate valuations for this book.
-                      </Text>
-                    </View>
-                  )}
 
                   {/* Add Currency Button */}
                   <TouchableOpacity
@@ -909,7 +972,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                         { color: colors.primary, fontFamily: getFontFamily(deviceFont, 'bold') },
                       ]}
                     >
-                      Add Foreign Currency
+                      Add currencies
                     </Text>
                   </TouchableOpacity>
 
@@ -958,8 +1021,8 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                             },
                           ]}
                         >
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={{ flex: 1, minWidth: 150 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                               <Text
                                 style={[
                                   styles.recurringTitle,
@@ -1044,7 +1107,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                       onPress={() => setShowPaymentMode(!showPaymentMode)}
                       activeOpacity={0.7}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, marginRight: 8 }}>
                         <View
                           style={{
                             width: 32,
@@ -1053,11 +1116,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                             backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0,
                           }}
                         >
                           <CreditCard size={16} color={colors.primary} />
                         </View>
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={[styles.settingLabel, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                             Show Payment Mode
                           </Text>
@@ -1083,7 +1147,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                       onPress={() => setShowCategory(!showCategory)}
                       activeOpacity={0.7}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, marginRight: 8 }}>
                         <View
                           style={{
                             width: 32,
@@ -1092,11 +1156,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                             backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0,
                           }}
                         >
                           <Tag size={16} color={colors.primary} />
                         </View>
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={[styles.settingLabel, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                             Show Category
                           </Text>
@@ -1122,7 +1187,7 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                       onPress={() => setShowAttachments(!showAttachments)}
                       activeOpacity={0.7}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, marginRight: 8 }}>
                         <View
                           style={{
                             width: 32,
@@ -1131,11 +1196,12 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
                             backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexShrink: 0,
                           }}
                         >
                           <Paperclip size={16} color={colors.primary} />
                         </View>
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={[styles.settingLabel, { color: colors.text, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
                             Show Attachments
                           </Text>
@@ -1241,6 +1307,18 @@ export function AdvancedBookModal({ visible, book, onClose }: AdvancedBookModalP
         onClose={() => setRecurringModalVisible(false)}
         initialBookId={book?.id}
       />
+
+      {/* Luxury Status / Feedback Modal */}
+      <StatusModal
+        visible={statusModalConfig.visible}
+        type={statusModalConfig.type}
+        badgeText={statusModalConfig.badgeText}
+        title={statusModalConfig.title}
+        message={statusModalConfig.message}
+        buttonText={statusModalConfig.buttonText || 'Done'}
+        autoCloseMs={statusModalConfig.autoCloseMs}
+        onClose={handleCloseStatusModal}
+      />
     </Modal>
   );
 }
@@ -1262,6 +1340,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 28,
     elevation: 20,
+    maxHeight: '92%',
   },
   header: {
     flexDirection: 'row',
@@ -1275,6 +1354,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
     marginRight: 10,
   },
   headerIconBox: {
@@ -1284,6 +1364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    flexShrink: 0,
   },
   modalTitle: {
     fontSize: 17,
@@ -1300,6 +1381,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   bodyScroll: {
     paddingHorizontal: 20,
@@ -1342,17 +1424,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'SpaceGrotesk_700Bold',
+    flex: 1,
+    minWidth: 140,
   },
   syncBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
+    flexShrink: 0,
   },
   syncBtnText: {
     fontSize: 12,
@@ -1369,6 +1456,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 10,
   },
   currSymbolBox: {
@@ -1377,6 +1466,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   currSymbolText: {
     fontSize: 16,
@@ -1390,14 +1480,16 @@ const styles = StyleSheet.create({
   currNameText: {
     fontSize: 11,
     fontFamily: 'SpaceGrotesk_400Regular',
-    maxWidth: 180,
+    flexShrink: 1,
   },
   deleteCurrBtn: {
     padding: 6,
+    flexShrink: 0,
   },
   rateInputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    flexWrap: 'wrap',
     gap: 10,
   },
   inputFieldLabel: {
@@ -1411,24 +1503,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 10,
-    height: 38,
+    minHeight: 44,
   },
   rateInput: {
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
     fontFamily: 'SpaceGrotesk_700Bold',
-    paddingVertical: 0,
+    paddingVertical: 4,
   },
   baseSuffix: {
     fontSize: 11,
     fontWeight: '600',
     fontFamily: 'SpaceGrotesk_600SemiBold',
     marginLeft: 4,
+    flexShrink: 0,
   },
   resetBtn: {
-    height: 38,
-    paddingHorizontal: 10,
+    minHeight: 44,
+    paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
@@ -1487,6 +1580,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
     padding: 12,
     borderRadius: 14,
     borderWidth: 1,
@@ -1513,9 +1608,13 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk_400Regular',
   },
   postNowBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   postNowBtnText: {
     color: '#FFFFFF',
@@ -1534,6 +1633,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    minHeight: 56,
   },
   settingLabel: {
     fontSize: 13,
@@ -1544,6 +1644,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
     gap: 10,
     paddingHorizontal: 20,
     paddingVertical: 14,
@@ -1553,6 +1654,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexGrow: 1,
+    minWidth: 100,
   },
   cancelBtnText: {
     fontSize: 13,
@@ -1562,6 +1668,7 @@ const styles = StyleSheet.create({
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1570,6 +1677,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+    minHeight: 44,
+    flexGrow: 1.5,
+    minWidth: 140,
   },
   saveBtnText: {
     color: '#FFFFFF',

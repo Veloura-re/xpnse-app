@@ -1,3 +1,4 @@
+import { Skeleton } from "../../components/ui/skeleton";
 import React, { useMemo, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import {
   View,
@@ -908,59 +909,30 @@ export default function BookDetailScreen() {
         {/* Main Balance Card */}
         <View style={styles.balanceSection}>
           <View style={[styles.balanceCard, { backgroundColor: colors.cardGlass, borderColor: colors.borderGlass }]}>
-            <View style={{ flexDirection: 'row', width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <View style={{ flexDirection: 'row', width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Net Balance</Text>
               
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {secondaryCurrency && (
-                  <TouchableOpacity
-                    style={[
-                      styles.currencyConvertButton,
-                      {
-                        backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
-                        borderColor: colors.primary,
-                        marginRight: 6,
-                      }
-                    ]}
-                    onPress={() => {
-                      setLeadCurrency(prev => prev === 'primary' ? 'secondary' : 'primary');
-                      if (Platform.OS !== 'web') {
-                        try {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        } catch (e) {}
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <ArrowRightLeft size={11} color={colors.primary} />
-                    <Text style={[
-                      styles.currencyConvertText,
-                      { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }
-                    ]}>
-                      {leadCurrency === 'primary' ? `${bookCurrency} ⇄ ${secondaryCurrency}` : `${secondaryCurrency} ⇄ ${bookCurrency}`}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+              {!secondaryCurrency && (
                 <TouchableOpacity
                   style={[
                     styles.currencyConvertButton,
                     {
                       backgroundColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
-                        ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                        ? (isDark ? 'rgba(255, 255, 255, 0.1)' : '#F1F5F9')
                         : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9'),
                       borderColor: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase()
-                        ? colors.primary
-                        : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'),
+                        ? (isDark ? 'rgba(255, 255, 255, 0.2)' : '#CBD5E1')
+                        : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
                     }
                   ]}
                   onPress={() => setNetCurrencyPickerVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <Globe size={11} color={netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary} />
+                  <Globe size={11} color={colors.textSecondary} />
                   <Text style={[
                     styles.currencyConvertText,
                     {
-                      color: netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() ? colors.primary : colors.textSecondary,
+                      color: colors.text,
                       fontFamily: 'SpaceGrotesk_700Bold'
                     }
                   ]}>
@@ -974,60 +946,61 @@ export default function BookDetailScreen() {
                       }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <X size={11} color={colors.primary} />
+                      <X size={11} color={colors.textSecondary} />
                     </TouchableOpacity>
                   ) : (
                     <ChevronDown size={11} color={colors.textSecondary} />
                   )}
                 </TouchableOpacity>
-              </View>
+              )}
             </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-              <Text style={[styles.balanceValue, { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700', marginBottom: 0, color: netBalance >= 0 ? '#10b981' : '#ef4444' }]}>
-                {leadCurrency === 'primary'
-                  ? formatCurrency(netBalance, bookCurrency)
-                  : formatCurrency(netBalance * secondaryRate, secondaryCurrency || bookCurrency)}
-              </Text>
-              {secondaryCurrency && (
-                <View style={[
-                  styles.convertedNetPill,
-                  {
-                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
-                    borderColor: colors.primary,
-                  }
-                ]}>
-                  <Text style={[
-                    styles.convertedNetText,
-                    {
-                      color: netBalance >= 0 ? '#10b981' : '#ef4444',
-                      fontFamily: 'SpaceGrotesk_700Bold'
-                    }
-                  ]}>
+            <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <View style={styles.balanceDisplayRow}>
+                <Text style={[styles.balanceValue, { fontFamily: 'SpaceGrotesk_700Bold', fontWeight: '700', marginBottom: 0, color: netBalance >= 0 ? '#10b981' : '#ef4444' }]}>
+                  {leadCurrency === 'primary'
+                    ? formatCurrency(netBalance, bookCurrency)
+                    : formatCurrency(netBalance * secondaryRate, secondaryCurrency || bookCurrency)}
+                </Text>
+                {secondaryCurrency && (
+                  <Text style={[styles.secondaryBalanceDisplay, { color: netBalance >= 0 ? '#10b981' : '#ef4444' }]}>
                     ≈ {leadCurrency === 'primary'
                       ? formatCurrency(netBalance * secondaryRate, secondaryCurrency)
                       : formatCurrency(netBalance, bookCurrency)}
                   </Text>
-                </View>
-              )}
-              {!secondaryCurrency && netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
-                <View style={[
-                  styles.convertedNetPill,
-                  {
-                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.08)',
-                    borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.25)',
-                  }
-                ]}>
-                  <Text style={[
-                    styles.convertedNetText,
-                    {
-                      color: netBalance >= 0 ? '#10b981' : '#ef4444',
-                      fontFamily: 'SpaceGrotesk_700Bold'
-                    }
-                  ]}>
+                )}
+                {!secondaryCurrency && netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                  <Text style={[styles.secondaryBalanceDisplay, { color: netBalance >= 0 ? '#10b981' : '#ef4444' }]}>
                     ≈ {isCalculatingRate ? '...' : formatCurrency(netBalance * netConvertRate, netConvertCurrency)}
                   </Text>
-                </View>
+                )}
+              </View>
+
+              {/* Central Currency Displayer & Switcher */}
+              {secondaryCurrency && (
+                <TouchableOpacity
+                  style={[
+                    styles.centralCurrencyDisplayer,
+                    {
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                    }
+                  ]}
+                  onPress={() => {
+                    setLeadCurrency(prev => prev === 'primary' ? 'secondary' : 'primary');
+                    if (Platform.OS !== 'web') {
+                      try {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      } catch (e) {}
+                    }
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <ArrowRightLeft size={12} color={colors.textSecondary} />
+                  <Text style={[styles.centralCurrencyDisplayerText, { color: colors.text, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    {leadCurrency === 'primary' ? `${bookCurrency} ⇄ ${secondaryCurrency}` : `${secondaryCurrency} ⇄ ${bookCurrency}`}
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -1038,24 +1011,26 @@ export default function BookDetailScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Cash In</Text>
-                  <Text style={[styles.miniValue, { color: '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                    {leadCurrency === 'primary'
-                      ? formatCurrency(totalCashIn, bookCurrency)
-                      : formatCurrency(totalCashIn * secondaryRate, secondaryCurrency || bookCurrency)}
-                  </Text>
-                  {secondaryCurrency ? (
-                    <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
-                      ≈ {leadCurrency === 'primary'
-                        ? formatCurrency(totalCashIn * secondaryRate, secondaryCurrency)
-                        : formatCurrency(totalCashIn, bookCurrency)}
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
+                    <Text style={[styles.miniValue, { color: '#10b981', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      {leadCurrency === 'primary'
+                        ? formatCurrency(totalCashIn, bookCurrency)
+                        : formatCurrency(totalCashIn * secondaryRate, secondaryCurrency || bookCurrency)}
                     </Text>
-                  ) : (
-                    netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
-                      <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
-                        ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashIn * netConvertRate, netConvertCurrency)}
+                    {secondaryCurrency ? (
+                      <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                        ≈ {leadCurrency === 'primary'
+                          ? formatCurrency(totalCashIn * secondaryRate, secondaryCurrency)
+                          : formatCurrency(totalCashIn, bookCurrency)}
                       </Text>
-                    )
-                  )}
+                    ) : (
+                      netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                        <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                          ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashIn * netConvertRate, netConvertCurrency)}
+                        </Text>
+                      )
+                    )}
+                  </View>
                 </View>
               </View>
               <View style={[styles.balanceStatDivider, { alignSelf: 'stretch', marginHorizontal: 6, opacity: isDark ? 0.2 : 0.6 }]} />
@@ -1065,24 +1040,26 @@ export default function BookDetailScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Cash Out</Text>
-                  <Text style={[styles.miniValue, { color: '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                    {leadCurrency === 'primary'
-                      ? formatCurrency(totalCashOut, bookCurrency)
-                      : formatCurrency(totalCashOut * secondaryRate, secondaryCurrency || bookCurrency)}
-                  </Text>
-                  {secondaryCurrency ? (
-                    <Text style={{ fontSize: 11, color: '#ef4444', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
-                      ≈ {leadCurrency === 'primary'
-                        ? formatCurrency(totalCashOut * secondaryRate, secondaryCurrency)
-                        : formatCurrency(totalCashOut, bookCurrency)}
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, flexWrap: 'wrap' }}>
+                    <Text style={[styles.miniValue, { color: '#ef4444', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      {leadCurrency === 'primary'
+                        ? formatCurrency(totalCashOut, bookCurrency)
+                        : formatCurrency(totalCashOut * secondaryRate, secondaryCurrency || bookCurrency)}
                     </Text>
-                  ) : (
-                    netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
-                      <Text style={{ fontSize: 11, color: '#10b981', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold', marginTop: 1 }}>
-                        ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashOut * netConvertRate, netConvertCurrency)}
+                    {secondaryCurrency ? (
+                      <Text style={{ fontSize: 11, color: '#ef4444', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                        ≈ {leadCurrency === 'primary'
+                          ? formatCurrency(totalCashOut * secondaryRate, secondaryCurrency)
+                          : formatCurrency(totalCashOut, bookCurrency)}
                       </Text>
-                    )
-                  )}
+                    ) : (
+                      netConvertCurrency && netConvertCurrency.toUpperCase() !== bookCurrency.toUpperCase() && (
+                        <Text style={{ fontSize: 11, color: '#ef4444', opacity: 0.85, fontFamily: 'SpaceGrotesk_700Bold' }}>
+                          ≈ {isCalculatingRate ? '...' : formatCurrency(totalCashOut * netConvertRate, netConvertCurrency)}
+                        </Text>
+                      )
+                    )}
+                  </View>
                 </View>
               </View>
             </View>
@@ -1380,7 +1357,39 @@ export default function BookDetailScreen() {
           refreshing={entriesLoading && bookEntries.length === 0}
           onRefresh={refresh}
           ListEmptyComponent={
-            !entriesLoading ? (
+            entriesLoading ? (
+              <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+                {[1, 2, 3, 4, 5].map(key => (
+                  <View key={key} style={[styles.entryItem, {
+                    backgroundColor: isDark ? colors.surface : '#FFFFFF',
+                    borderColor: isDark ? colors.borderGlass : '#E2E8F0',
+                    borderWidth: 1,
+                  }]}>
+                    <View style={[styles.entryIcon, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9' }]}>
+                      <Skeleton width={40} height={40} borderRadius={12} />
+                    </View>
+                    <View style={styles.entryContent}>
+                      <View style={styles.entryHeader}>
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                          <Skeleton width="60%" height={16} borderRadius={4} />
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Skeleton width={60} height={16} borderRadius={4} />
+                        </View>
+                      </View>
+                      <View style={styles.entryFooter}>
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+                          <Skeleton width="40%" height={12} borderRadius={4} />
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          <Skeleton width={70} height={20} borderRadius={8} />
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
               <View style={styles.emptyState}>
                 <View style={[styles.emptyIconContainer, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9' }]}>
                   <FileDown size={32} color={colors.textSecondary} />
@@ -1390,8 +1399,13 @@ export default function BookDetailScreen() {
                   {searchQuery ? 'Try adjusting your search or filters' : 'Add your first entry to start tracking'}
                 </Text>
               </View>
-            ) : null
+            )
           }
+          removeClippedSubviews={Platform.OS === 'android'}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={10}
+          windowSize={11}
         />
       </View>
 
@@ -2978,6 +2992,40 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk_700Bold',
     letterSpacing: 0.3,
   },
+  centralCurrencyDisplayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 6,
+    marginBottom: 4,
+    alignSelf: 'center',
+  },
+  centralCurrencyDisplayerText: {
+    fontSize: 12,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    letterSpacing: 0.3,
+  },
+  balanceDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    columnGap: 8,
+    rowGap: 4,
+    marginBottom: 4,
+  },
+  secondaryBalanceDisplay: {
+    fontSize: 16,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
   convertedNetPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2992,10 +3040,10 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceGrotesk_700Bold',
   },
   balanceValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     fontFamily: 'SpaceGrotesk_700Bold',
-    marginBottom: 8,
+    marginBottom: 4,
     letterSpacing: -0.5,
   },
   balanceStats: {
@@ -3107,6 +3155,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
     marginBottom: 4,
   },
   entryDescription: {
@@ -3147,6 +3197,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   entryDate: {
     fontSize: 11,

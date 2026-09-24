@@ -251,6 +251,10 @@ export default function TeamManagementScreen() {
                     data={filteredMembers}
                     renderItem={renderMember}
                     keyExtractor={(item) => item.id}
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
                     contentContainerStyle={styles.listContainer}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>

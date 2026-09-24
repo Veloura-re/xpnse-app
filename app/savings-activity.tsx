@@ -291,6 +291,10 @@ export default function SavingsActivityScreen() {
           data={filteredTransactions}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          removeClippedSubviews={true}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
           renderItem={({ item }) => {
             const isPos = isPositiveTx(item.type);
             const sign = isPos ? '+' : '-';

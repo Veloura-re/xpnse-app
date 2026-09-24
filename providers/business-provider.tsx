@@ -19,6 +19,27 @@ import {
   creditSpendableForBookIncome,
 } from '@/services/savings-service';
 
+/**
+ * Recursively strips undefined values from an object or array to ensure
+ * Cloud Firestore operations never fail with "Unsupported field value: undefined".
+ */
+export function cleanFirestorePayload<T>(input: T): T {
+  if (input === undefined) return null as any;
+  if (input === null || typeof input !== 'object') return input;
+
+  if (Array.isArray(input)) {
+    return input.filter(item => item !== undefined).map(cleanFirestorePayload) as any;
+  }
+
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) {
+      cleaned[key] = cleanFirestorePayload(value);
+    }
+  }
+  return cleaned as T;
+}
+
 interface BusinessState {
   // Existing state
   businesses: Business[];
@@ -525,7 +546,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       }
 
       // Update business document
-      await updateDoc(doc(firestore, 'businesses', currentBusiness.id), updates);
+      await updateDoc(doc(firestore, 'businesses', currentBusiness.id), cleanFirestorePayload(updates));
 
       // Notify team members about business update
       const businessSnap = await getDoc(doc(firestore, 'businesses', currentBusiness.id));
@@ -1077,7 +1098,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         finalUpdates.totalCashOut = calculatedCashOut;
         finalUpdates.netBalance = calculatedNet;
 
-        queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'books', bookId), finalUpdates);
+        const sanitizedUpdates = cleanFirestorePayload(finalUpdates);
+        queueBatchUpdate(doc(firestore, 'businesses', currentBusiness.id, 'books', bookId), sanitizedUpdates);
         if (opCount > 0) {
           batchList.push(currentBatch);
         }
@@ -1099,12 +1121,14 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           });
         } catch {}
       } else {
-        await updateDoc(doc(firestore, 'businesses', currentBusiness.id, 'books', bookId), finalUpdates);
+        const sanitizedUpdates = cleanFirestorePayload(finalUpdates);
+        await updateDoc(doc(firestore, 'businesses', currentBusiness.id, 'books', bookId), sanitizedUpdates);
       }
 
       // Optimistically update books state immediately
+      const sanitizedUpdates = cleanFirestorePayload(finalUpdates);
       setBooks((prev: Book[]) =>
-        prev.map((b: Book) => (b.id === bookId ? { ...b, ...finalUpdates } : b))
+        prev.map((b: Book) => (b.id === bookId ? { ...b, ...sanitizedUpdates } : b))
       );
     } catch (error) {
       console.error("Error updating book:", error);

@@ -1202,6 +1202,11 @@ export default function SettingsScreen() {
                 data={LOGO_OPTIONS.filter(l => l.label.toLowerCase().includes(logoSearchQuery.toLowerCase()))}
                 numColumns={4}
                 showsVerticalScrollIndicator={false}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={20}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                updateCellsBatchingPeriod={30}
                 contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingBottom: 20 }}
                 columnWrapperStyle={{ gap: 10, justifyContent: 'flex-start' }}
                 keyExtractor={(item) => item.id}

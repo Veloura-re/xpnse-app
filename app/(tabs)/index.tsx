@@ -1,3 +1,4 @@
+import { Skeleton } from "../../components/ui/skeleton";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
@@ -728,9 +729,46 @@ export default function BooksScreen() {
           <>
             {/* Books List Content */}
             {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading books...</Text>
+              <View style={[styles.listContent, { paddingHorizontal: 16 }]}>
+                {[1, 2, 3, 4].map(key => (
+                  <View key={key} style={[styles.card, {
+                    backgroundColor: isDark ? colors.surface : '#FFFFFF',
+                    borderColor: isDark ? colors.border : '#E2E8F0',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: isDark ? 0.25 : 0.04,
+                    shadowRadius: 8,
+                    elevation: isDark ? 2 : 1,
+                  }]}>
+                    <View style={[styles.cardContent, { padding: 14 }]}>
+                      <View style={styles.cardHeader}>
+                        <View style={[styles.iconContainer, { width: 38, height: 38, marginRight: 12 }]}>
+                          <Skeleton width={38} height={38} borderRadius={12} />
+                        </View>
+                        <View style={styles.cardHeaderText}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                              <Skeleton width="50%" height={16} borderRadius={4} />
+                              <Skeleton width={40} height={20} borderRadius={6} />
+                            </View>
+                            <Skeleton width={60} height={14} borderRadius={4} style={{ marginLeft: 'auto', marginRight: 8 }} />
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                            <Skeleton width={80} height={12} borderRadius={4} />
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Skeleton width={40} height={12} borderRadius={4} />
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Skeleton width={40} height={12} borderRadius={4} />
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ))}
               </View>
             ) : (
               <FlatList

@@ -297,6 +297,10 @@ export default function RecurringScreen() {
       <FlatList
         data={filteredRules}
         keyExtractor={(item) => item.id}
+        removeClippedSubviews={true}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         ListHeaderComponent={
           <RecurringDashboard
             recurringRules={recurringRules}

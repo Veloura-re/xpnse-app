@@ -324,8 +324,8 @@ export interface BookSettings {
   enableMultiCurrency?: boolean;
   customCurrencyValuations?: Record<string, number>;
   trackedCurrencies?: string[];
-  secondaryCurrency?: string;
-  secondaryCurrencyValuation?: number;
+  secondaryCurrency?: string | null;
+  secondaryCurrencyValuation?: number | null;
   preferredQuotationDirection?: 'base_to_quote' | 'quote_to_base';
 }
 

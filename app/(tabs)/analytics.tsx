@@ -561,6 +561,10 @@ export default function AnalyticsScreen() {
                 data={validTransactions}
                 renderItem={renderTransactionItem}
                 ListHeaderComponent={renderHeader}
+                removeClippedSubviews={true}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
                 ListEmptyComponent={
                     !loadingTransactions ? (
                         <View style={{ padding: 20, alignItems: 'center' }}>

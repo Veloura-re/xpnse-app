@@ -573,7 +573,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                           selectedCurrency.toUpperCase() === baseCurrency.toUpperCase() && styles.quickCurrencyPillActive,
                           {
                             backgroundColor: selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()
-                              ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                              ? (isDark ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF')
                               : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
                             borderColor: selectedCurrency.toUpperCase() === baseCurrency.toUpperCase()
                               ? colors.primary
@@ -600,7 +600,7 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                             selectedCurrency.toUpperCase() === secondaryCurrency.toUpperCase() && styles.quickCurrencyPillActive,
                             {
                               backgroundColor: selectedCurrency.toUpperCase() === secondaryCurrency.toUpperCase()
-                                ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                                ? (isDark ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF')
                                 : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
                               borderColor: selectedCurrency.toUpperCase() === secondaryCurrency.toUpperCase()
                                 ? colors.primary
@@ -630,12 +630,13 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                           {
                             backgroundColor: selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() &&
                               (!secondaryCurrency || selectedCurrency.toUpperCase() !== secondaryCurrency.toUpperCase())
-                              ? (isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5')
+                              ? (isDark ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF')
                               : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9'),
                             borderColor: selectedCurrency.toUpperCase() !== baseCurrency.toUpperCase() &&
                               (!secondaryCurrency || selectedCurrency.toUpperCase() !== secondaryCurrency.toUpperCase())
                               ? colors.primary
                               : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
+
                           }
                         ]}
                         onPress={() => setCurrencyPickerVisible(true)}
@@ -721,23 +722,17 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <Globe size={13} color={colors.primary} />
                             <Text style={[styles.fxRateTitle, { color: colors.text, fontFamily: getFontFamily(deviceFont, 'bold') }]}>
-                              Exchange Rate Multiplier
+                              Exchange Rate
                             </Text>
                           </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
                             <TouchableOpacity
                               onPress={handleSwapDirection}
                               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              style={[
-                                styles.liveRateButton,
-                                {
-                                  backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#EFF6FF',
-                                  borderColor: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(59, 130, 246, 0.2)',
-                                }
-                              ]}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 6 }}
                             >
-                              <ArrowRightLeft size={11} color="#3B82F6" style={{ marginRight: 4 }} />
-                              <Text style={[styles.liveRateButtonText, { color: '#3B82F6', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                              <ArrowRightLeft size={11} color="#3B82F6" />
+                              <Text style={{ fontSize: 11, color: '#3B82F6', fontFamily: 'SpaceGrotesk_700Bold' }}>
                                 Invert Rate
                               </Text>
                             </TouchableOpacity>
@@ -758,16 +753,10 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                                 } catch (e) {}
                               }}
                               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              style={[
-                                styles.liveRateButton,
-                                {
-                                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
-                                  borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)',
-                                }
-                              ]}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 6 }}
                             >
-                              <RefreshCw size={11} color={colors.primary} style={{ marginRight: 4 }} />
-                              <Text style={[styles.liveRateButtonText, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                              <RefreshCw size={11} color={colors.primary} />
+                              <Text style={{ fontSize: 11, color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }}>
                                 Live Rate
                               </Text>
                             </TouchableOpacity>
@@ -866,38 +855,6 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                         placeholder="What is this for?"
                         placeholderTextColor={colors.textSecondary}
                       />
-                      {/* Instagram-style Attachment button inside entry place */}
-                      <TouchableOpacity
-                        style={[
-                          styles.entryAttachPlusBtn,
-                          {
-                            backgroundColor: (attachments && attachments.length > 0)
-                              ? (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0')
-                              : (isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9'),
-                            borderColor: (attachments && attachments.length > 0)
-                              ? (isDark ? 'rgba(255, 255, 255, 0.22)' : '#CBD5E1')
-                              : (isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0'),
-                          }
-                        ]}
-                        onPress={handleAddAttachmentChoice}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        disabled={uploading}
-                        activeOpacity={0.7}
-                        accessibilityLabel="Add attachment"
-                      >
-                        {uploading ? (
-                          <ActivityIndicator size="small" color={colors.text} />
-                        ) : (attachments && attachments.length > 0) ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <ImageIcon size={14} color={colors.text} strokeWidth={2} />
-                            <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_700Bold', color: colors.text }}>
-                              {attachments.length}
-                            </Text>
-                          </View>
-                        ) : (
-                          <ImageIcon size={17} color={colors.textSecondary} strokeWidth={1.8} />
-                        )}
-                      </TouchableOpacity>
                     </View>
                   </View>
 
@@ -1053,32 +1010,11 @@ export function EntryEditModal({ visible, entry, book, onClose, onSave, initialT
                             Attachments {attachments.length > 0 ? `(${attachments.length})` : ''}
                           </Text>
                         </View>
-                        {uploading ? (
+                        {uploading && (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <ActivityIndicator size="small" color={colors.text} />
                             <Text style={{ fontSize: 11, color: colors.textSecondary }}>Uploading...</Text>
                           </View>
-                        ) : (
-                          <TouchableOpacity
-                            style={[
-                              styles.miniPlusButton,
-                              {
-                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
-                                borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : '#E2E8F0',
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 4,
-                                paddingHorizontal: 8,
-                              }
-                            ]}
-                            onPress={handleAddAttachmentChoice}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            activeOpacity={0.7}
-                            accessibilityLabel="Add attachment"
-                          >
-                            <ImageIcon size={13} color={colors.text} strokeWidth={1.8} />
-                            <Text style={{ fontSize: 11, fontFamily: 'SpaceGrotesk_600SemiBold', color: colors.text }}>Add</Text>
-                          </TouchableOpacity>
                         )}
                       </View>
 
@@ -1364,6 +1300,7 @@ const styles = StyleSheet.create({
   quickCurrencyPillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     flexWrap: 'wrap',
     gap: 6,
     marginBottom: 12,
@@ -1377,9 +1314,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   quickCurrencyPillActive: {
-    shadowColor: '#10B981',
+    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 1,
   },
@@ -1434,6 +1371,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 8,
   },
   fxRateTitle: {
@@ -1474,7 +1413,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 10,
-    height: 38,
+    minHeight: 38,
   },
   fxRateInputField: {
     flex: 1,
@@ -1534,7 +1473,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,
-    height: 44,
+    minHeight: 44,
   },
   textInput: {
     flex: 1,
@@ -1668,22 +1607,5 @@ const styles = StyleSheet.create({
   imagePreviewFull: {
     width: '100%',
     height: '80%',
-  },
-  entryAttachPlusBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 6,
-  },
-  miniPlusButton: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

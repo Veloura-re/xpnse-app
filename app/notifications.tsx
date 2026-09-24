@@ -460,6 +460,10 @@ export default function NotificationsScreen() {
                         renderItem={renderItem}
                         keyExtractor={(item) => item.id}
                         extraData={expandedIds}
+                        removeClippedSubviews={true}
+                        initialNumToRender={10}
+                        maxToRenderPerBatch={10}
+                        windowSize={5}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
                         refreshControl={

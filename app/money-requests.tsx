@@ -321,6 +321,10 @@ export default function MoneyRequestsScreen() {
             renderItem={renderItem}
             contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 24 }]}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
           />
         )}
       </View>
