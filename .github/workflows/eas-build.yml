@@ -1,10 +1,10 @@
 name: EAS Build
 
-on:
-  push:
-    branches:
-      - main
-      - master
+# on:
+#   push:
+#     branches:
+#       - main
+#       - master
   pull_request:
     branches:
       - main
