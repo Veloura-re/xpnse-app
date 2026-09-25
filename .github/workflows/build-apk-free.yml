@@ -69,12 +69,10 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android --clean
       
-      - name: 🔑 Generate Debug Keystore
+      - name: 🔑 Apply Permanent Debug Keystore
         run: |
           mkdir -p android/app
-          cd android/app
-          rm -f debug.keystore
-          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          cp cashiee-debug.keystore android/app/debug.keystore
       
       - name: 🏗️ Build Release APK
         run: |
