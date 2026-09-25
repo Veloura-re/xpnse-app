@@ -1,6 +1,6 @@
 name: EAS Build
 
-# on:
+on:
 #   push:
 #     branches:
 #       - main
