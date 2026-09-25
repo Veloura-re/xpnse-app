@@ -242,6 +242,19 @@ export default function NotificationsScreen() {
                 }
             }
 
+            const path = item.data?.path || item.metadata?.path;
+            const bookId = item.data?.bookId || item.metadata?.bookId;
+
+            if (path) {
+                router.push(path as any);
+                markAsRead(item.id);
+                return;
+            } else if (bookId) {
+                router.push(`/book/${bookId}`);
+                markAsRead(item.id);
+                return;
+            }
+
             toggleExpand(item.id, item.read);
         };
 

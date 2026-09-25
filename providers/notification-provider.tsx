@@ -15,11 +15,11 @@ import { PushNotificationService } from '@/services/push-notification-service';
 if (Platform.OS !== 'web') {
     Notifications.setNotificationHandler({
         handleNotification: async () => ({
-            shouldShowAlert: true,
+            shouldShowAlert: false, // Don't show system banner in foreground to avoid duplicates with in-app toast
             shouldPlaySound: true,
             shouldSetBadge: true,
-            shouldShowBanner: true,
-            shouldShowList: true,
+            shouldShowBanner: false, // Required by type, disables iOS 14+ drop down banner
+            shouldShowList: true,    // Required by type, allows keeping it in notification center
             priority: Notifications.AndroidNotificationPriority.MAX,
         }),
     });
@@ -88,11 +88,11 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         if (!user || Platform.OS === 'web') return;
 
         registerForPushNotificationsAsync().then(async (token) => {
-            if (token && db && user.id) {
+            if (token && db && user.uid) {
                 setExpoPushToken(token);
                 // Save token to user document
                 try {
-                    const userRef = doc(db, 'users', user.id);
+                    const userRef = doc(db, 'users', user.uid);
                     await updateDoc(userRef, {
                         pushToken: token, // Keep for backward compatibility
                         pushTokens: arrayUnion(token), // Support multiple devices
@@ -298,7 +298,7 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
         // Resilient single-field query avoiding composite index requirements
         const q = query(
             collection(db, 'notifications'),
-            where('userId', '==', user.id),
+            where('userId', '==', user.uid),
             limit(100)
         );
 
@@ -328,15 +328,11 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
                     snapshot.docChanges().forEach((change) => {
                         if (change.type === 'added') {
                             const notif = { id: change.doc.id, ...change.doc.data() } as Notification;
-                            if (!notif.read) {
+                            const time = notif.createdAt?.toDate ? notif.createdAt.toDate().getTime() : new Date(notif.createdAt || 0).getTime();
+                            const isRecent = (Date.now() - time) < 60000; // 1 minute
+
+                            if (!notif.read && isRecent) {
                                 setToastNotification(notif);
-                                const payload = notif.data || notif.metadata || {};
-                                sendLocalNotification(
-                                    notif.title || 'Notification',
-                                    notif.message,
-                                    payload,
-                                    notif.color
-                                );
                             }
                         }
                     });
@@ -353,8 +349,8 @@ export const [NotificationProvider, useNotifications] = createContextHook((): No
 
         // Update lastActiveAt periodically while app is active
         const activityInterval = setInterval(() => {
-            if (db && user.id) {
-                updateDoc(doc(db, 'users', user.id), {
+            if (db && user.uid) {
+                updateDoc(doc(db, 'users', user.uid), {
                     lastActiveAt: new Date().toISOString()
                 }).catch(() => { });
             }

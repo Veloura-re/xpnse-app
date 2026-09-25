@@ -289,6 +289,18 @@ export interface BusinessMember {
   joinedAt: string;
 }
 
+export interface BusinessInvitation {
+  id: string;
+  businessId: string;
+  businessName: string;
+  invitedEmail: string;
+  role: UserRole;
+  invitedByUserId: string;
+  invitedByUserName: string;
+  createdAt: string;
+  status: 'pending' | 'accepted' | 'declined';
+}
+
 export interface Party {
   id: string;
   businessId: string;

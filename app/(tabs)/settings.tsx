@@ -80,7 +80,7 @@ type ExpandedSection = 'feedback' | 'privacy' | null;
 
 export default function SettingsScreen() {
   const { user, logout, updateProfile, deleteAccount, reauthenticate, isDeveloperAdmin } = useAuth();
-  const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont, books, addEntry } = useBusiness();
+  const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont, books, addEntry, invitations = [] } = useBusiness();
   const { expoPushToken } = useNotifications();
   const { colors, deviceFont, setDeviceFont, isDark, theme, setTheme } = useTheme();
   const userRole = getUserRole();
@@ -486,6 +486,28 @@ export default function SettingsScreen() {
           )}
 
 
+
+          <SectionHeader title="Network" />
+          <SettingsCard>
+            <SettingsRow
+              icon={Mail}
+              label="Pending Invitations"
+              subLabel={invitations.length > 0 ? `You have ${invitations.length} pending invitation${invitations.length > 1 ? 's' : ''}` : "Manage team invitations"}
+              onPress={() => router.push('/invitations')}
+              color={invitations.length > 0 ? "#ef4444" : "#6366f1"}
+              rightElement={
+                invitations.length > 0 ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ backgroundColor: '#ef4444', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'SpaceGrotesk_700Bold' }}>{invitations.length}</Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.textSecondary} />
+                  </View>
+                ) : <ChevronRight size={18} color={colors.textSecondary} />
+              }
+              isLast
+            />
+          </SettingsCard>
 
           <SectionHeader title="Financial Tools" />
           <SettingsCard>

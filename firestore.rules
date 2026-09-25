@@ -20,13 +20,13 @@ service cloud.firestore {
              (resource == null || request.auth.uid in resource.data.memberIds);
     }
     
-    // Users collection
+    // Users
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && (request.auth.uid == userId || request.auth.token.email == 'lucyosck21@gmail.com');
     }
     
-    // Businesses collection
+    // Businesses & Subcollections
     match /businesses/{businessId} {
       allow read: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
       
@@ -57,124 +57,58 @@ service cloud.firestore {
                         );
       
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.ownerId;
+
+      // Grouped standard subcollections
+      match /{subcollection}/{docId} {
+        allow read, write: if subcollection in ['books', 'parties', 'recurringRules', 'accounts', 'scheduled_stashes', 'group_pools', 'wallet_transactions'] && isMember(businessId);
+      }
+
+      match /entries/{entryId} {
+        allow read: if isMemberDenormalized() || isMember(businessId);
+        allow create, update, delete: if isMember(businessId);
+      }
+
+      match /vaults/{vaultId} {
+        allow read: if isMember(businessId);
+        allow create: if isMember(businessId) && request.resource.data.memberId == request.auth.uid;
+        allow update, delete: if isMember(businessId) &&
+                                 (resource.data.memberId == request.auth.uid ||
+                                  request.auth.uid == get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId);
+      }
+
+      match /money_requests/{reqId} {
+        allow read: if isMember(businessId) && (request.auth.uid == resource.data.requesterId || request.auth.uid == resource.data.payerId);
+        allow create: if isMember(businessId) && request.resource.data.requesterId == request.auth.uid;
+        allow update: if isMember(businessId) && (request.auth.uid == resource.data.payerId || request.auth.uid == resource.data.requesterId);
+        allow delete: if false;
+      }
+
+      match /pending_transfers/{txId} {
+        allow read: if isMember(businessId) && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId);
+        allow create: if isMember(businessId) && request.resource.data.senderId == request.auth.uid;
+        allow update: if isMember(businessId) && request.auth.uid == resource.data.recipientId;
+        allow delete: if false;
+      }
     }
     
-    // Books subcollection
-    match /businesses/{businessId}/books/{bookId} {
-      allow read, write: if isMember(businessId);
-    }
-    
-    // Entries subcollection
-    match /businesses/{businessId}/entries/{entryId} {
-      // Use the faster denormalized check if available, otherwise fallback to business doc
-      allow read: if isMemberDenormalized() || isMember(businessId);
-      allow create, update, delete: if isMember(businessId);
-    }
-    
-    // Parties subcollection
-    match /businesses/{businessId}/parties/{partyId} {
-      allow read, write: if isMember(businessId);
-    }
-    
-    // Recurring Rules subcollection (Strictly scoped to current business)
-    match /businesses/{businessId}/recurringRules/{ruleId} {
-      allow read, write: if isMember(businessId);
-    }
-
-    // Member Accounts subcollection (Savings & Microfinance)
-    match /businesses/{businessId}/accounts/{accountId} {
-      allow read, write: if isMember(businessId);
-    }
-
-    // Savings Vaults subcollection (Personal member vaults & target lock vaults)
-    match /businesses/{businessId}/vaults/{vaultId} {
-      allow read: if isMember(businessId);
-      allow create: if isMember(businessId) &&
-                       request.resource.data.memberId == request.auth.uid;
-      allow update, delete: if isMember(businessId) &&
-                               (resource.data.memberId == request.auth.uid ||
-                                request.auth.uid == get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId);
-    }
-
-    // Scheduled Stashes subcollection (Automated recurring savings rules)
-    match /businesses/{businessId}/scheduled_stashes/{stashId} {
-      allow read, write: if isMember(businessId);
-    }
-
-    // Collective Group Pools subcollection
-    match /businesses/{businessId}/group_pools/{poolId} {
-      allow read, write: if isMember(businessId);
-    }
-
-    // Wallet Transactions subcollection
-    match /businesses/{businessId}/wallet_transactions/{txId} {
-      allow read, write: if isMember(businessId);
-    }
-
-    // Money Requests subcollection (request-to-pay flow)
-    match /businesses/{businessId}/money_requests/{reqId} {
-      // Both the requester and the payer can read the request
-      allow read: if isMember(businessId) &&
-                     (request.auth.uid == resource.data.requesterId ||
-                      request.auth.uid == resource.data.payerId);
-      // Only the requester can create a new request
-      allow create: if isMember(businessId) &&
-                       request.resource.data.requesterId == request.auth.uid;
-      // Payer can respond (approve/decline); requester can cancel
-      allow update: if isMember(businessId) &&
-                       (request.auth.uid == resource.data.payerId ||
-                        request.auth.uid == resource.data.requesterId);
-      allow delete: if false;
-    }
-
-    // Pending Transfers subcollection (hold-and-confirm transfer flow)
-    match /businesses/{businessId}/pending_transfers/{txId} {
-      // Sender and recipient can both read
-      allow read: if isMember(businessId) &&
-                     (request.auth.uid == resource.data.senderId ||
-                      request.auth.uid == resource.data.recipientId);
-      // Only the sender can create
-      allow create: if isMember(businessId) &&
-                       request.resource.data.senderId == request.auth.uid;
-      // Only the recipient can respond (update status)
-      allow update: if isMember(businessId) &&
-                       request.auth.uid == resource.data.recipientId;
-      allow delete: if false;
-    }
-    
-    // Invitations collection
     match /invitations/{invitationId} {
-      allow read: if isAuthenticated() && 
-                     (request.auth.uid == resource.data.invitedUserId || 
-                      request.auth.uid == resource.data.invitedBy);
-      allow create: if isAuthenticated() && 
-                       request.resource.data.invitedBy == request.auth.uid &&
-                       isMember(request.resource.data.businessId);
-      allow update: if isAuthenticated() && 
-                       (request.auth.uid == resource.data.invitedUserId || request.auth.uid == resource.data.invitedBy);
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.invitedUserId || request.auth.uid == resource.data.invitedBy);
+      allow create: if isAuthenticated() && request.resource.data.invitedBy == request.auth.uid && isMember(request.resource.data.businessId);
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.invitedUserId || request.auth.uid == resource.data.invitedBy);
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.invitedBy;
     }
 
-    // Activity Logs collection
     match /activityLogs/{logId} {
       allow read: if isAuthenticated() && isMember(resource.data.businessId);
-      allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid &&
-                       isMember(request.resource.data.businessId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isMember(request.resource.data.businessId);
     }
 
-    // Notifications collection
     match /notifications/{notificationId} {
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
-                       (request.resource.data.userId == request.auth.uid || 
-                        (request.resource.data.businessId != null && isMember(request.resource.data.businessId)));
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || (request.resource.data.businessId != null && isMember(request.resource.data.businessId)));
     }
 
-    // Global Analytics: Collection Group Rule for entries
     match /{path=**}/entries/{entryId} {
-      // CRITICAL: This allows Global Analytics to scale infinitely.
-      // It skips the 10-read limit by using denormalized memberIds on the document itself.
       allow read: if isMemberDenormalized();
     }
   }

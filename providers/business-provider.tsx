@@ -1,6 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Business, BusinessType, Book, BookEntry, ActivityLog, UserRole, BusinessMember, User, Party, RecurringRule, RecurrenceFrequency } from '@/types';
+import { Business, BusinessType, Book, BookEntry, ActivityLog, UserRole, BusinessMember, BusinessInvitation, User, Party, RecurringRule, RecurrenceFrequency } from '@/types';
 import { calculateNextDueDate, getTodayString, isRuleDue, buildEntryFromRecurringRule } from '@/utils/recurring-engine';
 import { mockBusinesses, mockBooks, mockEntries, mockActivityLogs, mockUsers } from '@/mocks/data';
 import { useAuth } from './auth-provider';
@@ -74,10 +74,13 @@ interface BusinessState {
   sendBulkNotification: (options: { title: string; message: string; type?: 'info' | 'warning' | 'error' | 'success'; metadata?: any }) => Promise<void>;
 
   // Team management
+  invitations: BusinessInvitation[];
   inviteTeamMember: (email: string, role: UserRole) => Promise<{ success: boolean; message: string }>;
   searchUserByEmail: (email: string) => Promise<{ success: boolean; user?: User; message?: string }>;
   updateTeamMemberRole: (userId: string, role: UserRole) => Promise<{ success: boolean; message: string }>;
   removeTeamMember: (userId: string) => Promise<{ success: boolean; message: string }>;
+  acceptInvitation: (invitationId: string) => Promise<{ success: boolean; message: string }>;
+  declineInvitation: (invitationId: string) => Promise<{ success: boolean; message: string }>;
   getTeamMembers: () => BusinessMember[];
 
   // Permissions
@@ -109,6 +112,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   const storage = useStorage();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null);
+  const [invitations, setInvitations] = useState<BusinessInvitation[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,7 +131,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     // Note: We need to ensure we write 'memberIds' to the business document
     const q = query(
       collection(db, 'businesses'),
-      where('memberIds', 'array-contains', user.id)
+      where('memberIds', 'array-contains', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
@@ -161,6 +165,34 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
   // Sync currentBusiness with businesses state
   useEffect(() => {
+    if (!user || !db || !user.email) {
+      setInvitations([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'invitations'),
+      where('invitedEmail', '==', user.email.toLowerCase()),
+      where('status', '==', 'pending')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const invitesList: BusinessInvitation[] = [];
+      snapshot.forEach((doc) => {
+        invitesList.push({ id: doc.id, ...doc.data() } as BusinessInvitation);
+      });
+      
+      invitesList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setInvitations(invitesList);
+    }, (error) => {
+      console.error("Error fetching invitations:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Sync currentBusiness with businesses state
+  useEffect(() => {
     if (!currentBusiness) return;
 
     const updatedBusiness = businesses.find((b: Business) => b.id === currentBusiness.id);
@@ -171,7 +203,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     } else if (businesses.length > 0 && !isLoading) {
       // Current business removed/deleted
       setCurrentBusiness(null);
-      if (user) storage.removeItem(`currentBusinessId_${user.id}`);
+      if (user) storage.removeItem(`currentBusinessId_${user.uid}`);
     }
   }, [businesses, currentBusiness, isLoading, storage, user]);
 
@@ -240,7 +272,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
   const hasPermission = useCallback((requiredRole: UserRole): boolean => {
     if (!currentBusiness || !user) return false;
 
-    const currentUserId = user.id || user.uid;
+    const currentUserId = user.uid || user.uid;
     if (!currentUserId) return false;
 
     // Direct owner checks
@@ -284,11 +316,22 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
   // User lost access, switch to first available business or clear
   useEffect(() => {
-    if (!user) return;
+    if (!user || isLoading) return;
 
-    if (!isLoading && businesses.length > 0 && !currentBusiness) {
+    if (currentBusiness) {
+      const stillHasAccess = businesses.some((b: Business) => b.id === currentBusiness.id);
+      if (!stillHasAccess) {
+        if (businesses.length > 0) {
+          setCurrentBusiness(businesses[0]);
+          storage.setItem(`currentBusinessId_${user.uid}`, businesses[0].id).catch(() => {});
+        } else {
+          setCurrentBusiness(null);
+          storage.removeItem(`currentBusinessId_${user.uid}`).catch(() => {});
+        }
+      }
+    } else if (businesses.length > 0) {
       // Try to restore last used business specifically for this user
-      storage.getItem(`currentBusinessId_${user.id}`).then(lastId => {
+      storage.getItem(`currentBusinessId_${user.uid}`).then(lastId => {
         if (lastId) {
           const found = businesses.find((b: Business) => b.id === lastId);
           if (found) {
@@ -299,7 +342,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         // Default to first one (which is now sorted by lastActiveAt)
         setCurrentBusiness(businesses[0]);
       });
-    } else if (!isLoading && businesses.length === 0) {
+    } else if (businesses.length === 0) {
       setCurrentBusiness(null);
     }
   }, [businesses, isLoading, currentBusiness, user, storage]);
@@ -309,7 +352,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     const business = businesses.find((b: Business) => b.id === businessId);
     if (business) {
       setCurrentBusiness(business);
-      await storage.setItem(`currentBusinessId_${user.id}`, businessId);
+      await storage.setItem(`currentBusinessId_${user.uid}`, businessId);
       // Update lastActiveAt for business
       if (db) {
         try {
@@ -330,7 +373,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     const newBusiness: Business = {
       id: newBusinessId,
       name,
-      ownerId: user.id!,
+      ownerId: user.uid,
       currency,
       type: type || 'standard',
       groupPoolBalance: 0,
@@ -340,7 +383,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       createdAt: new Date().toISOString(),
       members: [{
         id: uuidv4(),
-        userId: user.id!,
+        userId: user.uid,
         businessId: newBusinessId,
         role: 'owner',
         user: user,
@@ -352,7 +395,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     // Add memberIds array for querying
     const businessDoc = {
       ...newBusiness,
-      memberIds: [user.id!]
+      memberIds: [user.uid]
     };
 
     try {
@@ -377,7 +420,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       if (type === 'savings_group') {
         try {
-          await getOrCreateMemberAccount(newBusinessId, user.id!, currency);
+          await getOrCreateMemberAccount(newBusinessId, user.uid, currency);
         } catch (accountErr) {
           console.warn('[Savings] Error initializing owner wallet account:', accountErr);
         }
@@ -385,7 +428,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
 
       // No need to set state manually, the onSnapshot listener will pick it up
       setCurrentBusiness(newBusiness);
-      await storage.setItem(`currentBusinessId_${user.id}`, newBusinessId);
+      await storage.setItem(`currentBusinessId_${user.uid}`, newBusinessId);
     } catch (error) {
       console.error("Error creating business:", error);
       throw error;
@@ -538,7 +581,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             businessId: currentBusiness.id,
             entityType: 'business',
             entityId: currentBusiness.id,
-            userId: user.id || user.uid,
+            userId: user.uid || user.uid,
             action: `Converted primary currency to ${newCurrency}`,
             timestamp: new Date().toISOString(),
           });
@@ -551,7 +594,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Notify team members about business update
       const businessSnap = await getDoc(doc(firestore, 'businesses', currentBusiness.id));
       const liveMemberIds: string[] = businessSnap.exists() ? (businessSnap.data().memberIds || []) : [];
-      const teamMemberIds = liveMemberIds.filter((id: string) => id !== user.id);
+      const teamMemberIds = liveMemberIds.filter((id: string) => id !== user.uid);
 
       if (teamMemberIds.length > 0) {
         const batch = writeBatch(firestore);
@@ -634,9 +677,9 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       }
     }
 
-    const currentUserId = user.id || user.uid;
-    const memberRole = business?.members?.find((m: BusinessMember) => m.userId === currentUserId || m.userId === user.id || m.userId === user.uid)?.role;
-    const isOwner = !business || business.ownerId === currentUserId || business.ownerId === user.id || business.ownerId === user.uid || memberRole === 'owner';
+    const currentUserId = user.uid || user.uid;
+    const memberRole = business?.members?.find((m: BusinessMember) => m.userId === currentUserId || m.userId === user.uid || m.userId === user.uid)?.role;
+    const isOwner = !business || business.ownerId === currentUserId || business.ownerId === user.uid || business.ownerId === user.uid || memberRole === 'owner';
     if (!isOwner) {
       throw new Error('Only the business owner can delete this business');
     }
@@ -644,7 +687,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     try {
       // Notify team members BEFORE deletion
       if (business) {
-        const teamMembers = (business.members || []).filter((m: BusinessMember) => m.userId !== currentUserId && m.userId !== user.id && m.userId !== user.uid);
+        const teamMembers = (business.members || []).filter((m: BusinessMember) => m.userId !== currentUserId && m.userId !== user.uid && m.userId !== user.uid);
         for (const member of teamMembers) {
           try {
             await addDoc(collection(db, 'notifications'), {
@@ -766,14 +809,14 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     const business = businesses.find((b: Business) => b.id === businessId);
     if (!business) return;
 
-    if (business.ownerId === user.id) {
+    if (business.ownerId === user.uid) {
       console.warn('Owners cannot leave their own business. Delete or transfer ownership instead.');
       return;
     }
 
     try {
-      const updatedMembers = business.members.filter((m: BusinessMember) => m.userId !== user.id);
-      const updatedMemberIds = business.memberIds?.filter((id: string) => id !== user.id) || [];
+      const updatedMembers = business.members.filter((m: BusinessMember) => m.userId !== user.uid);
+      const updatedMemberIds = business.memberIds?.filter((id: string) => id !== user.uid) || [];
 
       await updateDoc(doc(db, 'businesses', businessId), {
         members: updatedMembers,
@@ -807,7 +850,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       if (currentBusiness?.id === businessId) {
         setCurrentBusiness(null);
         // Bug fix: use the correct per-user storage key
-        await storage.removeItem(`currentBusinessId_${user.id}`);
+        await storage.removeItem(`currentBusinessId_${user.uid}`);
       }
     } catch (error) {
       console.error("Error leaving business:", error);
@@ -853,7 +896,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       name,
       currency: selectedCurrency,
       createdAt: new Date().toISOString(),
-      createdBy: user.id!,
+      createdBy: user.uid,
       totalCashIn: 0,
       totalCashOut: 0,
       netBalance: 0,
@@ -892,7 +935,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         businessId: currentBusiness.id,
         entityType: 'book',
         entityId: currentBusiness.id,
-        userId: user.id!,
+        userId: user.uid,
         action: 'create_book',
         timestamp: new Date().toISOString(),
         metadata: {
@@ -901,8 +944,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           currency: selectedCurrency,
         },
         user: {
-          id: user.id || '',
-          uid: user.uid || user.id || '',
+          id: user.uid || '',
+          uid: user.uid || user.uid || '',
           email: user.email || '',
           name: user.name || user.displayName || '',
           displayName: user.displayName || user.name || '',
@@ -922,7 +965,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Bug fix: Re-read live memberIds from Firestore for createBook notification
       const createBookBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
       const createBookMemberIds: string[] = createBookBizSnap.exists() ? (createBookBizSnap.data().memberIds || []) : [];
-      const createBookMembersToNotify = createBookMemberIds.filter((id: string) => id !== user.id);
+      const createBookMembersToNotify = createBookMemberIds.filter((id: string) => id !== user.uid);
 
       if (createBookMembersToNotify.length > 0 && db) {
         const batch = writeBatch(db);
@@ -1115,7 +1158,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             businessId: currentBusiness.id,
             entityType: 'book',
             entityId: bookId,
-            userId: user.id || user.uid,
+            userId: user.uid || user.uid,
             action: `Converted book "${existingBook?.name || bookId}" base currency from ${oldCurrency} to ${newCurrency}`,
             timestamp: new Date().toISOString(),
           });
@@ -1179,7 +1222,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Bug fix: Re-read live memberIds from Firestore; always notify regardless of bookName
       const deleteBookBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
       const deleteBookMemberIds: string[] = deleteBookBizSnap.exists() ? (deleteBookBizSnap.data().memberIds || []) : [];
-      const deleteBookMembersToNotify = deleteBookMemberIds.filter((id: string) => id !== user.id);
+      const deleteBookMembersToNotify = deleteBookMemberIds.filter((id: string) => id !== user.uid);
       const resolvedDeleteBookName = bookName !== 'Unknown Book' ? bookName : 'a book';
 
       if (deleteBookMembersToNotify.length > 0 && db) {
@@ -1235,7 +1278,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     const newEntry: BookEntry = {
       ...entryData,
       id: newEntryId,
-      userId: user.id!,
+      userId: user.uid,
       createdAt: new Date().toISOString(),
       businessId: currentBusiness.id,
       memberIds: currentBusiness.memberIds || [], // Denormalize for security rules performance
@@ -1279,11 +1322,11 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         entryData.paymentMode === 'Spendable Balance' ||
         entryData.paymentMode === 'Wallet';
 
-      if (isWalletMode && amount > 0 && user.id) {
+      if (isWalletMode && amount > 0 && user.uid) {
         if (entryData.type === 'cash_out') {
           deductSpendableForBookExpense({
             businessId: currentBusiness.id,
-            userId: user.id,
+            userId: user.uid,
             amount,
             currency: entryData.originalCurrency || currentBusiness.currency || 'USD',
             bookEntryId: newEntryId,
@@ -1295,7 +1338,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         } else if (entryData.type === 'cash_in') {
           creditSpendableForBookIncome({
             businessId: currentBusiness.id,
-            userId: user.id,
+            userId: user.uid,
             amount,
             currency: entryData.originalCurrency || currentBusiness.currency || 'USD',
             bookEntryId: newEntryId,
@@ -1308,10 +1351,10 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       }
 
       // Execute Automated Round-Up for cash_out expenses if enabled
-      if (entryData.type === 'cash_out' && amount > 0 && user.id) {
+      if (entryData.type === 'cash_out' && amount > 0 && user.uid) {
         executeRoundUpForEntry({
           businessId: currentBusiness.id,
-          userId: user.id,
+          userId: user.uid,
           entryAmount: amount,
           bookEntryId: newEntryId,
           bookName: context?.bookName,
@@ -1323,7 +1366,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
       const businessDocSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
       const liveMemberIds: string[] = businessDocSnap.exists() ? (businessDocSnap.data().memberIds || []) : [];
-      const memberIdsToNotify = liveMemberIds.filter((id: string) => id !== user.id);
+      const memberIdsToNotify = liveMemberIds.filter((id: string) => id !== user.uid);
 
       // Get book name for notification
       let bookName = context?.bookName || '';
@@ -1533,7 +1576,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
       const updateBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
       const updateLiveMemberIds: string[] = updateBizSnap.exists() ? (updateBizSnap.data().memberIds || []) : [];
-      const updateMemberIdsToNotify = updateLiveMemberIds.filter((id: string) => id !== user.id);
+      const updateMemberIdsToNotify = updateLiveMemberIds.filter((id: string) => id !== user.uid);
 
       // Get book name
       let bookName = context?.bookName || '';
@@ -1678,7 +1721,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         // Fix 3: Re-read live memberIds from Firestore to avoid stale closure
         const deleteBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
         const deleteLiveMemberIds: string[] = deleteBizSnap.exists() ? (deleteBizSnap.data().memberIds || []) : [];
-        const deleteMemberIdsToNotify = deleteLiveMemberIds.filter((id: string) => id !== user.id);
+        const deleteMemberIdsToNotify = deleteLiveMemberIds.filter((id: string) => id !== user.uid);
         const resolvedDeleteBookName = bookName || 'the book';
 
         // Fix 2: Always send notification regardless of book name resolution
@@ -1794,7 +1837,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     if (!targetBusinessId || !user) return null;
 
     const business = businesses.find((b: Business) => b.id === targetBusinessId);
-    const member = business?.members?.find((m: BusinessMember) => m.userId === user.id);
+    const member = business?.members?.find((m: BusinessMember) => m.userId === user.uid);
     return member?.role || null;
   }, [businesses, currentBusiness, user]);
 
@@ -1807,155 +1850,157 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       return { success: false, message: 'You do not have permission to invite team members' };
     }
 
-    const invitedUser = await findUserByEmail(email);
-    if (!invitedUser) {
-      return { success: false, message: 'User not found' };
-    }
+    const invitedEmail = email.toLowerCase().trim();
 
-    const isAlreadyMember = (currentBusiness.members || []).some((m: BusinessMember) => m.userId === invitedUser.id);
+    // Check if user is already a member
+    const isAlreadyMember = (currentBusiness.members || []).some((m: BusinessMember) => m.user.email?.toLowerCase() === invitedEmail);
     if (isAlreadyMember) {
       return { success: false, message: 'User is already a team member' };
     }
 
-    const newMember: BusinessMember = {
-      id: uuidv4(),
-      userId: invitedUser.id!,
-      businessId: currentBusiness.id,
-      role,
-      user: {
-        ...invitedUser,
-        id: invitedUser.id!,
-        uid: invitedUser.id!,
-        email: invitedUser.email,
-        name: invitedUser.name || invitedUser.displayName || invitedUser.email.split('@')[0],
-        displayName: invitedUser.displayName || invitedUser.name || invitedUser.email.split('@')[0],
-        phoneNumber: invitedUser.phoneNumber || '',
-        avatar: invitedUser.avatar || '',
-      } as User,
-      joinedAt: new Date().toISOString(),
-    };
-
     try {
-      const businessRef = doc(db, 'businesses', currentBusiness.id);
+      // Check if a pending invitation already exists
+      const q = query(
+        collection(db, 'invitations'),
+        where('businessId', '==', currentBusiness.id),
+        where('invitedEmail', '==', invitedEmail),
+        where('status', '==', 'pending')
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        return { success: false, message: 'An invitation is already pending for this email' };
+      }
 
-      // Clean the members array to remove any undefined values
-      const cleanMember = JSON.parse(JSON.stringify(newMember)); // Remove undefined fields
-
-      // Use a transaction to reliably add the member
-      // arrayUnion is unreliable with complex nested objects
-      await runTransaction(db, async (transaction) => {
-        const businessDoc = await transaction.get(businessRef);
-
-        if (!businessDoc.exists()) {
-          throw new Error('Business not found');
-        }
-
-        const currentMembers = businessDoc.data().members || [];
-        const currentMemberIds = businessDoc.data().memberIds || [];
-
-        // Double-check if user is already a member (race condition protection)
-        if (currentMemberIds.includes(invitedUser.id!)) {
-          throw new Error('User is already a team member');
-        }
-
-        // Add the new member to the arrays
-        transaction.update(businessRef, {
-          members: [...currentMembers, cleanMember],
-          memberIds: [...currentMemberIds, invitedUser.id!]
-        });
-      });
-
-      // Log activity - create clean user object with no undefined values
-      const cleanUser = {
-        id: user.id || '',
-        uid: user.uid || user.id || '',
-        email: user.email || '',
-        name: user.name || user.displayName || '',
-        displayName: user.displayName || user.name || '',
-        phoneNumber: user.phoneNumber || '',
-        avatar: user.avatar || '',
-        emailVerified: user.emailVerified || false,
-        isAnonymous: user.isAnonymous || false,
-        disabled: user.disabled || false,
-        metadata: {},
-        providerData: []
-      };
-
-      const newActivity: ActivityLog = {
-        id: uuidv4(),
+      const inviteId = uuidv4();
+      const newInvitation: BusinessInvitation = {
+        id: inviteId,
         businessId: currentBusiness.id,
-        entityType: 'business',
-        entityId: currentBusiness.id,
-        userId: user.id!,
-        action: 'invite_member',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          memberId: newMember.id,
-          role,
-          email: invitedUser.email
-        },
-        user: cleanUser as User
+        businessName: currentBusiness.name,
+        invitedEmail: invitedEmail,
+        role,
+        invitedByUserId: user.uid || user.uid,
+        invitedByUserName: user.displayName || user.name || user.email || 'Someone',
+        createdAt: new Date().toISOString(),
+        status: 'pending'
       };
 
-      // Remove any remaining undefined values
-      const cleanActivity = JSON.parse(JSON.stringify(newActivity));
-      await setDoc(doc(db, 'activityLogs', newActivity.id), cleanActivity);
+      await setDoc(doc(db, 'invitations', inviteId), newInvitation);
 
-      // Notify team members about the new invitation
-      const teamToNotify = (currentBusiness.members || []).filter((m: BusinessMember) => m.userId !== user.id);
-      for (const member of teamToNotify) {
-        try {
-          await addDoc(collection(db, 'notifications'), {
-            userId: member.userId,
-            title: 'Team Member Invited',
-            message: `${user.displayName || user.name || user.email} invited ${invitedUser.displayName || invitedUser.name || email} to join as ${role}`,
+      // Find the user if they exist to send a push notification
+      const invitedUser = await findUserByEmail(invitedEmail);
+
+      if (invitedUser && invitedUser.id) {
+        // Also add a notification document for them
+        await addDoc(collection(db, 'notifications'), {
+            userId: invitedUser.id,
+            title: `Team Invitation: ${currentBusiness.name}`,
+            message: `${user.displayName || user.name || user.email} invited you to join "${currentBusiness.name}" as ${role}`,
             read: false,
             createdAt: new Date().toISOString(),
             type: 'team_invite',
             metadata: {
               businessId: currentBusiness.id,
               businessName: currentBusiness.name,
-              invitedUserEmail: email,
-              invitedUserId: invitedUser.id,
-              role: role
+              role: role,
+              invitationId: inviteId,
+              path: '/invitations'
             }
-          });
-        } catch (notifError) {
-          console.error('Error sending notification to team member:', notifError);
-        }
-      }
+        });
 
-      // Dispatch push notification to invited user specifically
-      if (invitedUser.id) {
         PushNotificationService.sendToUser(invitedUser.id, {
           title: `Team Invitation: ${currentBusiness.name}`,
           subtitle: currentBusiness.name,
           body: `${user.displayName || user.name || user.email} invited you to join "${currentBusiness.name}" as ${role}`,
           channelId: 'business_updates',
           color: '#10b981',
-          data: { businessId: currentBusiness.id, path: '/(tabs)/team' }
+          data: { businessId: currentBusiness.id, path: '/invitations' }
         }).catch(() => {});
       }
 
-      // Dispatch push notification to existing team members
-      if (teamToNotify.length > 0) {
-        PushNotificationService.sendToUsers(teamToNotify.map((m: BusinessMember) => m.userId), {
-          title: `Team Member Invited: ${currentBusiness.name}`,
-          subtitle: currentBusiness.name,
-          body: `${user.displayName || user.name || user.email} invited ${invitedUser.displayName || invitedUser.name || email} to join as ${role}`,
-          channelId: 'business_updates',
-          color: '#10b981',
-          data: { businessId: currentBusiness.id, path: '/(tabs)/team' }
-        }).catch(() => {});
-      }
-
-      return { success: true, message: 'Team member invited successfully' };
+      return { success: true, message: 'Invitation sent successfully' };
     } catch (error: any) {
       console.error("Error inviting member:", error);
-      if (error.message === 'User is already a team member') {
-        return { success: false, message: error.message };
-      }
       return { success: false, message: 'Failed to invite member' };
+    }
+  };
+
+  const acceptInvitation = async (invitationId: string) => {
+    if (!user || !db || !user.email) return { success: false, message: 'Not authenticated' };
+    
+    try {
+      const inviteRef = doc(db, 'invitations', invitationId);
+      const inviteSnap = await getDoc(inviteRef);
+      
+      if (!inviteSnap.exists()) return { success: false, message: 'Invitation not found' };
+      const inviteData = inviteSnap.data() as BusinessInvitation;
+      
+      if (inviteData.status !== 'pending' || inviteData.invitedEmail !== user.email.toLowerCase()) {
+        return { success: false, message: 'Invalid or expired invitation' };
+      }
+
+      const businessRef = doc(db, 'businesses', inviteData.businessId);
+      
+      const newMember: BusinessMember = {
+        id: uuidv4(),
+        userId: user.uid || user.uid,
+        businessId: inviteData.businessId,
+        role: inviteData.role,
+        user: {
+          id: user.uid || user.uid,
+          uid: user.uid || user.uid,
+          email: user.email,
+          name: user.name || user.displayName || user.email.split('@')[0],
+          displayName: user.displayName || user.name || user.email.split('@')[0],
+          phoneNumber: user.phoneNumber || '',
+          avatar: user.avatar || '',
+        } as User,
+        joinedAt: new Date().toISOString(),
+      };
+
+      const cleanMember = JSON.parse(JSON.stringify(newMember));
+
+      await runTransaction(db, async (transaction) => {
+        const businessDoc = await transaction.get(businessRef);
+        if (!businessDoc.exists()) throw new Error('Business not found');
+
+        const currentMembers = businessDoc.data().members || [];
+        const currentMemberIds = businessDoc.data().memberIds || [];
+
+        if (currentMemberIds.includes(user.uid || user.uid)) {
+           // Already a member, just update invite status
+           transaction.update(inviteRef, { status: 'accepted' });
+           return;
+        }
+
+        transaction.update(businessRef, {
+          members: [...currentMembers, cleanMember],
+          memberIds: [...currentMemberIds, user.uid || user.uid]
+        });
+        
+        transaction.update(inviteRef, { status: 'accepted' });
+      });
+
+      return { success: true, message: 'Joined successfully' };
+    } catch (error: any) {
+      console.error("Error accepting invitation:", error);
+      return { success: false, message: error.message || 'Failed to accept invitation' };
+    }
+  };
+
+  const declineInvitation = async (invitationId: string) => {
+    if (!user || !db || !user.email) return { success: false, message: 'Not authenticated' };
+    try {
+      const inviteRef = doc(db, 'invitations', invitationId);
+      const inviteSnap = await getDoc(inviteRef);
+      if (!inviteSnap.exists()) return { success: false, message: 'Invitation not found' };
+      const inviteData = inviteSnap.data() as BusinessInvitation;
+      if (inviteData.invitedEmail !== user.email.toLowerCase()) return { success: false, message: 'Invalid invitation' };
+      
+      await updateDoc(inviteRef, { status: 'declined' });
+      return { success: true, message: 'Invitation declined' };
+    } catch (error: any) {
+      console.error("Error declining invitation:", error);
+      return { success: false, message: 'Failed to decline invitation' };
     }
   };
 
@@ -1968,7 +2013,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       return { success: false, message: 'You do not have permission to update roles' };
     }
 
-    if (userId === user.id) {
+    if (userId === user.uid) {
       return { success: false, message: 'Cannot change your own role' };
     }
 
@@ -2008,7 +2053,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           businessId: currentBusiness.id,
           entityType: 'business',
           entityId: currentBusiness.id,
-          userId: user.id!,
+          userId: user.uid,
           action: 'update_member_role',
           timestamp: new Date().toISOString(),
           metadata: {
@@ -2017,8 +2062,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             userId: updatedMember.userId
           },
           user: {
-            id: user.id || '',
-            uid: user.uid || user.id || '',
+            id: user.uid || '',
+            uid: user.uid || user.uid || '',
             email: user.email || '',
             name: user.name || user.displayName || '',
             displayName: user.displayName || user.name || '',
@@ -2053,7 +2098,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         });
 
         // Notify the rest of the team
-        const otherMembers = members.filter((m: BusinessMember) => m.userId !== userId && m.userId !== user.id);
+        const otherMembers = members.filter((m: BusinessMember) => m.userId !== userId && m.userId !== user.uid);
         const memberName = updatedMember.user.name || updatedMember.user.displayName || 'a team member';
 
         for (const member of otherMembers) {
@@ -2089,7 +2134,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       return { success: false, message: 'No business selected or user not authenticated' };
     }
 
-    const currentUserId = (user.id || user.uid || '').trim();
+    const currentUserId = (user.uid || user.uid || '').trim();
     const targetUserId = (userId || '').trim();
     const isSelf = targetUserId === currentUserId;
 
@@ -2154,7 +2199,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           businessId: currentBusiness.id,
           entityType: 'business',
           entityId: currentBusiness.id,
-          userId: user.id!,
+          userId: user.uid || user.uid || '',
           action: 'remove_member',
           timestamp: new Date().toISOString(),
           metadata: {
@@ -2163,8 +2208,8 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
             role: memberToRemove.role
           },
           user: {
-            id: user.id || '',
-            uid: user.uid || user.id || '',
+            id: user.uid || '',
+            uid: user.uid || user.uid || '',
             email: user.email || '',
             name: user.name || user.displayName || '',
             displayName: user.displayName || user.name || '',
@@ -2201,7 +2246,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         });
 
         // Notify the rest of the team
-        const otherMembers = updatedMembers.filter((m: BusinessMember) => m.userId !== user.id);
+        const otherMembers = updatedMembers.filter((m: BusinessMember) => m.userId !== user.uid);
         const memberName = memberToRemove.user.name || memberToRemove.user.displayName || 'a team member';
 
         for (const member of otherMembers) {
@@ -2251,7 +2296,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     try {
       const bulkBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
       const bulkMemberIds: string[] = bulkBizSnap.exists() ? (bulkBizSnap.data().memberIds || []) : [];
-      const bulkMembersToNotify = bulkMemberIds.filter((id: string) => id !== user.id);
+      const bulkMembersToNotify = bulkMemberIds.filter((id: string) => id !== user.uid);
       if (bulkMembersToNotify.length === 0) return;
 
       const batch = writeBatch(db);
@@ -2469,7 +2514,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       // Bug fix: Re-read live memberIds from Firestore for createParty notification
       const createPartyBizSnap = await getDoc(doc(db, 'businesses', currentBusiness.id));
       const createPartyMemberIds: string[] = createPartyBizSnap.exists() ? (createPartyBizSnap.data().memberIds || []) : [];
-      const createPartyMembersToNotify = createPartyMemberIds.filter((id: string) => id !== user.id);
+      const createPartyMembersToNotify = createPartyMemberIds.filter((id: string) => id !== user.uid);
 
       for (const memberId of createPartyMembersToNotify) {
         try {
@@ -2535,7 +2580,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       throw new Error('Only business owners and partners can create recurring schedules.');
     }
 
-    const currentUserId = user.id || user.uid;
+    const currentUserId = user.uid || user.uid;
     if (!currentUserId) {
       throw new Error('User session not active.');
     }
@@ -2668,7 +2713,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       return { success: false, message: 'Target business not found' };
     }
 
-    const targetMember = targetBusiness.members?.find((m: BusinessMember) => m.userId === user.id);
+    const targetMember = targetBusiness.members?.find((m: BusinessMember) => m.userId === user.uid);
     if (!targetMember || (targetMember.role !== 'owner' && targetMember.role !== 'partner')) {
       return { success: false, message: 'You must be an owner or partner in the target business' };
     }
@@ -2696,7 +2741,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
         businessId: targetBusinessId,
         name: sourceBook.name,
         createdAt: new Date().toISOString(),
-        createdBy: user.id!,
+        createdBy: user.uid,
         totalCashIn: 0,
         totalCashOut: 0,
         netBalance: 0,
@@ -2749,7 +2794,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
       return { success: false, message: 'Target business not found' };
     }
 
-    const targetMember = targetBusiness.members?.find((m: BusinessMember) => m.userId === user.id);
+    const targetMember = targetBusiness.members?.find((m: BusinessMember) => m.userId === user.uid);
     if (!targetMember || (targetMember.role !== 'owner' && targetMember.role !== 'partner')) {
       return { success: false, message: 'You must be an owner or partner in the target business' };
     }
