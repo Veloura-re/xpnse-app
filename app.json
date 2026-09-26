@@ -7,7 +7,7 @@
       "com.zzz1.cashiee",
       "com.googleusercontent.apps.572518473431-3flq50ijubfav2ora252olcdlb46fcnu"
     ],
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Track your expenses",
     "assetBundlePatterns": [
       "**/*"
@@ -26,7 +26,7 @@
       }
     },
     "android": {
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/cashbook-icon.png",
         "backgroundColor": "#FFFFFF"
@@ -61,7 +61,7 @@
       ]
     },
     "ios": {
-      "buildNumber": "2",
+      "buildNumber": "3",
       "supportsTablet": true,
       "bundleIdentifier": "com.zzz1.cashiee",
       "infoPlist": {
