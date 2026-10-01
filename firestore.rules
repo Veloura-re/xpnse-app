@@ -39,10 +39,6 @@ service cloud.firestore {
                           request.auth.uid == resource.data.ownerId || 
                           (
                             request.auth.uid in resource.data.memberIds && 
-                            resource.data.members.any(m, m.userId == request.auth.uid && m.role == 'partner')
-                          ) ||
-                          (
-                            request.auth.uid in resource.data.memberIds && 
                             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActiveAt'])
                           ) ||
                           (
@@ -100,12 +96,12 @@ service cloud.firestore {
 
     match /activityLogs/{logId} {
       allow read: if isAuthenticated() && isMember(resource.data.businessId);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isMember(request.resource.data.businessId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && (isMember(request.resource.data.businessId) || request.resource.data.action == 'remove_member');
     }
 
     match /notifications/{notificationId} {
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || (request.resource.data.businessId != null && isMember(request.resource.data.businessId)));
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || (request.resource.data.businessId != null && (isMember(request.resource.data.businessId) || request.resource.data.type == 'team_update')));
     }
 
     match /{path=**}/entries/{entryId} {

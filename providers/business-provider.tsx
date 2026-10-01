@@ -2238,6 +2238,7 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
           read: false,
           createdAt: new Date().toISOString(),
           type: 'team_removal',
+          businessId: currentBusiness.id,
           metadata: {
             businessId: currentBusiness.id,
             businessName: currentBusiness.name,

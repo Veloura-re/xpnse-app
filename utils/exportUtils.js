@@ -318,6 +318,7 @@ export const exportToExcel = async (entity, entries, options = {}) => {
       }
 
       row['Created At'] = formatDate(entry.createdAt);
+      row['Attachment URL'] = entry.attachmentUrl || 'None';
       return row;
     });
 
@@ -357,6 +358,7 @@ export const exportToExcel = async (entity, entries, options = {}) => {
       mainCols.push({ width: 22 }); // Book
     }
     mainCols.push({ width: 16 }); // Created At
+    mainCols.push({ width: 45 }); // Attachment URL
 
     mainWs['!cols'] = mainCols;
     XLSX.utils.book_append_sheet(wb, mainWs, 'Transactions');
@@ -557,6 +559,7 @@ export const exportToPDF = async (entity, entries, options = {}) => {
                 ${entry.category ? `<span style="background: #F1F5F9; padding: 1px 5px; border-radius: 4px; margin-right: 4px;">${entry.category}</span>` : ''}
                 ${entry.paymentMode ? `<span style="background: #F8FAFC; padding: 1px 5px; border-radius: 4px; border: 1px solid #E2E8F0; margin-right: 4px;">${entry.paymentMode}</span>` : ''}
                 ${isBusiness && entry.bookName ? `<span style="color: #0284C7; font-weight: 600;"> • ${entry.bookName}</span>` : ''}
+                ${entry.attachmentUrl ? `<br><a href="${entry.attachmentUrl}" style="color: #0ea5e9; text-decoration: none; margin-top: 4px; display: inline-block; border-bottom: 1px solid #0ea5e9;">View Attachment</a>` : ''}
               </div>
             </td>
             <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; color: ${amountColor}; width: 115px;">
@@ -1275,6 +1278,7 @@ export const exportToCSV = async (entity, entries, options = {}) => {
     }
 
     headers.push('Created At');
+    headers.push('Attachment URL');
 
     const metaLines = [
       ['Entity Type', isBusiness ? 'Business' : 'Book'],
@@ -1366,6 +1370,7 @@ export const exportToCSV = async (entity, entries, options = {}) => {
       }
 
       rowValues.push(formatDate(entry.createdAt));
+      rowValues.push(entry.attachmentUrl || 'None');
       return rowValues.map(escapeCSV);
     });
 
