@@ -114,7 +114,14 @@
           "mode": "default"
         }
       ],
-      "./plugins/withNdkOverride"
+      "./plugins/withNdkOverride",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.zzz1.cashiee",
+          "enableGooglePay": true
+        }
+      ]
     ],
     "owner": "lucy-structural"
   }

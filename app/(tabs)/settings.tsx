@@ -80,7 +80,7 @@ type ExpandedSection = 'feedback' | 'privacy' | null;
 
 export default function SettingsScreen() {
   const { user, logout, updateProfile, deleteAccount, reauthenticate, isDeveloperAdmin } = useAuth();
-  const { currentBusiness, getUserRole, deleteBusiness, updateBusiness, updateBusinessFont, books, addEntry, invitations = [] } = useBusiness();
+  const { currentBusiness, getUserRole, deleteBusiness, leaveBusiness, updateBusiness, updateBusinessFont, books, addEntry, invitations = [] } = useBusiness();
   const { expoPushToken } = useNotifications();
   const { colors, deviceFont, setDeviceFont, isDark, theme, setTheme } = useTheme();
   const userRole = getUserRole();
@@ -207,6 +207,31 @@ export default function SettingsScreen() {
   const confirmLogout = () => {
     setShowLogoutModal(false);
     logout(expoPushToken);
+  };
+
+  const handleLeaveBusiness = () => {
+    if (!currentBusiness) return;
+    const isGroup = currentBusiness.type === 'savings_group';
+    const entityType = isGroup ? 'Group' : 'Workspace';
+    Alert.alert(
+      `Leave ${entityType}`,
+      `Are you sure you want to leave "${currentBusiness.name}"? You will lose access to its books and shared assets.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Leave ${entityType}`,
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await leaveBusiness(currentBusiness.id);
+              Alert.alert('Success', `You have left "${currentBusiness.name}".`);
+            } catch (err: any) {
+              Alert.alert('Error', err.message || `Failed to leave ${entityType.toLowerCase()}`);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteBusiness = () => {
@@ -472,12 +497,20 @@ export default function SettingsScreen() {
                     useGrayBackground={true}
                   />
                 )}
-                {userRole === 'owner' && (
+                {userRole === 'owner' ? (
                   <SettingsRow
                     icon={Trash2}
                     label="Delete Business"
                     destructive
                     onPress={handleDeleteBusiness}
+                    isLast
+                  />
+                ) : (
+                  <SettingsRow
+                    icon={LogOut}
+                    label={currentBusiness.type === 'savings_group' ? 'Leave Group' : 'Leave Workspace'}
+                    destructive
+                    onPress={handleLeaveBusiness}
                     isLast
                   />
                 )}
@@ -493,7 +526,7 @@ export default function SettingsScreen() {
               icon={Mail}
               label="Pending Invitations"
               subLabel={invitations.length > 0 ? `You have ${invitations.length} pending invitation${invitations.length > 1 ? 's' : ''}` : "Manage team invitations"}
-              onPress={() => router.push('/invitations')}
+              onPress={() => router.push('/invitations' as any)}
               color={invitations.length > 0 ? "#ef4444" : "#6366f1"}
               rightElement={
                 invitations.length > 0 ? (

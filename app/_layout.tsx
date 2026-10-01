@@ -21,6 +21,7 @@ import { LoadingScreen } from "@/components/ui/loading-screen";
 import { useFonts } from 'expo-font';
 import { SpaceGrotesk_300Light, SpaceGrotesk_400Regular, SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { Pacifico_400Regular } from '@expo-google-fonts/pacifico';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Global default font family for all Text and TextInput components
 if ((Text as any).defaultProps == null) {
@@ -163,6 +164,8 @@ function RootLayoutNav() {
         <Stack.Screen name="admin" options={{ headerShown: false }} />
         <Stack.Screen name="savings-activity" options={{ headerShown: false }} />
         <Stack.Screen name="money-requests" options={{ headerShown: false }} />
+        <Stack.Screen name="invitations" options={{ headerShown: false }} />
+        <Stack.Screen name="notes" options={{ headerShown: false }} />
       </Stack>
     </>
   );
@@ -294,7 +297,9 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <StorageProvider>
         <ThemeProvider>
-          <AppContent onLayoutRootView={onLayoutRootView} />
+          <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}>
+            <AppContent onLayoutRootView={onLayoutRootView} />
+          </StripeProvider>
         </ThemeProvider>
       </StorageProvider>
     </QueryClientProvider>

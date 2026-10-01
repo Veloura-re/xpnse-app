@@ -42,6 +42,7 @@ import {
 } from '@/services/stripe-service';
 import { SavingsVault } from '@/types';
 import { formatCurrency, getCurrencySymbol } from '@/utils/currency-utils';
+import { useStripe } from '@stripe/stripe-react-native';
 
 interface AddMoneyModalProps {
   visible: boolean;
@@ -133,6 +134,7 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
   onSuccess,
 }) => {
   const { colors, isDark } = useTheme();
+  const { collectBankAccountForPayment } = useStripe();
 
   // Primary configuration
   const [selectedChannel, setSelectedChannel] = useState<PaymentChannel>('card');
@@ -418,15 +420,67 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
           Alert.alert('Payment Declined', confirmRes.error || 'Transaction could not be authorized.');
         }
       } else if (selectedChannel === 'bank') {
-        // Bank Wire Transfer Flow
-        const methodTitle = `Bank Wire Transfer (Ref: ${bankReference})`;
+        // Bank Wire Transfer Flow (Stripe Financial Connections)
+        const currentUser = auth?.currentUser;
+        if (!currentUser) {
+          Alert.alert('Authentication Required', 'Please sign in to proceed with payment.');
+          setIsLoading(false);
+          return;
+        }
+
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch(
+          `https://us-central1-${process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}.cloudfunctions.net/createPaymentIntent`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              amount: numericAmount,
+              currency,
+              businessId,
+              userId,
+            }),
+          }
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to create PaymentIntent');
+        }
+
+        const clientSecret = data.clientSecret;
+        if (!clientSecret) throw new Error('Invalid response from server');
+
+        const { paymentIntent, error } = await collectBankAccountForPayment(
+          clientSecret,
+          {
+            paymentMethodType: 'USBankAccount',
+            paymentMethodData: {
+              billingDetails: {
+                name: currentUser.displayName || 'User',
+                email: currentUser.email || 'user@example.com',
+              },
+            },
+          }
+        );
+
+        if (error) {
+          Alert.alert('Bank Link Failed', error.message);
+          setIsLoading(false);
+          return;
+        }
+
+        const methodTitle = `Bank Transfer (Stripe Ach)`;
         const res = await depositToWallet({
           businessId,
           userId,
           amount: numericAmount,
           currency,
           paymentMethodTitle: methodTitle,
-          paymentIntentId: bankReference,
+          paymentIntentId: paymentIntent?.id || bankReference,
           targetVaultId: selectedVault?.id,
           targetVaultName: selectedVault?.name,
         });
@@ -442,8 +496,8 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
             currency,
             destinationTitle,
             isVault: isVaultDestination,
-            paymentMethodTitle: 'Bank Wire / Clearing Settlement',
-            referenceId: bankReference,
+            paymentMethodTitle: 'Stripe Linked Bank',
+            referenceId: paymentIntent?.id || bankReference,
             timestamp: new Date().toLocaleString(),
           });
           onSuccess();
@@ -1155,115 +1209,16 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
                     ]}
                   >
                     <View style={styles.bankWireHeader}>
-                      <Landmark size={18} color="#10B981" />
+                      <ShieldCheck size={18} color="#10B981" />
                       <Text style={[styles.bankWireTitle, { color: colors.text }]}>
-                        Direct Clearing Settlement Details
+                        Stripe Financial Connections
                       </Text>
                     </View>
                     <Text style={[styles.bankWireSubtitle, { color: colors.textSecondary }]}>
-                      Submit an external wire to this dedicated clearing account. Funds settle upon receipt.
+                      Securely link your bank account to authorize ACH transfers. The transaction will be processed instantly via Stripe.
                     </Text>
 
-                    {/* Account Fields */}
-                    <View style={styles.bankFieldsList}>
-                      <View style={styles.bankFieldRow}>
-                        <View>
-                          <Text style={[styles.bankFieldCaption, { color: colors.textSecondary }]}>
-                            BENEFICIARY
-                          </Text>
-                          <Text style={[styles.bankFieldValue, { color: colors.text }]}>
-                            SPNDY ESCROW & SETTLEMENT
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          onPress={() => copyToClipboard('SPNDY ESCROW & SETTLEMENT', 'beneficiary')}
-                          style={styles.copySmallBtn}
-                        >
-                          {bankCopiedField === 'beneficiary' ? (
-                            <Check size={14} color="#10B981" />
-                          ) : (
-                            <Copy size={14} color={colors.textSecondary} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.bankFieldRow}>
-                        <View>
-                          <Text style={[styles.bankFieldCaption, { color: colors.textSecondary }]}>
-                            ROUTING NUMBER
-                          </Text>
-                          <Text style={[styles.bankFieldValueMono, { color: colors.text }]}>
-                            021000021
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          onPress={() => copyToClipboard('021000021', 'routing')}
-                          style={styles.copySmallBtn}
-                        >
-                          {bankCopiedField === 'routing' ? (
-                            <Check size={14} color="#10B981" />
-                          ) : (
-                            <Copy size={14} color={colors.textSecondary} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.bankFieldRow}>
-                        <View>
-                          <Text style={[styles.bankFieldCaption, { color: colors.textSecondary }]}>
-                            ACCOUNT / IBAN NUMBER
-                          </Text>
-                          <Text style={[styles.bankFieldValueMono, { color: colors.text }]}>
-                            9821 4402 1109 4581
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          onPress={() => copyToClipboard('9821440211094581', 'account')}
-                          style={styles.copySmallBtn}
-                        >
-                          {bankCopiedField === 'account' ? (
-                            <Check size={14} color="#10B981" />
-                          ) : (
-                            <Copy size={14} color={colors.textSecondary} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.bankFieldRowHighlight,
-                          {
-                            backgroundColor: isDark
-                              ? 'rgba(16, 185, 129, 0.1)'
-                              : 'rgba(16, 185, 129, 0.08)',
-                            borderColor: 'rgba(16, 185, 129, 0.3)',
-                          },
-                        ]}
-                      >
-                        <View>
-                          <Text style={[styles.bankFieldCaption, { color: '#10B981' }]}>
-                            MANDATORY DEPOSIT REFERENCE
-                          </Text>
-                          <Text style={[styles.bankFieldValueMonoBold, { color: '#10B981' }]}>
-                            {bankReference}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          onPress={() => copyToClipboard(bankReference, 'ref')}
-                          style={styles.copySmallBtn}
-                        >
-                          {bankCopiedField === 'ref' ? (
-                            <Check size={14} color="#10B981" />
-                          ) : (
-                            <Copy size={14} color="#10B981" />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    {/* Removed static routing details */}
                   </View>
                 </View>
               )}

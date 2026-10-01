@@ -1401,11 +1401,6 @@ export default function BookDetailScreen() {
               </View>
             )
           }
-          removeClippedSubviews={Platform.OS === 'android'}
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={10}
-          windowSize={11}
         />
       </View>
 

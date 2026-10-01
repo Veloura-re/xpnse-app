@@ -28,7 +28,8 @@ service cloud.firestore {
     
     // Businesses & Subcollections
     match /businesses/{businessId} {
-      allow read: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated() && request.auth.uid in resource.data.memberIds;
       
       allow create: if isAuthenticated() &&
                        request.resource.data.ownerId == request.auth.uid &&
@@ -46,9 +47,13 @@ service cloud.firestore {
                             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['groupPoolBalance'])
                           ) ||
                           (
-                            request.auth.uid in resource.data.memberIds && 
                             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberIds']) &&
-                            !(request.auth.uid in request.resource.data.memberIds)
+                            (
+                              // Member leaving group
+                              (request.auth.uid in resource.data.memberIds && !(request.auth.uid in request.resource.data.memberIds)) ||
+                              // Invited user joining group
+                              (!(request.auth.uid in resource.data.memberIds) && (request.auth.uid in request.resource.data.memberIds))
+                            )
                           )
                         );
       
@@ -88,10 +93,23 @@ service cloud.firestore {
     }
     
     match /invitations/{invitationId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.invitedUserId || request.auth.uid == resource.data.invitedBy);
-      allow create: if isAuthenticated() && request.resource.data.invitedBy == request.auth.uid && isMember(request.resource.data.businessId);
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.invitedUserId || request.auth.uid == resource.data.invitedBy);
-      allow delete: if isAuthenticated() && request.auth.uid == resource.data.invitedBy;
+      allow read: if isAuthenticated() && (
+        ('email' in request.auth.token && resource.data.invitedEmail != null && request.auth.token.email.lower() == resource.data.invitedEmail.lower()) ||
+        request.auth.uid == resource.data.invitedByUserId ||
+        request.auth.uid == resource.data.invitedBy ||
+        request.auth.uid == resource.data.invitedUserId
+      );
+      allow create: if isAuthenticated() && 
+                    (request.resource.data.invitedByUserId == request.auth.uid || request.resource.data.invitedBy == request.auth.uid) && 
+                    isMember(request.resource.data.businessId);
+      allow update: if isAuthenticated() && (
+        ('email' in request.auth.token && resource.data.invitedEmail != null && request.auth.token.email.lower() == resource.data.invitedEmail.lower()) ||
+        request.auth.uid == resource.data.invitedByUserId ||
+        request.auth.uid == resource.data.invitedBy ||
+        request.auth.uid == resource.data.invitedUserId
+      );
+      allow delete: if isAuthenticated() && 
+                    (request.auth.uid == resource.data.invitedByUserId || request.auth.uid == resource.data.invitedBy);
     }
 
     match /activityLogs/{logId} {

@@ -86,7 +86,8 @@ export const createPaymentIntent = onRequest({ cors: true }, async (req, res) =>
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amountInCents,
         currency: String(currency).toLowerCase(),
-        payment_method_types: ['card'],
+        payment_method_types: ['card', 'us_bank_account'],
+        setup_future_usage: 'off_session',
         metadata: {
           businessId,
           userId,

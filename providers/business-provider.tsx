@@ -2921,10 +2921,13 @@ export const [BusinessProvider, useBusiness] = createContextHook((): BusinessSta
     sendBulkNotification,
 
     // Team management
+    invitations,
     inviteTeamMember,
     searchUserByEmail,
     updateTeamMemberRole,
     removeTeamMember,
+    acceptInvitation,
+    declineInvitation,
     getTeamMembers,
 
     // Party management

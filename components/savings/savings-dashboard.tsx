@@ -70,7 +70,7 @@ export const SavingsDashboard: React.FC<SavingsDashboardProps> = ({ business }) 
   const [showScheduledStashModal, setShowScheduledStashModal] = useState(false);
   const [fundingTargetVault, setFundingTargetVault] = useState<SavingsVault | null>(null);
 
-  const userId = user?.id || '';
+  const userId = user?.uid || user?.id || '';
   const currency = business.currency || 'USD';
 
   // Initialize and subscribe
