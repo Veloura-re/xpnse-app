@@ -3,7 +3,7 @@ name: Build APK (Free - No EAS)
 on:
   workflow_dispatch:
   push:
-    branches: [main, master, 'feature/**']
+    branches: [main, master, develop, 'feature/**']
 
 jobs:
   build:
@@ -29,6 +29,7 @@ jobs:
           echo "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '572518473431-3flq50ijubfav2ora252olcdlb46fcnu.apps.googleusercontent.com' }}" >> $GITHUB_ENV
           echo "EXPO_PUBLIC_GITHUB_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GITHUB_CLIENT_ID || 'Ov23liUcar8XB8sdZiPa' }}" >> $GITHUB_ENV
           echo "EXPO_PUBLIC_GITHUB_CLIENT_SECRET=${{ secrets.EXPO_PUBLIC_GITHUB_CLIENT_SECRET }}" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY }}" >> $GITHUB_ENV
       
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
@@ -65,6 +66,7 @@ jobs:
           echo "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=${EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID}" >> .env
           echo "EXPO_PUBLIC_GITHUB_CLIENT_ID=${EXPO_PUBLIC_GITHUB_CLIENT_ID}" >> .env
           echo "EXPO_PUBLIC_GITHUB_CLIENT_SECRET=${EXPO_PUBLIC_GITHUB_CLIENT_SECRET}" >> .env
+          echo "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY}" >> .env
 
       - name: Prebuild Android
         run: npx expo prebuild --platform android --clean
